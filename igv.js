@@ -1,4 +1,4 @@
-/* Module header based on https://github.com/umdjs/umd/blob/master/templates/returnExports.js
+/*  Module header based on https://github.com/umdjs/umd/blob/master/templates/returnExports.js
  */
 
 (function (root, factory) {
