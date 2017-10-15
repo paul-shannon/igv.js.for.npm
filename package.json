@@ -1,0 +1,27 @@
+{
+  "name": "igv.js.npm",
+  "version": "1.0.0",
+  "description": "genome browser igv.js as a node module",
+  "main": "igv.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paul-shannon/igv.js.npm.git"
+  },
+  "keywords": [
+    "genome",
+    "visualization"
+  ],
+  "author": "Paul Shannon <paul.thurmond.shannon@gmail.com> (http://pshannon.net)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/paul-shannon/igv.js.npm/issues"
+  },
+  "homepage": "https://github.com/paul-shannon/igv.js.npm#readme",
+  "devDependencies": {
+    "chai": "^4.1.2",
+    "mocha": "^4.0.1"
+  }
+}
