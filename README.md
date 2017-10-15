@@ -13,12 +13,18 @@ jupyter widgets 7.0.1.
 ## usage
    - add this to your package.json file in the dependencies section:   
 ````
-   "igv\_js\_npm": "github:paul-shannon/igv.js.npm"
+   "igv_js_npm": "github:paul-shannon/igv.js.npm"
 ````
    - add this to your app's javascript file:
 ````
     var igv = require('igv.js.npm')
     require('igv.js.npm/igv.css')
 `````
-
+   - webpack needsa css and an svg loader:
+````
+var rules = [
+    { test: /\.css$/, use: ['style-loader', 'css-loader']},
+    { test: /\.svg$/, use: ['svg-loader']}
+]
+````
 
