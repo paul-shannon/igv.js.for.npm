@@ -12705,7 +12705,7 @@ _fnLog:J,_fnMap:F,_fnBindAction:Va,_fnCallbackReg:z,_fnCallbackFire:r,_fnLengthO
  FixedHeader 3.1.3
  ©2009-2017 SpryMedia Ltd - datatables.net/license
 */
-(function(d){"function"===typeof define&&define.amd?define(["jquery","datatables.net"],function(g){return d(g,window,document)}):"object"===typeof exports?module.exports=function(g,h){g||(g=window);if(!h||!h.fn.dataTable)h=require("datatables.net")(g,h).$;return d(h,g,g.document)}:d(jQuery,window,document)})(function(d,g,h,k){var j=d.fn.dataTable,l=0,i=function(b,a){if(!(this instanceof i))throw"FixedHeader must be initialised with the 'new' keyword.";!0===a&&(a={});b=new j.Api(b);this.c=d.extend(!0,
+(function(d){"function"===typeof define&&define.amd?define(["jquery","datatables.net"],function(g){return d(g,window,document)}):"object"===typeof exports?module.exports=function(g,h){g||(g=window);if(!h||!h.fn.dataTable)h=require("datatables")(g,h).$;return d(h,g,g.document)}:d(jQuery,window,document)})(function(d,g,h,k){var j=d.fn.dataTable,l=0,i=function(b,a){if(!(this instanceof i))throw"FixedHeader must be initialised with the 'new' keyword.";!0===a&&(a={});b=new j.Api(b);this.c=d.extend(!0,
 {},i.defaults,a);this.s={dt:b,position:{theadTop:0,tbodyTop:0,tfootTop:0,tfootBottom:0,width:0,left:0,tfootHeight:0,theadHeight:0,windowHeight:d(g).height(),visible:!0},headerMode:null,footerMode:null,autoWidth:b.settings()[0].oFeatures.bAutoWidth,namespace:".dtfc"+l++,scrollLeft:{header:-1,footer:-1},enable:!0};this.dom={floatingHeader:null,thead:d(b.table().header()),tbody:d(b.table().body()),tfoot:d(b.table().footer()),header:{host:null,floating:null,placeholder:null},footer:{host:null,floating:null,
 placeholder:null}};this.dom.header.host=this.dom.thead.parent();this.dom.footer.host=this.dom.tfoot.parent();var e=b.settings()[0];if(e._fixedHeader)throw"FixedHeader already initialised on table "+e.nTable.id;e._fixedHeader=this;this._constructor()};d.extend(i.prototype,{enable:function(b){this.s.enable=b;this.c.header&&this._modeChange("in-place","header",!0);this.c.footer&&this.dom.tfoot.length&&this._modeChange("in-place","footer",!0);this.update()},headerOffset:function(b){b!==k&&(this.c.headerOffset=
 b,this.update());return this.c.headerOffset},footerOffset:function(b){b!==k&&(this.c.footerOffset=b,this.update());return this.c.footerOffset},update:function(){this._positions();this._scroll(!0)},_constructor:function(){var b=this,a=this.s.dt;d(g).on("scroll"+this.s.namespace,function(){b._scroll()}).on("resize"+this.s.namespace,function(){b.s.position.windowHeight=d(g).height();b.update()});var e=d(".fh-fixedHeader");!this.c.headerOffset&&e.length&&(this.c.headerOffset=e.outerHeight());e=d(".fh-fixedFooter");
@@ -12779,7 +12779,7 @@ k.register("scroller.page()",function(){var a=this.context;if(a.length&&a[0].oSc
  */
 
 var igv = (function (igv) {
-    
+
 
     function canBePaired(alignment) {
         return alignment.isPaired() &&
@@ -17020,7 +17020,7 @@ var igv = (function (igv) {
             self = this;
 
         return new Promise(function (fulfill, reject) {
-            
+
             var range = {start: startOffset, size: (self.header.fullDataOffset - startOffset + 5)};
 
             igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: range}))
@@ -17217,7 +17217,7 @@ var igv = (function (igv) {
                                    for(i=1; i<featureArrays.length; i++) {
                                        allFeatures = allFeatures.concat(featureArrays[i]);
                                    }
-                                }  
+                                }
                                 allFeatures.sort(function (a, b) {
                                     return a.start - b.start;
                                 })
@@ -17233,17 +17233,17 @@ var igv = (function (igv) {
 
         });
     }
-    
-    
+
+
     igv.BWSource.prototype.getDefaultRange = function () {
-        
+
         if(this.reader.totalSummary != undefined) {
             return this.reader.totalSummary.defaultRange;
         }
         else {
             return undefined;
         }
-        
+
     }
 
 
@@ -17350,7 +17350,7 @@ var igv = (function (igv) {
         }
 
     }
-    
+
     function decodeBedData(data, chr, chrIdx, bpStart, bpEnd, featureArray) {
 
         var binaryParser = new igv.BinaryParser(data),
@@ -17556,7 +17556,7 @@ var igv = (function (igv) {
     igv.BinaryParser.prototype.available = function() {
         return this.length - this.position;
     }
-    
+
     igv.BinaryParser.prototype.remLength = function () {
         return this.length - this.position;
     }
@@ -20419,7 +20419,7 @@ var igv = (function (igv) {
     };
 
     igv.AneuTrack.prototype.getSummary = function (chr, bpStart, bpEnd, continuation) {
-       
+
             filtersummary = function (redlinedata) {
                 var summarydata = [],
                     i,
@@ -20597,7 +20597,7 @@ var igv = (function (igv) {
         ctx = options.context;
         pixelWidth = options.pixelWidth;
         pixelHeight = options.pixelHeight;
-//	
+//
         var max = 4;
         var min = 0;
 
@@ -20974,7 +20974,7 @@ var igv = (function (igv) {
 
     igv.CustomServiceReader = function (config) {
         this.config = config;
-        
+
         this.supportsWholeGenome = true;
     }
 
@@ -21388,7 +21388,7 @@ var igv = (function (igv) {
         var self = this;
 
         return new Promise(function (fullfill, reject) {
-         
+
             var options = igv.buildOptions(self.config);    // Add oauth token, if any
 
             function parseData(data) {
@@ -26473,7 +26473,7 @@ var igv = (function (igv) {
             aliases.forEach(function (array) {
                 // Find the official chr name
                 var defName, i;
-                
+
                 for (i = 0; i < array.length; i++) {
                     if (self.chromosomes[array[i]]) {
                         defName = array[i];
@@ -28075,7 +28075,7 @@ var igv = (function (igv) {
     function jsonToVariantsV2(json, config) {
 
         var variants = [];
-        
+
         json.variants.forEach(function (record) {
 
             var variant = {};
@@ -28880,7 +28880,7 @@ var igv = (function (igv) {
             canvasWidth = panel.$canvas.width();
             canvasHeight = panel.$canvas.height();
             panel.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-            
+
             if(referenceFrame.chrName.toLowerCase() === "all") {
                 return;
             }
@@ -35162,7 +35162,7 @@ var igv = (function (igv) {
             case "aneu":
                 return new igv.AneuTrack(conf);
                 break;
-            
+
             default:
                 return undefined;
         }
@@ -40628,7 +40628,7 @@ var igv = (function (igv) {
 (igv || {});
 /* -*- mode: javascript; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 
-// 
+//
 // Javascript ZLib
 // By Thomas Down 2010-2011
 //
@@ -41018,7 +41018,7 @@ function Inflate() {
 
 Inflate.prototype.inflateReset = function(z) {
     if(z == null || z.istate == null) return Z_STREAM_ERROR;
-    
+
     z.total_in = z.total_out = 0;
     z.msg = null;
     z.istate.mode = z.istate.nowrap!=0 ? BLOCKS : METHOD;
@@ -41051,7 +41051,7 @@ Inflate.prototype.inflateInit = function(z, w){
     }
     this.wbits=w;
 
-    z.istate.blocks=new InfBlocks(z, 
+    z.istate.blocks=new InfBlocks(z,
 				  z.istate.nowrap!=0 ? null : this,
 				  1<<w);
 
@@ -41309,24 +41309,24 @@ function InfBlocks(z, checkfn, w) {
     this.mode = IB_TYPE;
     this.reset(z, null);
 
-    this.left = 0;            // if STORED, bytes left to copy 
+    this.left = 0;            // if STORED, bytes left to copy
 
-    this.table = 0;           // table lengths (14 bits) 
-    this.index = 0;           // index into blens (or border) 
-    this.blens = null;         // bit lengths of codes 
-    this.bb=new Int32Array(1); // bit length tree depth 
-    this.tb=new Int32Array(1); // bit length decoding tree 
+    this.table = 0;           // table lengths (14 bits)
+    this.index = 0;           // index into blens (or border)
+    this.blens = null;         // bit lengths of codes
+    this.bb=new Int32Array(1); // bit length tree depth
+    this.tb=new Int32Array(1); // bit length decoding tree
 
     this.codes = new InfCodes();
 
-    this.last = 0;            // true if this block is the last block 
+    this.last = 0;            // true if this block is the last block
 
-  // mode independent information 
-    this.bitk = 0;            // bits in bit buffer 
-    this.bitb = 0;            // bit buffer 
-    this.read = 0;            // window read pointer 
-    this.write = 0;           // window write pointer 
-    this.check = 0;          // check on output 
+  // mode independent information
+    this.bitk = 0;            // bits in bit buffer
+    this.bitb = 0;            // bit buffer
+    this.read = 0;            // window read pointer
+    this.write = 0;           // window write pointer
+    this.check = 0;          // check on output
 
     this.inftree=new InfTree();
 }
@@ -41371,7 +41371,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    r=Z_OK;
 	  }
 	  else{
-	    this.bitb=b; this.bitk=k; 
+	    this.bitb=b; this.bitk=k;
 	    z.avail_in=n;
 	    z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
@@ -41385,7 +41385,7 @@ InfBlocks.prototype.reset = function(z, c){
 	this.last = t & 1;
 
 	switch (t >>> 1){
-        case 0:                         // stored 
+        case 0:                         // stored
           {b>>>=(3);k-=(3);}
           t = k & 7;                    // go to byte boundary
 
@@ -41420,7 +41420,7 @@ InfBlocks.prototype.reset = function(z, c){
           z.msg = "invalid block type";
           r = Z_DATA_ERROR;
 
-	  this.bitb=b; this.bitk=k; 
+	  this.bitb=b; this.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  this.write=q;
 	  return this.inflate_flush(z,r);
@@ -41432,7 +41432,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    r=Z_OK;
 	  }
 	  else{
-	    this.bitb=b; this.bitk=k; 
+	    this.bitb=b; this.bitk=k;
 	    z.avail_in=n;
 	    z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
@@ -41448,7 +41448,7 @@ InfBlocks.prototype.reset = function(z, c){
 	  z.msg = "invalid stored block lengths";
 	  r = Z_DATA_ERROR;
 
-	  this.bitb=b; this.bitk=k; 
+	  this.bitb=b; this.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  this.write=q;
 	  return this.inflate_flush(z,r);
@@ -41459,7 +41459,7 @@ InfBlocks.prototype.reset = function(z, c){
 	break;
       case IB_STORED:
 	if (n == 0){
-	  this.bitb=b; this.bitk=k; 
+	  this.bitb=b; this.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  write=q;
 	  return this.inflate_flush(z,r);
@@ -41470,14 +41470,14 @@ InfBlocks.prototype.reset = function(z, c){
 	    q=0; m=(q<this.read ? this.read-q-1 : this.end-q);
 	  }
 	  if(m==0){
-	    this.write=q; 
+	    this.write=q;
 	    r=this.inflate_flush(z,r);
 	    q=this.write; m = (q < this.read ? this.read-q-1 : this.end-q);
 	    if(q==this.end && this.read != 0){
 	      q=0; m = (q < this.read ? this.read-q-1 : this.end-q);
 	    }
 	    if(m==0){
-	      this.bitb=b; this.bitk=k; 
+	      this.bitb=b; this.bitk=k;
 	      z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
 	      return this.inflate_flush(z,r);
@@ -41503,7 +41503,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    r=Z_OK;
 	  }
 	  else{
-	    this.bitb=b; this.bitk=k; 
+	    this.bitb=b; this.bitk=k;
 	    z.avail_in=n;
 	    z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
@@ -41521,7 +41521,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    z.msg = "too many length or distance symbols";
 	    r = Z_DATA_ERROR;
 
-	    this.bitb=b; this.bitk=k; 
+	    this.bitb=b; this.bitk=k;
 	    z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
 	    return this.inflate_flush(z,r);
@@ -41547,7 +41547,7 @@ InfBlocks.prototype.reset = function(z, c){
 	      r=Z_OK;
 	    }
 	    else{
-	      this.bitb=b; this.bitk=k; 
+	      this.bitb=b; this.bitk=k;
 	      z.avail_in=n;
 	      z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
@@ -41576,7 +41576,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    this.mode = IB_BAD;
 	  }
 
-	  this.bitb=b; this.bitk=k; 
+	  this.bitb=b; this.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  write=q;
 	  return this.inflate_flush(z,r);
@@ -41601,7 +41601,7 @@ InfBlocks.prototype.reset = function(z, c){
 	      r=Z_OK;
 	    }
 	    else{
-	      this.bitb=b; this.bitk=k; 
+	      this.bitb=b; this.bitk=k;
 	      z.avail_in=n;
 	      z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
@@ -41632,7 +41632,7 @@ InfBlocks.prototype.reset = function(z, c){
 		r=Z_OK;
 	      }
 	      else{
-		this.bitb=b; this.bitk=k; 
+		this.bitb=b; this.bitk=k;
 		z.avail_in=n;
 		z.total_in+=p-z.next_in_index;z.next_in_index=p;
 		this.write=q;
@@ -41658,7 +41658,7 @@ InfBlocks.prototype.reset = function(z, c){
 	      z.msg = "invalid bit length repeat";
 	      r = Z_DATA_ERROR;
 
-	      this.bitb=b; this.bitk=k; 
+	      this.bitb=b; this.bitk=k;
 	      z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
 	      return this.inflate_flush(z,r);
@@ -41683,7 +41683,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    bd[0] = 6;         // must be <= 9 for lookahead assumptions
 
 	    t = this.table;
-	    t = this.inftree.inflate_trees_dynamic(257 + (t & 0x1f), 
+	    t = this.inftree.inflate_trees_dynamic(257 + (t & 0x1f),
 					      1 + ((t >> 5) & 0x1f),
 					      this.blens, bl, bd, tl, td, this.hufts, z);
 
@@ -41694,7 +41694,7 @@ InfBlocks.prototype.reset = function(z, c){
 	        }
 	        r = t;
 
-	        this.bitb=b; this.bitk=k; 
+	        this.bitb=b; this.bitk=k;
 	        z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	        this.write=q;
 	        return this.inflate_flush(z,r);
@@ -41722,11 +41722,11 @@ InfBlocks.prototype.reset = function(z, c){
 	}
 	this.mode = IB_DRY;
       case IB_DRY:
-	this.write=q; 
-	r = this.inflate_flush(z, r); 
+	this.write=q;
+	r = this.inflate_flush(z, r);
 	q=this.write; m = (q < this.read ? this.read-q-1 : this.end-q);
 	if (this.read != this.write){
-	  this.bitb=b; this.bitk=k; 
+	  this.bitb=b; this.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  this.write=q;
 	  return this.inflate_flush(z, r);
@@ -41735,14 +41735,14 @@ InfBlocks.prototype.reset = function(z, c){
       case IB_DONE:
 	r = Z_STREAM_END;
 
-	this.bitb=b; this.bitk=k; 
+	this.bitb=b; this.bitk=k;
 	z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	this.write=q;
 	return this.inflate_flush(z, r);
       case IB_BAD:
 	r = Z_DATA_ERROR;
 
-	this.bitb=b; this.bitk=k; 
+	this.bitb=b; this.bitk=k;
 	z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	this.write=q;
 	return this.inflate_flush(z, r);
@@ -41750,7 +41750,7 @@ InfBlocks.prototype.reset = function(z, c){
       default:
 	r = Z_STREAM_ERROR;
 
-	this.bitb=b; this.bitk=k; 
+	this.bitb=b; this.bitk=k;
 	z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	this.write=q;
 	return this.inflate_flush(z, r);
@@ -41770,7 +41770,7 @@ InfBlocks.prototype.set_dictionary = function(d, start, n){
 }
 
   // Returns true if inflate is currently at the end of a block generated
-  // by Z_SYNC_FLUSH or Z_FULL_FLUSH. 
+  // by Z_SYNC_FLUSH or Z_FULL_FLUSH.
 InfBlocks.prototype.sync_point = function(){
     return this.mode == IB_LENS;
 }
@@ -41866,7 +41866,7 @@ InfCodes.prototype.init = function(bl, bd, tl, tl_index, td, td_index, z) {
     this.tree=null;
 }
 
-InfCodes.prototype.proc = function(s, z, r){ 
+InfCodes.prototype.proc = function(s, z, r){
     var j;              // temporary storage
     var t;              // temporary pointer (int[])
     var tindex;         // temporary pointer
@@ -41893,8 +41893,8 @@ InfCodes.prototype.proc = function(s, z, r){
 	  s.bitb=b;s.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  s.write=q;
-	  r = this.inflate_fast(this.lbits, this.dbits, 
-			   this.ltree, this.ltree_index, 
+	  r = this.inflate_fast(this.lbits, this.dbits,
+			   this.ltree, this.ltree_index,
 			   this.dtree, this.dtree_index,
 			   s, z);
 
@@ -42073,7 +42073,7 @@ InfCodes.prototype.proc = function(s, z, r){
 		z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 		s.write=q;
 		return s.inflate_flush(z,r);
-	      }  
+	      }
 	    }
 	  }
 
@@ -42196,7 +42196,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
       }
 
       t= b&ml;
-      tp=tl; 
+      tp=tl;
       tp_index=tl_index;
       tp_index_t_3=(tp_index+t)*3;
       if ((e = tp[tp_index_t_3]) == 0){
@@ -42249,7 +42249,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 	      if (q >= d){                // offset before dest
 		//  just copy
 		r=q-d;
-		if(q-r>0 && 2>(q-r)){           
+		if(q-r>0 && 2>(q-r)){
 		  s.window[q++]=s.window[r++]; // minimum count is three,
 		  s.window[q++]=s.window[r++]; // so unroll loop a little
 		  c-=2;
@@ -42268,7 +42268,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 		e=s.end-r;
 		if(c>e){             // if source crosses,
 		  c-=e;              // wrapped copy
-		  if(q-r>0 && e>(q-r)){           
+		  if(q-r>0 && e>(q-r)){
 		    do{s.window[q++] = s.window[r++];}
 		    while(--e!=0);
 		  }
@@ -42324,7 +42324,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 	else if((e&32)!=0){
 
 	  c=z.avail_in-n;c=(k>>3)<c?k>>3:c;n+=c;p-=c;k-=c<<3;
- 
+
 	  s.bitb=b;s.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  s.write=q;
@@ -42342,9 +42342,9 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 
 	  return Z_DATA_ERROR;
 	}
-      } 
+      }
       while(true);
-    } 
+    }
     while(m>=258 && n>= 10);
 
     // not enough input or output--restore pointers and return
@@ -42490,7 +42490,7 @@ InfTree.prototype.huft_build = function(b, bindex, n, s, d, e, t, m, hp, hn, v) 
           }
           this.u[h] = q = /*hp+*/ this.hn[0];   // DEBUG
           this.hn[0] += z;
- 
+
 	  // connect to last table, if there is one
 	  if(h!=0){
             this.x[h]=i;           // save pattern for backing up
@@ -42603,7 +42603,7 @@ InfTree.prototype.inflate_trees_dynamic = function(nl, nd, c, bl, bd, tl, td, hp
   static int inflate_trees_fixed(int[] bl,  //literal desired/actual bit depth
                                  int[] bd,  //distance desired/actual bit depth
                                  int[][] tl,//literal/length tree result
-                                 int[][] td,//distance tree result 
+                                 int[][] td,//distance tree result
                                  ZStream z  //for memory allocation
 				 ){
 
@@ -42626,8 +42626,8 @@ InfTree.prototype.initWorkArea = function(vsize){
         this.u=new Int32Array(BMAX);
         this.x=new Int32Array(BMAX+1);
     }
-    if(this.v.length<vsize){ 
-        this.v=new Int32Array(vsize); 
+    if(this.v.length<vsize){
+        this.v=new Int32Array(vsize);
     }
     for(var i=0; i<vsize; i++){this.v[i]=0;}
     for(var i=0; i<BMAX+1; i++){this.c[i]=0;}
@@ -42645,7 +42645,7 @@ var hasSlice = false; /* (typeof testArray.slice === 'function'); */ // Chrome s
 function arrayCopy(src, srcOffset, dest, destOffset, count) {
     if (count == 0) {
         return;
-    } 
+    }
     if (!src) {
         throw "Undef src";
     } else if (!dest) {
@@ -42655,10 +42655,10 @@ function arrayCopy(src, srcOffset, dest, destOffset, count) {
     if (srcOffset == 0 && count == src.length) {
         arrayCopy_fast(src, dest, destOffset);
     } else if (hasSubarray) {
-        arrayCopy_fast(src.subarray(srcOffset, srcOffset + count), dest, destOffset); 
+        arrayCopy_fast(src.subarray(srcOffset, srcOffset + count), dest, destOffset);
     } else if (src.BYTES_PER_ELEMENT == 1 && count > 100) {
         arrayCopy_fast(new Uint8Array(src.buffer, src.byteOffset + srcOffset, count), dest, destOffset);
-    } else { 
+    } else {
         arrayCopy_slow(src, srcOffset, dest, destOffset, count);
     }
 
@@ -42679,7 +42679,7 @@ function arrayCopy_fast(src, dest, destOffset) {
 
 
   // largest prime smaller than 65536
-var ADLER_BASE=65521; 
+var ADLER_BASE=65521;
   // NMAX is the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1
 var ADLER_NMAX=5552;
 
