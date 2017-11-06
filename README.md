@@ -4,7 +4,7 @@ create a node, npm and webpack version of the latest igv.js
 
 ## pull, then build a fresh version of igv.js from the igvteam's repo
 
- - git clone https://github.com/igvteam/igv.js.git (or ````git pull origin``` if you had previously cloned the repo)
+ - git clone https://github.com/igvteam/igv.js.git (or ````git pull origin```` if you had previously cloned the repo)
  - cd igv.js
  - grunt
  - cd ../igv.js.npm
