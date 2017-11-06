@@ -1,4 +1,4 @@
-/*  Module header based on https://github.com/umdjs/umd/blob/master/templates/returnExports.js
+/* Module header based on https://github.com/umdjs/umd/blob/master/templates/returnExports.js
  */
 
 (function (root, factory) {
@@ -10993,6 +10993,2339 @@ var $, jQuery;
     return jQuery;
 }));
 
+/*! jQuery UI - v1.12.1 - 2017-11-05
+* http://jqueryui.com
+* Includes: widget.js, data.js, scroll-parent.js, widgets/draggable.js, widgets/mouse.js
+* Copyright jQuery Foundation and other contributors; Licensed MIT */
+
+(function( factory ) {
+	if ( typeof define === "function" && define.amd ) {
+
+		// AMD. Register as an anonymous module.
+		define([ "jquery" ], factory );
+	} else {
+
+		// Browser globals
+		factory( jQuery );
+	}
+}(function( $ ) {
+
+$.ui = $.ui || {};
+
+var version = $.ui.version = "1.12.1";
+
+
+/*!
+ * jQuery UI Widget 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: Widget
+//>>group: Core
+//>>description: Provides a factory for creating stateful widgets with a common API.
+//>>docs: http://api.jqueryui.com/jQuery.widget/
+//>>demos: http://jqueryui.com/widget/
+
+
+
+var widgetUuid = 0;
+var widgetSlice = Array.prototype.slice;
+
+$.cleanData = ( function( orig ) {
+	return function( elems ) {
+		var events, elem, i;
+		for ( i = 0; ( elem = elems[ i ] ) != null; i++ ) {
+			try {
+
+				// Only trigger remove when necessary to save time
+				events = $._data( elem, "events" );
+				if ( events && events.remove ) {
+					$( elem ).triggerHandler( "remove" );
+				}
+
+			// Http://bugs.jquery.com/ticket/8235
+			} catch ( e ) {}
+		}
+		orig( elems );
+	};
+} )( $.cleanData );
+
+$.widget = function( name, base, prototype ) {
+	var existingConstructor, constructor, basePrototype;
+
+	// ProxiedPrototype allows the provided prototype to remain unmodified
+	// so that it can be used as a mixin for multiple widgets (#8876)
+	var proxiedPrototype = {};
+
+	var namespace = name.split( "." )[ 0 ];
+	name = name.split( "." )[ 1 ];
+	var fullName = namespace + "-" + name;
+
+	if ( !prototype ) {
+		prototype = base;
+		base = $.Widget;
+	}
+
+	if ( $.isArray( prototype ) ) {
+		prototype = $.extend.apply( null, [ {} ].concat( prototype ) );
+	}
+
+	// Create selector for plugin
+	$.expr[ ":" ][ fullName.toLowerCase() ] = function( elem ) {
+		return !!$.data( elem, fullName );
+	};
+
+	$[ namespace ] = $[ namespace ] || {};
+	existingConstructor = $[ namespace ][ name ];
+	constructor = $[ namespace ][ name ] = function( options, element ) {
+
+		// Allow instantiation without "new" keyword
+		if ( !this._createWidget ) {
+			return new constructor( options, element );
+		}
+
+		// Allow instantiation without initializing for simple inheritance
+		// must use "new" keyword (the code above always passes args)
+		if ( arguments.length ) {
+			this._createWidget( options, element );
+		}
+	};
+
+	// Extend with the existing constructor to carry over any static properties
+	$.extend( constructor, existingConstructor, {
+		version: prototype.version,
+
+		// Copy the object used to create the prototype in case we need to
+		// redefine the widget later
+		_proto: $.extend( {}, prototype ),
+
+		// Track widgets that inherit from this widget in case this widget is
+		// redefined after a widget inherits from it
+		_childConstructors: []
+	} );
+
+	basePrototype = new base();
+
+	// We need to make the options hash a property directly on the new instance
+	// otherwise we'll modify the options hash on the prototype that we're
+	// inheriting from
+	basePrototype.options = $.widget.extend( {}, basePrototype.options );
+	$.each( prototype, function( prop, value ) {
+		if ( !$.isFunction( value ) ) {
+			proxiedPrototype[ prop ] = value;
+			return;
+		}
+		proxiedPrototype[ prop ] = ( function() {
+			function _super() {
+				return base.prototype[ prop ].apply( this, arguments );
+			}
+
+			function _superApply( args ) {
+				return base.prototype[ prop ].apply( this, args );
+			}
+
+			return function() {
+				var __super = this._super;
+				var __superApply = this._superApply;
+				var returnValue;
+
+				this._super = _super;
+				this._superApply = _superApply;
+
+				returnValue = value.apply( this, arguments );
+
+				this._super = __super;
+				this._superApply = __superApply;
+
+				return returnValue;
+			};
+		} )();
+	} );
+	constructor.prototype = $.widget.extend( basePrototype, {
+
+		// TODO: remove support for widgetEventPrefix
+		// always use the name + a colon as the prefix, e.g., draggable:start
+		// don't prefix for widgets that aren't DOM-based
+		widgetEventPrefix: existingConstructor ? ( basePrototype.widgetEventPrefix || name ) : name
+	}, proxiedPrototype, {
+		constructor: constructor,
+		namespace: namespace,
+		widgetName: name,
+		widgetFullName: fullName
+	} );
+
+	// If this widget is being redefined then we need to find all widgets that
+	// are inheriting from it and redefine all of them so that they inherit from
+	// the new version of this widget. We're essentially trying to replace one
+	// level in the prototype chain.
+	if ( existingConstructor ) {
+		$.each( existingConstructor._childConstructors, function( i, child ) {
+			var childPrototype = child.prototype;
+
+			// Redefine the child widget using the same prototype that was
+			// originally used, but inherit from the new version of the base
+			$.widget( childPrototype.namespace + "." + childPrototype.widgetName, constructor,
+				child._proto );
+		} );
+
+		// Remove the list of existing child constructors from the old constructor
+		// so the old child constructors can be garbage collected
+		delete existingConstructor._childConstructors;
+	} else {
+		base._childConstructors.push( constructor );
+	}
+
+	$.widget.bridge( name, constructor );
+
+	return constructor;
+};
+
+$.widget.extend = function( target ) {
+	var input = widgetSlice.call( arguments, 1 );
+	var inputIndex = 0;
+	var inputLength = input.length;
+	var key;
+	var value;
+
+	for ( ; inputIndex < inputLength; inputIndex++ ) {
+		for ( key in input[ inputIndex ] ) {
+			value = input[ inputIndex ][ key ];
+			if ( input[ inputIndex ].hasOwnProperty( key ) && value !== undefined ) {
+
+				// Clone objects
+				if ( $.isPlainObject( value ) ) {
+					target[ key ] = $.isPlainObject( target[ key ] ) ?
+						$.widget.extend( {}, target[ key ], value ) :
+
+						// Don't extend strings, arrays, etc. with objects
+						$.widget.extend( {}, value );
+
+				// Copy everything else by reference
+				} else {
+					target[ key ] = value;
+				}
+			}
+		}
+	}
+	return target;
+};
+
+$.widget.bridge = function( name, object ) {
+	var fullName = object.prototype.widgetFullName || name;
+	$.fn[ name ] = function( options ) {
+		var isMethodCall = typeof options === "string";
+		var args = widgetSlice.call( arguments, 1 );
+		var returnValue = this;
+
+		if ( isMethodCall ) {
+
+			// If this is an empty collection, we need to have the instance method
+			// return undefined instead of the jQuery instance
+			if ( !this.length && options === "instance" ) {
+				returnValue = undefined;
+			} else {
+				this.each( function() {
+					var methodValue;
+					var instance = $.data( this, fullName );
+
+					if ( options === "instance" ) {
+						returnValue = instance;
+						return false;
+					}
+
+					if ( !instance ) {
+						return $.error( "cannot call methods on " + name +
+							" prior to initialization; " +
+							"attempted to call method '" + options + "'" );
+					}
+
+					if ( !$.isFunction( instance[ options ] ) || options.charAt( 0 ) === "_" ) {
+						return $.error( "no such method '" + options + "' for " + name +
+							" widget instance" );
+					}
+
+					methodValue = instance[ options ].apply( instance, args );
+
+					if ( methodValue !== instance && methodValue !== undefined ) {
+						returnValue = methodValue && methodValue.jquery ?
+							returnValue.pushStack( methodValue.get() ) :
+							methodValue;
+						return false;
+					}
+				} );
+			}
+		} else {
+
+			// Allow multiple hashes to be passed on init
+			if ( args.length ) {
+				options = $.widget.extend.apply( null, [ options ].concat( args ) );
+			}
+
+			this.each( function() {
+				var instance = $.data( this, fullName );
+				if ( instance ) {
+					instance.option( options || {} );
+					if ( instance._init ) {
+						instance._init();
+					}
+				} else {
+					$.data( this, fullName, new object( options, this ) );
+				}
+			} );
+		}
+
+		return returnValue;
+	};
+};
+
+$.Widget = function( /* options, element */ ) {};
+$.Widget._childConstructors = [];
+
+$.Widget.prototype = {
+	widgetName: "widget",
+	widgetEventPrefix: "",
+	defaultElement: "<div>",
+
+	options: {
+		classes: {},
+		disabled: false,
+
+		// Callbacks
+		create: null
+	},
+
+	_createWidget: function( options, element ) {
+		element = $( element || this.defaultElement || this )[ 0 ];
+		this.element = $( element );
+		this.uuid = widgetUuid++;
+		this.eventNamespace = "." + this.widgetName + this.uuid;
+
+		this.bindings = $();
+		this.hoverable = $();
+		this.focusable = $();
+		this.classesElementLookup = {};
+
+		if ( element !== this ) {
+			$.data( element, this.widgetFullName, this );
+			this._on( true, this.element, {
+				remove: function( event ) {
+					if ( event.target === element ) {
+						this.destroy();
+					}
+				}
+			} );
+			this.document = $( element.style ?
+
+				// Element within the document
+				element.ownerDocument :
+
+				// Element is window or document
+				element.document || element );
+			this.window = $( this.document[ 0 ].defaultView || this.document[ 0 ].parentWindow );
+		}
+
+		this.options = $.widget.extend( {},
+			this.options,
+			this._getCreateOptions(),
+			options );
+
+		this._create();
+
+		if ( this.options.disabled ) {
+			this._setOptionDisabled( this.options.disabled );
+		}
+
+		this._trigger( "create", null, this._getCreateEventData() );
+		this._init();
+	},
+
+	_getCreateOptions: function() {
+		return {};
+	},
+
+	_getCreateEventData: $.noop,
+
+	_create: $.noop,
+
+	_init: $.noop,
+
+	destroy: function() {
+		var that = this;
+
+		this._destroy();
+		$.each( this.classesElementLookup, function( key, value ) {
+			that._removeClass( value, key );
+		} );
+
+		// We can probably remove the unbind calls in 2.0
+		// all event bindings should go through this._on()
+		this.element
+			.off( this.eventNamespace )
+			.removeData( this.widgetFullName );
+		this.widget()
+			.off( this.eventNamespace )
+			.removeAttr( "aria-disabled" );
+
+		// Clean up events and states
+		this.bindings.off( this.eventNamespace );
+	},
+
+	_destroy: $.noop,
+
+	widget: function() {
+		return this.element;
+	},
+
+	option: function( key, value ) {
+		var options = key;
+		var parts;
+		var curOption;
+		var i;
+
+		if ( arguments.length === 0 ) {
+
+			// Don't return a reference to the internal hash
+			return $.widget.extend( {}, this.options );
+		}
+
+		if ( typeof key === "string" ) {
+
+			// Handle nested keys, e.g., "foo.bar" => { foo: { bar: ___ } }
+			options = {};
+			parts = key.split( "." );
+			key = parts.shift();
+			if ( parts.length ) {
+				curOption = options[ key ] = $.widget.extend( {}, this.options[ key ] );
+				for ( i = 0; i < parts.length - 1; i++ ) {
+					curOption[ parts[ i ] ] = curOption[ parts[ i ] ] || {};
+					curOption = curOption[ parts[ i ] ];
+				}
+				key = parts.pop();
+				if ( arguments.length === 1 ) {
+					return curOption[ key ] === undefined ? null : curOption[ key ];
+				}
+				curOption[ key ] = value;
+			} else {
+				if ( arguments.length === 1 ) {
+					return this.options[ key ] === undefined ? null : this.options[ key ];
+				}
+				options[ key ] = value;
+			}
+		}
+
+		this._setOptions( options );
+
+		return this;
+	},
+
+	_setOptions: function( options ) {
+		var key;
+
+		for ( key in options ) {
+			this._setOption( key, options[ key ] );
+		}
+
+		return this;
+	},
+
+	_setOption: function( key, value ) {
+		if ( key === "classes" ) {
+			this._setOptionClasses( value );
+		}
+
+		this.options[ key ] = value;
+
+		if ( key === "disabled" ) {
+			this._setOptionDisabled( value );
+		}
+
+		return this;
+	},
+
+	_setOptionClasses: function( value ) {
+		var classKey, elements, currentElements;
+
+		for ( classKey in value ) {
+			currentElements = this.classesElementLookup[ classKey ];
+			if ( value[ classKey ] === this.options.classes[ classKey ] ||
+					!currentElements ||
+					!currentElements.length ) {
+				continue;
+			}
+
+			// We are doing this to create a new jQuery object because the _removeClass() call
+			// on the next line is going to destroy the reference to the current elements being
+			// tracked. We need to save a copy of this collection so that we can add the new classes
+			// below.
+			elements = $( currentElements.get() );
+			this._removeClass( currentElements, classKey );
+
+			// We don't use _addClass() here, because that uses this.options.classes
+			// for generating the string of classes. We want to use the value passed in from
+			// _setOption(), this is the new value of the classes option which was passed to
+			// _setOption(). We pass this value directly to _classes().
+			elements.addClass( this._classes( {
+				element: elements,
+				keys: classKey,
+				classes: value,
+				add: true
+			} ) );
+		}
+	},
+
+	_setOptionDisabled: function( value ) {
+		this._toggleClass( this.widget(), this.widgetFullName + "-disabled", null, !!value );
+
+		// If the widget is becoming disabled, then nothing is interactive
+		if ( value ) {
+			this._removeClass( this.hoverable, null, "ui-state-hover" );
+			this._removeClass( this.focusable, null, "ui-state-focus" );
+		}
+	},
+
+	enable: function() {
+		return this._setOptions( { disabled: false } );
+	},
+
+	disable: function() {
+		return this._setOptions( { disabled: true } );
+	},
+
+	_classes: function( options ) {
+		var full = [];
+		var that = this;
+
+		options = $.extend( {
+			element: this.element,
+			classes: this.options.classes || {}
+		}, options );
+
+		function processClassString( classes, checkOption ) {
+			var current, i;
+			for ( i = 0; i < classes.length; i++ ) {
+				current = that.classesElementLookup[ classes[ i ] ] || $();
+				if ( options.add ) {
+					current = $( $.unique( current.get().concat( options.element.get() ) ) );
+				} else {
+					current = $( current.not( options.element ).get() );
+				}
+				that.classesElementLookup[ classes[ i ] ] = current;
+				full.push( classes[ i ] );
+				if ( checkOption && options.classes[ classes[ i ] ] ) {
+					full.push( options.classes[ classes[ i ] ] );
+				}
+			}
+		}
+
+		this._on( options.element, {
+			"remove": "_untrackClassesElement"
+		} );
+
+		if ( options.keys ) {
+			processClassString( options.keys.match( /\S+/g ) || [], true );
+		}
+		if ( options.extra ) {
+			processClassString( options.extra.match( /\S+/g ) || [] );
+		}
+
+		return full.join( " " );
+	},
+
+	_untrackClassesElement: function( event ) {
+		var that = this;
+		$.each( that.classesElementLookup, function( key, value ) {
+			if ( $.inArray( event.target, value ) !== -1 ) {
+				that.classesElementLookup[ key ] = $( value.not( event.target ).get() );
+			}
+		} );
+	},
+
+	_removeClass: function( element, keys, extra ) {
+		return this._toggleClass( element, keys, extra, false );
+	},
+
+	_addClass: function( element, keys, extra ) {
+		return this._toggleClass( element, keys, extra, true );
+	},
+
+	_toggleClass: function( element, keys, extra, add ) {
+		add = ( typeof add === "boolean" ) ? add : extra;
+		var shift = ( typeof element === "string" || element === null ),
+			options = {
+				extra: shift ? keys : extra,
+				keys: shift ? element : keys,
+				element: shift ? this.element : element,
+				add: add
+			};
+		options.element.toggleClass( this._classes( options ), add );
+		return this;
+	},
+
+	_on: function( suppressDisabledCheck, element, handlers ) {
+		var delegateElement;
+		var instance = this;
+
+		// No suppressDisabledCheck flag, shuffle arguments
+		if ( typeof suppressDisabledCheck !== "boolean" ) {
+			handlers = element;
+			element = suppressDisabledCheck;
+			suppressDisabledCheck = false;
+		}
+
+		// No element argument, shuffle and use this.element
+		if ( !handlers ) {
+			handlers = element;
+			element = this.element;
+			delegateElement = this.widget();
+		} else {
+			element = delegateElement = $( element );
+			this.bindings = this.bindings.add( element );
+		}
+
+		$.each( handlers, function( event, handler ) {
+			function handlerProxy() {
+
+				// Allow widgets to customize the disabled handling
+				// - disabled as an array instead of boolean
+				// - disabled class as method for disabling individual parts
+				if ( !suppressDisabledCheck &&
+						( instance.options.disabled === true ||
+						$( this ).hasClass( "ui-state-disabled" ) ) ) {
+					return;
+				}
+				return ( typeof handler === "string" ? instance[ handler ] : handler )
+					.apply( instance, arguments );
+			}
+
+			// Copy the guid so direct unbinding works
+			if ( typeof handler !== "string" ) {
+				handlerProxy.guid = handler.guid =
+					handler.guid || handlerProxy.guid || $.guid++;
+			}
+
+			var match = event.match( /^([\w:-]*)\s*(.*)$/ );
+			var eventName = match[ 1 ] + instance.eventNamespace;
+			var selector = match[ 2 ];
+
+			if ( selector ) {
+				delegateElement.on( eventName, selector, handlerProxy );
+			} else {
+				element.on( eventName, handlerProxy );
+			}
+		} );
+	},
+
+	_off: function( element, eventName ) {
+		eventName = ( eventName || "" ).split( " " ).join( this.eventNamespace + " " ) +
+			this.eventNamespace;
+		element.off( eventName ).off( eventName );
+
+		// Clear the stack to avoid memory leaks (#10056)
+		this.bindings = $( this.bindings.not( element ).get() );
+		this.focusable = $( this.focusable.not( element ).get() );
+		this.hoverable = $( this.hoverable.not( element ).get() );
+	},
+
+	_delay: function( handler, delay ) {
+		function handlerProxy() {
+			return ( typeof handler === "string" ? instance[ handler ] : handler )
+				.apply( instance, arguments );
+		}
+		var instance = this;
+		return setTimeout( handlerProxy, delay || 0 );
+	},
+
+	_hoverable: function( element ) {
+		this.hoverable = this.hoverable.add( element );
+		this._on( element, {
+			mouseenter: function( event ) {
+				this._addClass( $( event.currentTarget ), null, "ui-state-hover" );
+			},
+			mouseleave: function( event ) {
+				this._removeClass( $( event.currentTarget ), null, "ui-state-hover" );
+			}
+		} );
+	},
+
+	_focusable: function( element ) {
+		this.focusable = this.focusable.add( element );
+		this._on( element, {
+			focusin: function( event ) {
+				this._addClass( $( event.currentTarget ), null, "ui-state-focus" );
+			},
+			focusout: function( event ) {
+				this._removeClass( $( event.currentTarget ), null, "ui-state-focus" );
+			}
+		} );
+	},
+
+	_trigger: function( type, event, data ) {
+		var prop, orig;
+		var callback = this.options[ type ];
+
+		data = data || {};
+		event = $.Event( event );
+		event.type = ( type === this.widgetEventPrefix ?
+			type :
+			this.widgetEventPrefix + type ).toLowerCase();
+
+		// The original event may come from any element
+		// so we need to reset the target on the new event
+		event.target = this.element[ 0 ];
+
+		// Copy original event properties over to the new event
+		orig = event.originalEvent;
+		if ( orig ) {
+			for ( prop in orig ) {
+				if ( !( prop in event ) ) {
+					event[ prop ] = orig[ prop ];
+				}
+			}
+		}
+
+		this.element.trigger( event, data );
+		return !( $.isFunction( callback ) &&
+			callback.apply( this.element[ 0 ], [ event ].concat( data ) ) === false ||
+			event.isDefaultPrevented() );
+	}
+};
+
+$.each( { show: "fadeIn", hide: "fadeOut" }, function( method, defaultEffect ) {
+	$.Widget.prototype[ "_" + method ] = function( element, options, callback ) {
+		if ( typeof options === "string" ) {
+			options = { effect: options };
+		}
+
+		var hasOptions;
+		var effectName = !options ?
+			method :
+			options === true || typeof options === "number" ?
+				defaultEffect :
+				options.effect || defaultEffect;
+
+		options = options || {};
+		if ( typeof options === "number" ) {
+			options = { duration: options };
+		}
+
+		hasOptions = !$.isEmptyObject( options );
+		options.complete = callback;
+
+		if ( options.delay ) {
+			element.delay( options.delay );
+		}
+
+		if ( hasOptions && $.effects && $.effects.effect[ effectName ] ) {
+			element[ method ]( options );
+		} else if ( effectName !== method && element[ effectName ] ) {
+			element[ effectName ]( options.duration, options.easing, callback );
+		} else {
+			element.queue( function( next ) {
+				$( this )[ method ]();
+				if ( callback ) {
+					callback.call( element[ 0 ] );
+				}
+				next();
+			} );
+		}
+	};
+} );
+
+var widget = $.widget;
+
+
+/*!
+ * jQuery UI :data 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: :data Selector
+//>>group: Core
+//>>description: Selects elements which have data stored under the specified key.
+//>>docs: http://api.jqueryui.com/data-selector/
+
+
+var data = $.extend( $.expr[ ":" ], {
+	data: $.expr.createPseudo ?
+		$.expr.createPseudo( function( dataName ) {
+			return function( elem ) {
+				return !!$.data( elem, dataName );
+			};
+		} ) :
+
+		// Support: jQuery <1.8
+		function( elem, i, match ) {
+			return !!$.data( elem, match[ 3 ] );
+		}
+} );
+
+/*!
+ * jQuery UI Scroll Parent 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: scrollParent
+//>>group: Core
+//>>description: Get the closest ancestor element that is scrollable.
+//>>docs: http://api.jqueryui.com/scrollParent/
+
+
+
+var scrollParent = $.fn.scrollParent = function( includeHidden ) {
+	var position = this.css( "position" ),
+		excludeStaticParent = position === "absolute",
+		overflowRegex = includeHidden ? /(auto|scroll|hidden)/ : /(auto|scroll)/,
+		scrollParent = this.parents().filter( function() {
+			var parent = $( this );
+			if ( excludeStaticParent && parent.css( "position" ) === "static" ) {
+				return false;
+			}
+			return overflowRegex.test( parent.css( "overflow" ) + parent.css( "overflow-y" ) +
+				parent.css( "overflow-x" ) );
+		} ).eq( 0 );
+
+	return position === "fixed" || !scrollParent.length ?
+		$( this[ 0 ].ownerDocument || document ) :
+		scrollParent;
+};
+
+
+
+
+// This file is deprecated
+var ie = $.ui.ie = !!/msie [\w.]+/.exec( navigator.userAgent.toLowerCase() );
+
+/*!
+ * jQuery UI Mouse 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: Mouse
+//>>group: Widgets
+//>>description: Abstracts mouse-based interactions to assist in creating certain widgets.
+//>>docs: http://api.jqueryui.com/mouse/
+
+
+
+var mouseHandled = false;
+$( document ).on( "mouseup", function() {
+	mouseHandled = false;
+} );
+
+var widgetsMouse = $.widget( "ui.mouse", {
+	version: "1.12.1",
+	options: {
+		cancel: "input, textarea, button, select, option",
+		distance: 1,
+		delay: 0
+	},
+	_mouseInit: function() {
+		var that = this;
+
+		this.element
+			.on( "mousedown." + this.widgetName, function( event ) {
+				return that._mouseDown( event );
+			} )
+			.on( "click." + this.widgetName, function( event ) {
+				if ( true === $.data( event.target, that.widgetName + ".preventClickEvent" ) ) {
+					$.removeData( event.target, that.widgetName + ".preventClickEvent" );
+					event.stopImmediatePropagation();
+					return false;
+				}
+			} );
+
+		this.started = false;
+	},
+
+	// TODO: make sure destroying one instance of mouse doesn't mess with
+	// other instances of mouse
+	_mouseDestroy: function() {
+		this.element.off( "." + this.widgetName );
+		if ( this._mouseMoveDelegate ) {
+			this.document
+				.off( "mousemove." + this.widgetName, this._mouseMoveDelegate )
+				.off( "mouseup." + this.widgetName, this._mouseUpDelegate );
+		}
+	},
+
+	_mouseDown: function( event ) {
+
+		// don't let more than one widget handle mouseStart
+		if ( mouseHandled ) {
+			return;
+		}
+
+		this._mouseMoved = false;
+
+		// We may have missed mouseup (out of window)
+		( this._mouseStarted && this._mouseUp( event ) );
+
+		this._mouseDownEvent = event;
+
+		var that = this,
+			btnIsLeft = ( event.which === 1 ),
+
+			// event.target.nodeName works around a bug in IE 8 with
+			// disabled inputs (#7620)
+			elIsCancel = ( typeof this.options.cancel === "string" && event.target.nodeName ?
+				$( event.target ).closest( this.options.cancel ).length : false );
+		if ( !btnIsLeft || elIsCancel || !this._mouseCapture( event ) ) {
+			return true;
+		}
+
+		this.mouseDelayMet = !this.options.delay;
+		if ( !this.mouseDelayMet ) {
+			this._mouseDelayTimer = setTimeout( function() {
+				that.mouseDelayMet = true;
+			}, this.options.delay );
+		}
+
+		if ( this._mouseDistanceMet( event ) && this._mouseDelayMet( event ) ) {
+			this._mouseStarted = ( this._mouseStart( event ) !== false );
+			if ( !this._mouseStarted ) {
+				event.preventDefault();
+				return true;
+			}
+		}
+
+		// Click event may never have fired (Gecko & Opera)
+		if ( true === $.data( event.target, this.widgetName + ".preventClickEvent" ) ) {
+			$.removeData( event.target, this.widgetName + ".preventClickEvent" );
+		}
+
+		// These delegates are required to keep context
+		this._mouseMoveDelegate = function( event ) {
+			return that._mouseMove( event );
+		};
+		this._mouseUpDelegate = function( event ) {
+			return that._mouseUp( event );
+		};
+
+		this.document
+			.on( "mousemove." + this.widgetName, this._mouseMoveDelegate )
+			.on( "mouseup." + this.widgetName, this._mouseUpDelegate );
+
+		event.preventDefault();
+
+		mouseHandled = true;
+		return true;
+	},
+
+	_mouseMove: function( event ) {
+
+		// Only check for mouseups outside the document if you've moved inside the document
+		// at least once. This prevents the firing of mouseup in the case of IE<9, which will
+		// fire a mousemove event if content is placed under the cursor. See #7778
+		// Support: IE <9
+		if ( this._mouseMoved ) {
+
+			// IE mouseup check - mouseup happened when mouse was out of window
+			if ( $.ui.ie && ( !document.documentMode || document.documentMode < 9 ) &&
+					!event.button ) {
+				return this._mouseUp( event );
+
+			// Iframe mouseup check - mouseup occurred in another document
+			} else if ( !event.which ) {
+
+				// Support: Safari <=8 - 9
+				// Safari sets which to 0 if you press any of the following keys
+				// during a drag (#14461)
+				if ( event.originalEvent.altKey || event.originalEvent.ctrlKey ||
+						event.originalEvent.metaKey || event.originalEvent.shiftKey ) {
+					this.ignoreMissingWhich = true;
+				} else if ( !this.ignoreMissingWhich ) {
+					return this._mouseUp( event );
+				}
+			}
+		}
+
+		if ( event.which || event.button ) {
+			this._mouseMoved = true;
+		}
+
+		if ( this._mouseStarted ) {
+			this._mouseDrag( event );
+			return event.preventDefault();
+		}
+
+		if ( this._mouseDistanceMet( event ) && this._mouseDelayMet( event ) ) {
+			this._mouseStarted =
+				( this._mouseStart( this._mouseDownEvent, event ) !== false );
+			( this._mouseStarted ? this._mouseDrag( event ) : this._mouseUp( event ) );
+		}
+
+		return !this._mouseStarted;
+	},
+
+	_mouseUp: function( event ) {
+		this.document
+			.off( "mousemove." + this.widgetName, this._mouseMoveDelegate )
+			.off( "mouseup." + this.widgetName, this._mouseUpDelegate );
+
+		if ( this._mouseStarted ) {
+			this._mouseStarted = false;
+
+			if ( event.target === this._mouseDownEvent.target ) {
+				$.data( event.target, this.widgetName + ".preventClickEvent", true );
+			}
+
+			this._mouseStop( event );
+		}
+
+		if ( this._mouseDelayTimer ) {
+			clearTimeout( this._mouseDelayTimer );
+			delete this._mouseDelayTimer;
+		}
+
+		this.ignoreMissingWhich = false;
+		mouseHandled = false;
+		event.preventDefault();
+	},
+
+	_mouseDistanceMet: function( event ) {
+		return ( Math.max(
+				Math.abs( this._mouseDownEvent.pageX - event.pageX ),
+				Math.abs( this._mouseDownEvent.pageY - event.pageY )
+			) >= this.options.distance
+		);
+	},
+
+	_mouseDelayMet: function( /* event */ ) {
+		return this.mouseDelayMet;
+	},
+
+	// These are placeholder methods, to be overriden by extending plugin
+	_mouseStart: function( /* event */ ) {},
+	_mouseDrag: function( /* event */ ) {},
+	_mouseStop: function( /* event */ ) {},
+	_mouseCapture: function( /* event */ ) { return true; }
+} );
+
+
+
+
+// $.ui.plugin is deprecated. Use $.widget() extensions instead.
+var plugin = $.ui.plugin = {
+	add: function( module, option, set ) {
+		var i,
+			proto = $.ui[ module ].prototype;
+		for ( i in set ) {
+			proto.plugins[ i ] = proto.plugins[ i ] || [];
+			proto.plugins[ i ].push( [ option, set[ i ] ] );
+		}
+	},
+	call: function( instance, name, args, allowDisconnected ) {
+		var i,
+			set = instance.plugins[ name ];
+
+		if ( !set ) {
+			return;
+		}
+
+		if ( !allowDisconnected && ( !instance.element[ 0 ].parentNode ||
+				instance.element[ 0 ].parentNode.nodeType === 11 ) ) {
+			return;
+		}
+
+		for ( i = 0; i < set.length; i++ ) {
+			if ( instance.options[ set[ i ][ 0 ] ] ) {
+				set[ i ][ 1 ].apply( instance.element, args );
+			}
+		}
+	}
+};
+
+
+
+var safeActiveElement = $.ui.safeActiveElement = function( document ) {
+	var activeElement;
+
+	// Support: IE 9 only
+	// IE9 throws an "Unspecified error" accessing document.activeElement from an <iframe>
+	try {
+		activeElement = document.activeElement;
+	} catch ( error ) {
+		activeElement = document.body;
+	}
+
+	// Support: IE 9 - 11 only
+	// IE may return null instead of an element
+	// Interestingly, this only seems to occur when NOT in an iframe
+	if ( !activeElement ) {
+		activeElement = document.body;
+	}
+
+	// Support: IE 11 only
+	// IE11 returns a seemingly empty object in some cases when accessing
+	// document.activeElement from an <iframe>
+	if ( !activeElement.nodeName ) {
+		activeElement = document.body;
+	}
+
+	return activeElement;
+};
+
+
+
+var safeBlur = $.ui.safeBlur = function( element ) {
+
+	// Support: IE9 - 10 only
+	// If the <body> is blurred, IE will switch windows, see #9420
+	if ( element && element.nodeName.toLowerCase() !== "body" ) {
+		$( element ).trigger( "blur" );
+	}
+};
+
+
+/*!
+ * jQuery UI Draggable 1.12.1
+ * http://jqueryui.com
+ *
+ * Copyright jQuery Foundation and other contributors
+ * Released under the MIT license.
+ * http://jquery.org/license
+ */
+
+//>>label: Draggable
+//>>group: Interactions
+//>>description: Enables dragging functionality for any element.
+//>>docs: http://api.jqueryui.com/draggable/
+//>>demos: http://jqueryui.com/draggable/
+//>>css.structure: ../../themes/base/draggable.css
+
+
+
+$.widget( "ui.draggable", $.ui.mouse, {
+	version: "1.12.1",
+	widgetEventPrefix: "drag",
+	options: {
+		addClasses: true,
+		appendTo: "parent",
+		axis: false,
+		connectToSortable: false,
+		containment: false,
+		cursor: "auto",
+		cursorAt: false,
+		grid: false,
+		handle: false,
+		helper: "original",
+		iframeFix: false,
+		opacity: false,
+		refreshPositions: false,
+		revert: false,
+		revertDuration: 500,
+		scope: "default",
+		scroll: true,
+		scrollSensitivity: 20,
+		scrollSpeed: 20,
+		snap: false,
+		snapMode: "both",
+		snapTolerance: 20,
+		stack: false,
+		zIndex: false,
+
+		// Callbacks
+		drag: null,
+		start: null,
+		stop: null
+	},
+	_create: function() {
+
+		if ( this.options.helper === "original" ) {
+			this._setPositionRelative();
+		}
+		if ( this.options.addClasses ) {
+			this._addClass( "ui-draggable" );
+		}
+		this._setHandleClassName();
+
+		this._mouseInit();
+	},
+
+	_setOption: function( key, value ) {
+		this._super( key, value );
+		if ( key === "handle" ) {
+			this._removeHandleClassName();
+			this._setHandleClassName();
+		}
+	},
+
+	_destroy: function() {
+		if ( ( this.helper || this.element ).is( ".ui-draggable-dragging" ) ) {
+			this.destroyOnClear = true;
+			return;
+		}
+		this._removeHandleClassName();
+		this._mouseDestroy();
+	},
+
+	_mouseCapture: function( event ) {
+		var o = this.options;
+
+		// Among others, prevent a drag on a resizable-handle
+		if ( this.helper || o.disabled ||
+				$( event.target ).closest( ".ui-resizable-handle" ).length > 0 ) {
+			return false;
+		}
+
+		//Quit if we're not on a valid handle
+		this.handle = this._getHandle( event );
+		if ( !this.handle ) {
+			return false;
+		}
+
+		this._blurActiveElement( event );
+
+		this._blockFrames( o.iframeFix === true ? "iframe" : o.iframeFix );
+
+		return true;
+
+	},
+
+	_blockFrames: function( selector ) {
+		this.iframeBlocks = this.document.find( selector ).map( function() {
+			var iframe = $( this );
+
+			return $( "<div>" )
+				.css( "position", "absolute" )
+				.appendTo( iframe.parent() )
+				.outerWidth( iframe.outerWidth() )
+				.outerHeight( iframe.outerHeight() )
+				.offset( iframe.offset() )[ 0 ];
+		} );
+	},
+
+	_unblockFrames: function() {
+		if ( this.iframeBlocks ) {
+			this.iframeBlocks.remove();
+			delete this.iframeBlocks;
+		}
+	},
+
+	_blurActiveElement: function( event ) {
+		var activeElement = $.ui.safeActiveElement( this.document[ 0 ] ),
+			target = $( event.target );
+
+		// Don't blur if the event occurred on an element that is within
+		// the currently focused element
+		// See #10527, #12472
+		if ( target.closest( activeElement ).length ) {
+			return;
+		}
+
+		// Blur any element that currently has focus, see #4261
+		$.ui.safeBlur( activeElement );
+	},
+
+	_mouseStart: function( event ) {
+
+		var o = this.options;
+
+		//Create and append the visible helper
+		this.helper = this._createHelper( event );
+
+		this._addClass( this.helper, "ui-draggable-dragging" );
+
+		//Cache the helper size
+		this._cacheHelperProportions();
+
+		//If ddmanager is used for droppables, set the global draggable
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.current = this;
+		}
+
+		/*
+		 * - Position generation -
+		 * This block generates everything position related - it's the core of draggables.
+		 */
+
+		//Cache the margins of the original element
+		this._cacheMargins();
+
+		//Store the helper's css position
+		this.cssPosition = this.helper.css( "position" );
+		this.scrollParent = this.helper.scrollParent( true );
+		this.offsetParent = this.helper.offsetParent();
+		this.hasFixedAncestor = this.helper.parents().filter( function() {
+				return $( this ).css( "position" ) === "fixed";
+			} ).length > 0;
+
+		//The element's absolute position on the page minus margins
+		this.positionAbs = this.element.offset();
+		this._refreshOffsets( event );
+
+		//Generate the original position
+		this.originalPosition = this.position = this._generatePosition( event, false );
+		this.originalPageX = event.pageX;
+		this.originalPageY = event.pageY;
+
+		//Adjust the mouse offset relative to the helper if "cursorAt" is supplied
+		( o.cursorAt && this._adjustOffsetFromHelper( o.cursorAt ) );
+
+		//Set a containment if given in the options
+		this._setContainment();
+
+		//Trigger event + callbacks
+		if ( this._trigger( "start", event ) === false ) {
+			this._clear();
+			return false;
+		}
+
+		//Recache the helper size
+		this._cacheHelperProportions();
+
+		//Prepare the droppable offsets
+		if ( $.ui.ddmanager && !o.dropBehaviour ) {
+			$.ui.ddmanager.prepareOffsets( this, event );
+		}
+
+		// Execute the drag once - this causes the helper not to be visible before getting its
+		// correct position
+		this._mouseDrag( event, true );
+
+		// If the ddmanager is used for droppables, inform the manager that dragging has started
+		// (see #5003)
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.dragStart( this, event );
+		}
+
+		return true;
+	},
+
+	_refreshOffsets: function( event ) {
+		this.offset = {
+			top: this.positionAbs.top - this.margins.top,
+			left: this.positionAbs.left - this.margins.left,
+			scroll: false,
+			parent: this._getParentOffset(),
+			relative: this._getRelativeOffset()
+		};
+
+		this.offset.click = {
+			left: event.pageX - this.offset.left,
+			top: event.pageY - this.offset.top
+		};
+	},
+
+	_mouseDrag: function( event, noPropagation ) {
+
+		// reset any necessary cached properties (see #5009)
+		if ( this.hasFixedAncestor ) {
+			this.offset.parent = this._getParentOffset();
+		}
+
+		//Compute the helpers position
+		this.position = this._generatePosition( event, true );
+		this.positionAbs = this._convertPositionTo( "absolute" );
+
+		//Call plugins and callbacks and use the resulting position if something is returned
+		if ( !noPropagation ) {
+			var ui = this._uiHash();
+			if ( this._trigger( "drag", event, ui ) === false ) {
+				this._mouseUp( new $.Event( "mouseup", event ) );
+				return false;
+			}
+			this.position = ui.position;
+		}
+
+		this.helper[ 0 ].style.left = this.position.left + "px";
+		this.helper[ 0 ].style.top = this.position.top + "px";
+
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.drag( this, event );
+		}
+
+		return false;
+	},
+
+	_mouseStop: function( event ) {
+
+		//If we are using droppables, inform the manager about the drop
+		var that = this,
+			dropped = false;
+		if ( $.ui.ddmanager && !this.options.dropBehaviour ) {
+			dropped = $.ui.ddmanager.drop( this, event );
+		}
+
+		//if a drop comes from outside (a sortable)
+		if ( this.dropped ) {
+			dropped = this.dropped;
+			this.dropped = false;
+		}
+
+		if ( ( this.options.revert === "invalid" && !dropped ) ||
+				( this.options.revert === "valid" && dropped ) ||
+				this.options.revert === true || ( $.isFunction( this.options.revert ) &&
+				this.options.revert.call( this.element, dropped ) )
+		) {
+			$( this.helper ).animate(
+				this.originalPosition,
+				parseInt( this.options.revertDuration, 10 ),
+				function() {
+					if ( that._trigger( "stop", event ) !== false ) {
+						that._clear();
+					}
+				}
+			);
+		} else {
+			if ( this._trigger( "stop", event ) !== false ) {
+				this._clear();
+			}
+		}
+
+		return false;
+	},
+
+	_mouseUp: function( event ) {
+		this._unblockFrames();
+
+		// If the ddmanager is used for droppables, inform the manager that dragging has stopped
+		// (see #5003)
+		if ( $.ui.ddmanager ) {
+			$.ui.ddmanager.dragStop( this, event );
+		}
+
+		// Only need to focus if the event occurred on the draggable itself, see #10527
+		if ( this.handleElement.is( event.target ) ) {
+
+			// The interaction is over; whether or not the click resulted in a drag,
+			// focus the element
+			this.element.trigger( "focus" );
+		}
+
+		return $.ui.mouse.prototype._mouseUp.call( this, event );
+	},
+
+	cancel: function() {
+
+		if ( this.helper.is( ".ui-draggable-dragging" ) ) {
+			this._mouseUp( new $.Event( "mouseup", { target: this.element[ 0 ] } ) );
+		} else {
+			this._clear();
+		}
+
+		return this;
+
+	},
+
+	_getHandle: function( event ) {
+		return this.options.handle ?
+			!!$( event.target ).closest( this.element.find( this.options.handle ) ).length :
+			true;
+	},
+
+	_setHandleClassName: function() {
+		this.handleElement = this.options.handle ?
+			this.element.find( this.options.handle ) : this.element;
+		this._addClass( this.handleElement, "ui-draggable-handle" );
+	},
+
+	_removeHandleClassName: function() {
+		this._removeClass( this.handleElement, "ui-draggable-handle" );
+	},
+
+	_createHelper: function( event ) {
+
+		var o = this.options,
+			helperIsFunction = $.isFunction( o.helper ),
+			helper = helperIsFunction ?
+				$( o.helper.apply( this.element[ 0 ], [ event ] ) ) :
+				( o.helper === "clone" ?
+					this.element.clone().removeAttr( "id" ) :
+					this.element );
+
+		if ( !helper.parents( "body" ).length ) {
+			helper.appendTo( ( o.appendTo === "parent" ?
+				this.element[ 0 ].parentNode :
+				o.appendTo ) );
+		}
+
+		// Http://bugs.jqueryui.com/ticket/9446
+		// a helper function can return the original element
+		// which wouldn't have been set to relative in _create
+		if ( helperIsFunction && helper[ 0 ] === this.element[ 0 ] ) {
+			this._setPositionRelative();
+		}
+
+		if ( helper[ 0 ] !== this.element[ 0 ] &&
+				!( /(fixed|absolute)/ ).test( helper.css( "position" ) ) ) {
+			helper.css( "position", "absolute" );
+		}
+
+		return helper;
+
+	},
+
+	_setPositionRelative: function() {
+		if ( !( /^(?:r|a|f)/ ).test( this.element.css( "position" ) ) ) {
+			this.element[ 0 ].style.position = "relative";
+		}
+	},
+
+	_adjustOffsetFromHelper: function( obj ) {
+		if ( typeof obj === "string" ) {
+			obj = obj.split( " " );
+		}
+		if ( $.isArray( obj ) ) {
+			obj = { left: +obj[ 0 ], top: +obj[ 1 ] || 0 };
+		}
+		if ( "left" in obj ) {
+			this.offset.click.left = obj.left + this.margins.left;
+		}
+		if ( "right" in obj ) {
+			this.offset.click.left = this.helperProportions.width - obj.right + this.margins.left;
+		}
+		if ( "top" in obj ) {
+			this.offset.click.top = obj.top + this.margins.top;
+		}
+		if ( "bottom" in obj ) {
+			this.offset.click.top = this.helperProportions.height - obj.bottom + this.margins.top;
+		}
+	},
+
+	_isRootNode: function( element ) {
+		return ( /(html|body)/i ).test( element.tagName ) || element === this.document[ 0 ];
+	},
+
+	_getParentOffset: function() {
+
+		//Get the offsetParent and cache its position
+		var po = this.offsetParent.offset(),
+			document = this.document[ 0 ];
+
+		// This is a special case where we need to modify a offset calculated on start, since the
+		// following happened:
+		// 1. The position of the helper is absolute, so it's position is calculated based on the
+		// next positioned parent
+		// 2. The actual offset parent is a child of the scroll parent, and the scroll parent isn't
+		// the document, which means that the scroll is included in the initial calculation of the
+		// offset of the parent, and never recalculated upon drag
+		if ( this.cssPosition === "absolute" && this.scrollParent[ 0 ] !== document &&
+				$.contains( this.scrollParent[ 0 ], this.offsetParent[ 0 ] ) ) {
+			po.left += this.scrollParent.scrollLeft();
+			po.top += this.scrollParent.scrollTop();
+		}
+
+		if ( this._isRootNode( this.offsetParent[ 0 ] ) ) {
+			po = { top: 0, left: 0 };
+		}
+
+		return {
+			top: po.top + ( parseInt( this.offsetParent.css( "borderTopWidth" ), 10 ) || 0 ),
+			left: po.left + ( parseInt( this.offsetParent.css( "borderLeftWidth" ), 10 ) || 0 )
+		};
+
+	},
+
+	_getRelativeOffset: function() {
+		if ( this.cssPosition !== "relative" ) {
+			return { top: 0, left: 0 };
+		}
+
+		var p = this.element.position(),
+			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] );
+
+		return {
+			top: p.top - ( parseInt( this.helper.css( "top" ), 10 ) || 0 ) +
+				( !scrollIsRootNode ? this.scrollParent.scrollTop() : 0 ),
+			left: p.left - ( parseInt( this.helper.css( "left" ), 10 ) || 0 ) +
+				( !scrollIsRootNode ? this.scrollParent.scrollLeft() : 0 )
+		};
+
+	},
+
+	_cacheMargins: function() {
+		this.margins = {
+			left: ( parseInt( this.element.css( "marginLeft" ), 10 ) || 0 ),
+			top: ( parseInt( this.element.css( "marginTop" ), 10 ) || 0 ),
+			right: ( parseInt( this.element.css( "marginRight" ), 10 ) || 0 ),
+			bottom: ( parseInt( this.element.css( "marginBottom" ), 10 ) || 0 )
+		};
+	},
+
+	_cacheHelperProportions: function() {
+		this.helperProportions = {
+			width: this.helper.outerWidth(),
+			height: this.helper.outerHeight()
+		};
+	},
+
+	_setContainment: function() {
+
+		var isUserScrollable, c, ce,
+			o = this.options,
+			document = this.document[ 0 ];
+
+		this.relativeContainer = null;
+
+		if ( !o.containment ) {
+			this.containment = null;
+			return;
+		}
+
+		if ( o.containment === "window" ) {
+			this.containment = [
+				$( window ).scrollLeft() - this.offset.relative.left - this.offset.parent.left,
+				$( window ).scrollTop() - this.offset.relative.top - this.offset.parent.top,
+				$( window ).scrollLeft() + $( window ).width() -
+					this.helperProportions.width - this.margins.left,
+				$( window ).scrollTop() +
+					( $( window ).height() || document.body.parentNode.scrollHeight ) -
+					this.helperProportions.height - this.margins.top
+			];
+			return;
+		}
+
+		if ( o.containment === "document" ) {
+			this.containment = [
+				0,
+				0,
+				$( document ).width() - this.helperProportions.width - this.margins.left,
+				( $( document ).height() || document.body.parentNode.scrollHeight ) -
+					this.helperProportions.height - this.margins.top
+			];
+			return;
+		}
+
+		if ( o.containment.constructor === Array ) {
+			this.containment = o.containment;
+			return;
+		}
+
+		if ( o.containment === "parent" ) {
+			o.containment = this.helper[ 0 ].parentNode;
+		}
+
+		c = $( o.containment );
+		ce = c[ 0 ];
+
+		if ( !ce ) {
+			return;
+		}
+
+		isUserScrollable = /(scroll|auto)/.test( c.css( "overflow" ) );
+
+		this.containment = [
+			( parseInt( c.css( "borderLeftWidth" ), 10 ) || 0 ) +
+				( parseInt( c.css( "paddingLeft" ), 10 ) || 0 ),
+			( parseInt( c.css( "borderTopWidth" ), 10 ) || 0 ) +
+				( parseInt( c.css( "paddingTop" ), 10 ) || 0 ),
+			( isUserScrollable ? Math.max( ce.scrollWidth, ce.offsetWidth ) : ce.offsetWidth ) -
+				( parseInt( c.css( "borderRightWidth" ), 10 ) || 0 ) -
+				( parseInt( c.css( "paddingRight" ), 10 ) || 0 ) -
+				this.helperProportions.width -
+				this.margins.left -
+				this.margins.right,
+			( isUserScrollable ? Math.max( ce.scrollHeight, ce.offsetHeight ) : ce.offsetHeight ) -
+				( parseInt( c.css( "borderBottomWidth" ), 10 ) || 0 ) -
+				( parseInt( c.css( "paddingBottom" ), 10 ) || 0 ) -
+				this.helperProportions.height -
+				this.margins.top -
+				this.margins.bottom
+		];
+		this.relativeContainer = c;
+	},
+
+	_convertPositionTo: function( d, pos ) {
+
+		if ( !pos ) {
+			pos = this.position;
+		}
+
+		var mod = d === "absolute" ? 1 : -1,
+			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] );
+
+		return {
+			top: (
+
+				// The absolute mouse position
+				pos.top	+
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.top * mod +
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.top * mod -
+				( ( this.cssPosition === "fixed" ?
+					-this.offset.scroll.top :
+					( scrollIsRootNode ? 0 : this.offset.scroll.top ) ) * mod )
+			),
+			left: (
+
+				// The absolute mouse position
+				pos.left +
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.left * mod +
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.left * mod	-
+				( ( this.cssPosition === "fixed" ?
+					-this.offset.scroll.left :
+					( scrollIsRootNode ? 0 : this.offset.scroll.left ) ) * mod )
+			)
+		};
+
+	},
+
+	_generatePosition: function( event, constrainPosition ) {
+
+		var containment, co, top, left,
+			o = this.options,
+			scrollIsRootNode = this._isRootNode( this.scrollParent[ 0 ] ),
+			pageX = event.pageX,
+			pageY = event.pageY;
+
+		// Cache the scroll
+		if ( !scrollIsRootNode || !this.offset.scroll ) {
+			this.offset.scroll = {
+				top: this.scrollParent.scrollTop(),
+				left: this.scrollParent.scrollLeft()
+			};
+		}
+
+		/*
+		 * - Position constraining -
+		 * Constrain the position to a mix of grid, containment.
+		 */
+
+		// If we are not dragging yet, we won't check for options
+		if ( constrainPosition ) {
+			if ( this.containment ) {
+				if ( this.relativeContainer ) {
+					co = this.relativeContainer.offset();
+					containment = [
+						this.containment[ 0 ] + co.left,
+						this.containment[ 1 ] + co.top,
+						this.containment[ 2 ] + co.left,
+						this.containment[ 3 ] + co.top
+					];
+				} else {
+					containment = this.containment;
+				}
+
+				if ( event.pageX - this.offset.click.left < containment[ 0 ] ) {
+					pageX = containment[ 0 ] + this.offset.click.left;
+				}
+				if ( event.pageY - this.offset.click.top < containment[ 1 ] ) {
+					pageY = containment[ 1 ] + this.offset.click.top;
+				}
+				if ( event.pageX - this.offset.click.left > containment[ 2 ] ) {
+					pageX = containment[ 2 ] + this.offset.click.left;
+				}
+				if ( event.pageY - this.offset.click.top > containment[ 3 ] ) {
+					pageY = containment[ 3 ] + this.offset.click.top;
+				}
+			}
+
+			if ( o.grid ) {
+
+				//Check for grid elements set to 0 to prevent divide by 0 error causing invalid
+				// argument errors in IE (see ticket #6950)
+				top = o.grid[ 1 ] ? this.originalPageY + Math.round( ( pageY -
+					this.originalPageY ) / o.grid[ 1 ] ) * o.grid[ 1 ] : this.originalPageY;
+				pageY = containment ? ( ( top - this.offset.click.top >= containment[ 1 ] ||
+					top - this.offset.click.top > containment[ 3 ] ) ?
+						top :
+						( ( top - this.offset.click.top >= containment[ 1 ] ) ?
+							top - o.grid[ 1 ] : top + o.grid[ 1 ] ) ) : top;
+
+				left = o.grid[ 0 ] ? this.originalPageX +
+					Math.round( ( pageX - this.originalPageX ) / o.grid[ 0 ] ) * o.grid[ 0 ] :
+					this.originalPageX;
+				pageX = containment ? ( ( left - this.offset.click.left >= containment[ 0 ] ||
+					left - this.offset.click.left > containment[ 2 ] ) ?
+						left :
+						( ( left - this.offset.click.left >= containment[ 0 ] ) ?
+							left - o.grid[ 0 ] : left + o.grid[ 0 ] ) ) : left;
+			}
+
+			if ( o.axis === "y" ) {
+				pageX = this.originalPageX;
+			}
+
+			if ( o.axis === "x" ) {
+				pageY = this.originalPageY;
+			}
+		}
+
+		return {
+			top: (
+
+				// The absolute mouse position
+				pageY -
+
+				// Click offset (relative to the element)
+				this.offset.click.top -
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.top -
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.top +
+				( this.cssPosition === "fixed" ?
+					-this.offset.scroll.top :
+					( scrollIsRootNode ? 0 : this.offset.scroll.top ) )
+			),
+			left: (
+
+				// The absolute mouse position
+				pageX -
+
+				// Click offset (relative to the element)
+				this.offset.click.left -
+
+				// Only for relative positioned nodes: Relative offset from element to offset parent
+				this.offset.relative.left -
+
+				// The offsetParent's offset without borders (offset + border)
+				this.offset.parent.left +
+				( this.cssPosition === "fixed" ?
+					-this.offset.scroll.left :
+					( scrollIsRootNode ? 0 : this.offset.scroll.left ) )
+			)
+		};
+
+	},
+
+	_clear: function() {
+		this._removeClass( this.helper, "ui-draggable-dragging" );
+		if ( this.helper[ 0 ] !== this.element[ 0 ] && !this.cancelHelperRemoval ) {
+			this.helper.remove();
+		}
+		this.helper = null;
+		this.cancelHelperRemoval = false;
+		if ( this.destroyOnClear ) {
+			this.destroy();
+		}
+	},
+
+	// From now on bulk stuff - mainly helpers
+
+	_trigger: function( type, event, ui ) {
+		ui = ui || this._uiHash();
+		$.ui.plugin.call( this, type, [ event, ui, this ], true );
+
+		// Absolute position and offset (see #6884 ) have to be recalculated after plugins
+		if ( /^(drag|start|stop)/.test( type ) ) {
+			this.positionAbs = this._convertPositionTo( "absolute" );
+			ui.offset = this.positionAbs;
+		}
+		return $.Widget.prototype._trigger.call( this, type, event, ui );
+	},
+
+	plugins: {},
+
+	_uiHash: function() {
+		return {
+			helper: this.helper,
+			position: this.position,
+			originalPosition: this.originalPosition,
+			offset: this.positionAbs
+		};
+	}
+
+} );
+
+$.ui.plugin.add( "draggable", "connectToSortable", {
+	start: function( event, ui, draggable ) {
+		var uiSortable = $.extend( {}, ui, {
+			item: draggable.element
+		} );
+
+		draggable.sortables = [];
+		$( draggable.options.connectToSortable ).each( function() {
+			var sortable = $( this ).sortable( "instance" );
+
+			if ( sortable && !sortable.options.disabled ) {
+				draggable.sortables.push( sortable );
+
+				// RefreshPositions is called at drag start to refresh the containerCache
+				// which is used in drag. This ensures it's initialized and synchronized
+				// with any changes that might have happened on the page since initialization.
+				sortable.refreshPositions();
+				sortable._trigger( "activate", event, uiSortable );
+			}
+		} );
+	},
+	stop: function( event, ui, draggable ) {
+		var uiSortable = $.extend( {}, ui, {
+			item: draggable.element
+		} );
+
+		draggable.cancelHelperRemoval = false;
+
+		$.each( draggable.sortables, function() {
+			var sortable = this;
+
+			if ( sortable.isOver ) {
+				sortable.isOver = 0;
+
+				// Allow this sortable to handle removing the helper
+				draggable.cancelHelperRemoval = true;
+				sortable.cancelHelperRemoval = false;
+
+				// Use _storedCSS To restore properties in the sortable,
+				// as this also handles revert (#9675) since the draggable
+				// may have modified them in unexpected ways (#8809)
+				sortable._storedCSS = {
+					position: sortable.placeholder.css( "position" ),
+					top: sortable.placeholder.css( "top" ),
+					left: sortable.placeholder.css( "left" )
+				};
+
+				sortable._mouseStop( event );
+
+				// Once drag has ended, the sortable should return to using
+				// its original helper, not the shared helper from draggable
+				sortable.options.helper = sortable.options._helper;
+			} else {
+
+				// Prevent this Sortable from removing the helper.
+				// However, don't set the draggable to remove the helper
+				// either as another connected Sortable may yet handle the removal.
+				sortable.cancelHelperRemoval = true;
+
+				sortable._trigger( "deactivate", event, uiSortable );
+			}
+		} );
+	},
+	drag: function( event, ui, draggable ) {
+		$.each( draggable.sortables, function() {
+			var innermostIntersecting = false,
+				sortable = this;
+
+			// Copy over variables that sortable's _intersectsWith uses
+			sortable.positionAbs = draggable.positionAbs;
+			sortable.helperProportions = draggable.helperProportions;
+			sortable.offset.click = draggable.offset.click;
+
+			if ( sortable._intersectsWith( sortable.containerCache ) ) {
+				innermostIntersecting = true;
+
+				$.each( draggable.sortables, function() {
+
+					// Copy over variables that sortable's _intersectsWith uses
+					this.positionAbs = draggable.positionAbs;
+					this.helperProportions = draggable.helperProportions;
+					this.offset.click = draggable.offset.click;
+
+					if ( this !== sortable &&
+							this._intersectsWith( this.containerCache ) &&
+							$.contains( sortable.element[ 0 ], this.element[ 0 ] ) ) {
+						innermostIntersecting = false;
+					}
+
+					return innermostIntersecting;
+				} );
+			}
+
+			if ( innermostIntersecting ) {
+
+				// If it intersects, we use a little isOver variable and set it once,
+				// so that the move-in stuff gets fired only once.
+				if ( !sortable.isOver ) {
+					sortable.isOver = 1;
+
+					// Store draggable's parent in case we need to reappend to it later.
+					draggable._parent = ui.helper.parent();
+
+					sortable.currentItem = ui.helper
+						.appendTo( sortable.element )
+						.data( "ui-sortable-item", true );
+
+					// Store helper option to later restore it
+					sortable.options._helper = sortable.options.helper;
+
+					sortable.options.helper = function() {
+						return ui.helper[ 0 ];
+					};
+
+					// Fire the start events of the sortable with our passed browser event,
+					// and our own helper (so it doesn't create a new one)
+					event.target = sortable.currentItem[ 0 ];
+					sortable._mouseCapture( event, true );
+					sortable._mouseStart( event, true, true );
+
+					// Because the browser event is way off the new appended portlet,
+					// modify necessary variables to reflect the changes
+					sortable.offset.click.top = draggable.offset.click.top;
+					sortable.offset.click.left = draggable.offset.click.left;
+					sortable.offset.parent.left -= draggable.offset.parent.left -
+						sortable.offset.parent.left;
+					sortable.offset.parent.top -= draggable.offset.parent.top -
+						sortable.offset.parent.top;
+
+					draggable._trigger( "toSortable", event );
+
+					// Inform draggable that the helper is in a valid drop zone,
+					// used solely in the revert option to handle "valid/invalid".
+					draggable.dropped = sortable.element;
+
+					// Need to refreshPositions of all sortables in the case that
+					// adding to one sortable changes the location of the other sortables (#9675)
+					$.each( draggable.sortables, function() {
+						this.refreshPositions();
+					} );
+
+					// Hack so receive/update callbacks work (mostly)
+					draggable.currentItem = draggable.element;
+					sortable.fromOutside = draggable;
+				}
+
+				if ( sortable.currentItem ) {
+					sortable._mouseDrag( event );
+
+					// Copy the sortable's position because the draggable's can potentially reflect
+					// a relative position, while sortable is always absolute, which the dragged
+					// element has now become. (#8809)
+					ui.position = sortable.position;
+				}
+			} else {
+
+				// If it doesn't intersect with the sortable, and it intersected before,
+				// we fake the drag stop of the sortable, but make sure it doesn't remove
+				// the helper by using cancelHelperRemoval.
+				if ( sortable.isOver ) {
+
+					sortable.isOver = 0;
+					sortable.cancelHelperRemoval = true;
+
+					// Calling sortable's mouseStop would trigger a revert,
+					// so revert must be temporarily false until after mouseStop is called.
+					sortable.options._revert = sortable.options.revert;
+					sortable.options.revert = false;
+
+					sortable._trigger( "out", event, sortable._uiHash( sortable ) );
+					sortable._mouseStop( event, true );
+
+					// Restore sortable behaviors that were modfied
+					// when the draggable entered the sortable area (#9481)
+					sortable.options.revert = sortable.options._revert;
+					sortable.options.helper = sortable.options._helper;
+
+					if ( sortable.placeholder ) {
+						sortable.placeholder.remove();
+					}
+
+					// Restore and recalculate the draggable's offset considering the sortable
+					// may have modified them in unexpected ways. (#8809, #10669)
+					ui.helper.appendTo( draggable._parent );
+					draggable._refreshOffsets( event );
+					ui.position = draggable._generatePosition( event, true );
+
+					draggable._trigger( "fromSortable", event );
+
+					// Inform draggable that the helper is no longer in a valid drop zone
+					draggable.dropped = false;
+
+					// Need to refreshPositions of all sortables just in case removing
+					// from one sortable changes the location of other sortables (#9675)
+					$.each( draggable.sortables, function() {
+						this.refreshPositions();
+					} );
+				}
+			}
+		} );
+	}
+} );
+
+$.ui.plugin.add( "draggable", "cursor", {
+	start: function( event, ui, instance ) {
+		var t = $( "body" ),
+			o = instance.options;
+
+		if ( t.css( "cursor" ) ) {
+			o._cursor = t.css( "cursor" );
+		}
+		t.css( "cursor", o.cursor );
+	},
+	stop: function( event, ui, instance ) {
+		var o = instance.options;
+		if ( o._cursor ) {
+			$( "body" ).css( "cursor", o._cursor );
+		}
+	}
+} );
+
+$.ui.plugin.add( "draggable", "opacity", {
+	start: function( event, ui, instance ) {
+		var t = $( ui.helper ),
+			o = instance.options;
+		if ( t.css( "opacity" ) ) {
+			o._opacity = t.css( "opacity" );
+		}
+		t.css( "opacity", o.opacity );
+	},
+	stop: function( event, ui, instance ) {
+		var o = instance.options;
+		if ( o._opacity ) {
+			$( ui.helper ).css( "opacity", o._opacity );
+		}
+	}
+} );
+
+$.ui.plugin.add( "draggable", "scroll", {
+	start: function( event, ui, i ) {
+		if ( !i.scrollParentNotHidden ) {
+			i.scrollParentNotHidden = i.helper.scrollParent( false );
+		}
+
+		if ( i.scrollParentNotHidden[ 0 ] !== i.document[ 0 ] &&
+				i.scrollParentNotHidden[ 0 ].tagName !== "HTML" ) {
+			i.overflowOffset = i.scrollParentNotHidden.offset();
+		}
+	},
+	drag: function( event, ui, i  ) {
+
+		var o = i.options,
+			scrolled = false,
+			scrollParent = i.scrollParentNotHidden[ 0 ],
+			document = i.document[ 0 ];
+
+		if ( scrollParent !== document && scrollParent.tagName !== "HTML" ) {
+			if ( !o.axis || o.axis !== "x" ) {
+				if ( ( i.overflowOffset.top + scrollParent.offsetHeight ) - event.pageY <
+						o.scrollSensitivity ) {
+					scrollParent.scrollTop = scrolled = scrollParent.scrollTop + o.scrollSpeed;
+				} else if ( event.pageY - i.overflowOffset.top < o.scrollSensitivity ) {
+					scrollParent.scrollTop = scrolled = scrollParent.scrollTop - o.scrollSpeed;
+				}
+			}
+
+			if ( !o.axis || o.axis !== "y" ) {
+				if ( ( i.overflowOffset.left + scrollParent.offsetWidth ) - event.pageX <
+						o.scrollSensitivity ) {
+					scrollParent.scrollLeft = scrolled = scrollParent.scrollLeft + o.scrollSpeed;
+				} else if ( event.pageX - i.overflowOffset.left < o.scrollSensitivity ) {
+					scrollParent.scrollLeft = scrolled = scrollParent.scrollLeft - o.scrollSpeed;
+				}
+			}
+
+		} else {
+
+			if ( !o.axis || o.axis !== "x" ) {
+				if ( event.pageY - $( document ).scrollTop() < o.scrollSensitivity ) {
+					scrolled = $( document ).scrollTop( $( document ).scrollTop() - o.scrollSpeed );
+				} else if ( $( window ).height() - ( event.pageY - $( document ).scrollTop() ) <
+						o.scrollSensitivity ) {
+					scrolled = $( document ).scrollTop( $( document ).scrollTop() + o.scrollSpeed );
+				}
+			}
+
+			if ( !o.axis || o.axis !== "y" ) {
+				if ( event.pageX - $( document ).scrollLeft() < o.scrollSensitivity ) {
+					scrolled = $( document ).scrollLeft(
+						$( document ).scrollLeft() - o.scrollSpeed
+					);
+				} else if ( $( window ).width() - ( event.pageX - $( document ).scrollLeft() ) <
+						o.scrollSensitivity ) {
+					scrolled = $( document ).scrollLeft(
+						$( document ).scrollLeft() + o.scrollSpeed
+					);
+				}
+			}
+
+		}
+
+		if ( scrolled !== false && $.ui.ddmanager && !o.dropBehaviour ) {
+			$.ui.ddmanager.prepareOffsets( i, event );
+		}
+
+	}
+} );
+
+$.ui.plugin.add( "draggable", "snap", {
+	start: function( event, ui, i ) {
+
+		var o = i.options;
+
+		i.snapElements = [];
+
+		$( o.snap.constructor !== String ? ( o.snap.items || ":data(ui-draggable)" ) : o.snap )
+			.each( function() {
+				var $t = $( this ),
+					$o = $t.offset();
+				if ( this !== i.element[ 0 ] ) {
+					i.snapElements.push( {
+						item: this,
+						width: $t.outerWidth(), height: $t.outerHeight(),
+						top: $o.top, left: $o.left
+					} );
+				}
+			} );
+
+	},
+	drag: function( event, ui, inst ) {
+
+		var ts, bs, ls, rs, l, r, t, b, i, first,
+			o = inst.options,
+			d = o.snapTolerance,
+			x1 = ui.offset.left, x2 = x1 + inst.helperProportions.width,
+			y1 = ui.offset.top, y2 = y1 + inst.helperProportions.height;
+
+		for ( i = inst.snapElements.length - 1; i >= 0; i-- ) {
+
+			l = inst.snapElements[ i ].left - inst.margins.left;
+			r = l + inst.snapElements[ i ].width;
+			t = inst.snapElements[ i ].top - inst.margins.top;
+			b = t + inst.snapElements[ i ].height;
+
+			if ( x2 < l - d || x1 > r + d || y2 < t - d || y1 > b + d ||
+					!$.contains( inst.snapElements[ i ].item.ownerDocument,
+					inst.snapElements[ i ].item ) ) {
+				if ( inst.snapElements[ i ].snapping ) {
+					( inst.options.snap.release &&
+						inst.options.snap.release.call(
+							inst.element,
+							event,
+							$.extend( inst._uiHash(), { snapItem: inst.snapElements[ i ].item } )
+						) );
+				}
+				inst.snapElements[ i ].snapping = false;
+				continue;
+			}
+
+			if ( o.snapMode !== "inner" ) {
+				ts = Math.abs( t - y2 ) <= d;
+				bs = Math.abs( b - y1 ) <= d;
+				ls = Math.abs( l - x2 ) <= d;
+				rs = Math.abs( r - x1 ) <= d;
+				if ( ts ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: t - inst.helperProportions.height,
+						left: 0
+					} ).top;
+				}
+				if ( bs ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: b,
+						left: 0
+					} ).top;
+				}
+				if ( ls ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: l - inst.helperProportions.width
+					} ).left;
+				}
+				if ( rs ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: r
+					} ).left;
+				}
+			}
+
+			first = ( ts || bs || ls || rs );
+
+			if ( o.snapMode !== "outer" ) {
+				ts = Math.abs( t - y1 ) <= d;
+				bs = Math.abs( b - y2 ) <= d;
+				ls = Math.abs( l - x1 ) <= d;
+				rs = Math.abs( r - x2 ) <= d;
+				if ( ts ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: t,
+						left: 0
+					} ).top;
+				}
+				if ( bs ) {
+					ui.position.top = inst._convertPositionTo( "relative", {
+						top: b - inst.helperProportions.height,
+						left: 0
+					} ).top;
+				}
+				if ( ls ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: l
+					} ).left;
+				}
+				if ( rs ) {
+					ui.position.left = inst._convertPositionTo( "relative", {
+						top: 0,
+						left: r - inst.helperProportions.width
+					} ).left;
+				}
+			}
+
+			if ( !inst.snapElements[ i ].snapping && ( ts || bs || ls || rs || first ) ) {
+				( inst.options.snap.snap &&
+					inst.options.snap.snap.call(
+						inst.element,
+						event,
+						$.extend( inst._uiHash(), {
+							snapItem: inst.snapElements[ i ].item
+						} ) ) );
+			}
+			inst.snapElements[ i ].snapping = ( ts || bs || ls || rs || first );
+
+		}
+
+	}
+} );
+
+$.ui.plugin.add( "draggable", "stack", {
+	start: function( event, ui, instance ) {
+		var min,
+			o = instance.options,
+			group = $.makeArray( $( o.stack ) ).sort( function( a, b ) {
+				return ( parseInt( $( a ).css( "zIndex" ), 10 ) || 0 ) -
+					( parseInt( $( b ).css( "zIndex" ), 10 ) || 0 );
+			} );
+
+		if ( !group.length ) { return; }
+
+		min = parseInt( $( group[ 0 ] ).css( "zIndex" ), 10 ) || 0;
+		$( group ).each( function( i ) {
+			$( this ).css( "zIndex", min + i );
+		} );
+		this.css( "zIndex", ( min + group.length ) );
+	}
+} );
+
+$.ui.plugin.add( "draggable", "zIndex", {
+	start: function( event, ui, instance ) {
+		var t = $( ui.helper ),
+			o = instance.options;
+
+		if ( t.css( "zIndex" ) ) {
+			o._zIndex = t.css( "zIndex" );
+		}
+		t.css( "zIndex", o.zIndex );
+	},
+	stop: function( event, ui, instance ) {
+		var o = instance.options;
+
+		if ( o._zIndex ) {
+			$( ui.helper ).css( "zIndex", o._zIndex );
+		}
+	}
+} );
+
+var widgetsDraggable = $.ui.draggable;
+
+
+
+
+}));
 //     Underscore.js 1.8.3
 //     http://underscorejs.org
 //     (c) 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
@@ -12524,235 +14857,6 @@ var _ = function (obj) {
 }());
 
 /*
- * This combined file was created by the DataTables downloader builder:
- *   https://datatables.net/download
- *
- * To rebuild or modify this file with the latest versions of the included
- * software please visit:
- *   https://datatables.net/download/#dt/dt-1.10.16/fh-3.1.3/sc-1.4.3
- *
- * Included libraries:
- *   DataTables 1.10.16, FixedHeader 3.1.3, Scroller 1.4.3
- */
-
-/*!
- DataTables 1.10.16
- ©2008-2017 SpryMedia Ltd - datatables.net/license
-*/
-(function(h){"function"===typeof define&&define.amd?define(["jquery"],function(E){return h(E,window,document)}):"object"===typeof exports?module.exports=function(E,G){E||(E=window);G||(G="undefined"!==typeof window?require("jquery"):require("jquery")(E));return h(G,E,E.document)}:h(jQuery,window,document)})(function(h,E,G,k){function X(a){var b,c,d={};h.each(a,function(e){if((b=e.match(/^([^A-Z]+?)([A-Z])/))&&-1!=="a aa ai ao as b fn i m o s ".indexOf(b[1]+" "))c=e.replace(b[0],b[2].toLowerCase()),
-d[c]=e,"o"===b[1]&&X(a[e])});a._hungarianMap=d}function I(a,b,c){a._hungarianMap||X(a);var d;h.each(b,function(e){d=a._hungarianMap[e];if(d!==k&&(c||b[d]===k))"o"===d.charAt(0)?(b[d]||(b[d]={}),h.extend(!0,b[d],b[e]),I(a[d],b[d],c)):b[d]=b[e]})}function Ca(a){var b=m.defaults.oLanguage,c=a.sZeroRecords;!a.sEmptyTable&&(c&&"No data available in table"===b.sEmptyTable)&&F(a,a,"sZeroRecords","sEmptyTable");!a.sLoadingRecords&&(c&&"Loading..."===b.sLoadingRecords)&&F(a,a,"sZeroRecords","sLoadingRecords");
-a.sInfoThousands&&(a.sThousands=a.sInfoThousands);(a=a.sDecimal)&&cb(a)}function db(a){A(a,"ordering","bSort");A(a,"orderMulti","bSortMulti");A(a,"orderClasses","bSortClasses");A(a,"orderCellsTop","bSortCellsTop");A(a,"order","aaSorting");A(a,"orderFixed","aaSortingFixed");A(a,"paging","bPaginate");A(a,"pagingType","sPaginationType");A(a,"pageLength","iDisplayLength");A(a,"searching","bFilter");"boolean"===typeof a.sScrollX&&(a.sScrollX=a.sScrollX?"100%":"");"boolean"===typeof a.scrollX&&(a.scrollX=
-a.scrollX?"100%":"");if(a=a.aoSearchCols)for(var b=0,c=a.length;b<c;b++)a[b]&&I(m.models.oSearch,a[b])}function eb(a){A(a,"orderable","bSortable");A(a,"orderData","aDataSort");A(a,"orderSequence","asSorting");A(a,"orderDataType","sortDataType");var b=a.aDataSort;"number"===typeof b&&!h.isArray(b)&&(a.aDataSort=[b])}function fb(a){if(!m.__browser){var b={};m.__browser=b;var c=h("<div/>").css({position:"fixed",top:0,left:-1*h(E).scrollLeft(),height:1,width:1,overflow:"hidden"}).append(h("<div/>").css({position:"absolute",
-top:1,left:1,width:100,overflow:"scroll"}).append(h("<div/>").css({width:"100%",height:10}))).appendTo("body"),d=c.children(),e=d.children();b.barWidth=d[0].offsetWidth-d[0].clientWidth;b.bScrollOversize=100===e[0].offsetWidth&&100!==d[0].clientWidth;b.bScrollbarLeft=1!==Math.round(e.offset().left);b.bBounding=c[0].getBoundingClientRect().width?!0:!1;c.remove()}h.extend(a.oBrowser,m.__browser);a.oScroll.iBarWidth=m.__browser.barWidth}function gb(a,b,c,d,e,f){var g,j=!1;c!==k&&(g=c,j=!0);for(;d!==
-e;)a.hasOwnProperty(d)&&(g=j?b(g,a[d],d,a):a[d],j=!0,d+=f);return g}function Da(a,b){var c=m.defaults.column,d=a.aoColumns.length,c=h.extend({},m.models.oColumn,c,{nTh:b?b:G.createElement("th"),sTitle:c.sTitle?c.sTitle:b?b.innerHTML:"",aDataSort:c.aDataSort?c.aDataSort:[d],mData:c.mData?c.mData:d,idx:d});a.aoColumns.push(c);c=a.aoPreSearchCols;c[d]=h.extend({},m.models.oSearch,c[d]);ja(a,d,h(b).data())}function ja(a,b,c){var b=a.aoColumns[b],d=a.oClasses,e=h(b.nTh);if(!b.sWidthOrig){b.sWidthOrig=
-e.attr("width")||null;var f=(e.attr("style")||"").match(/width:\s*(\d+[pxem%]+)/);f&&(b.sWidthOrig=f[1])}c!==k&&null!==c&&(eb(c),I(m.defaults.column,c),c.mDataProp!==k&&!c.mData&&(c.mData=c.mDataProp),c.sType&&(b._sManualType=c.sType),c.className&&!c.sClass&&(c.sClass=c.className),c.sClass&&e.addClass(c.sClass),h.extend(b,c),F(b,c,"sWidth","sWidthOrig"),c.iDataSort!==k&&(b.aDataSort=[c.iDataSort]),F(b,c,"aDataSort"));var g=b.mData,j=Q(g),i=b.mRender?Q(b.mRender):null,c=function(a){return"string"===
-typeof a&&-1!==a.indexOf("@")};b._bAttrSrc=h.isPlainObject(g)&&(c(g.sort)||c(g.type)||c(g.filter));b._setter=null;b.fnGetData=function(a,b,c){var d=j(a,b,k,c);return i&&b?i(d,b,a,c):d};b.fnSetData=function(a,b,c){return R(g)(a,b,c)};"number"!==typeof g&&(a._rowReadObject=!0);a.oFeatures.bSort||(b.bSortable=!1,e.addClass(d.sSortableNone));a=-1!==h.inArray("asc",b.asSorting);c=-1!==h.inArray("desc",b.asSorting);!b.bSortable||!a&&!c?(b.sSortingClass=d.sSortableNone,b.sSortingClassJUI=""):a&&!c?(b.sSortingClass=
-d.sSortableAsc,b.sSortingClassJUI=d.sSortJUIAscAllowed):!a&&c?(b.sSortingClass=d.sSortableDesc,b.sSortingClassJUI=d.sSortJUIDescAllowed):(b.sSortingClass=d.sSortable,b.sSortingClassJUI=d.sSortJUI)}function Y(a){if(!1!==a.oFeatures.bAutoWidth){var b=a.aoColumns;Ea(a);for(var c=0,d=b.length;c<d;c++)b[c].nTh.style.width=b[c].sWidth}b=a.oScroll;(""!==b.sY||""!==b.sX)&&ka(a);r(a,null,"column-sizing",[a])}function Z(a,b){var c=la(a,"bVisible");return"number"===typeof c[b]?c[b]:null}function $(a,b){var c=
-la(a,"bVisible"),c=h.inArray(b,c);return-1!==c?c:null}function aa(a){var b=0;h.each(a.aoColumns,function(a,d){d.bVisible&&"none"!==h(d.nTh).css("display")&&b++});return b}function la(a,b){var c=[];h.map(a.aoColumns,function(a,e){a[b]&&c.push(e)});return c}function Fa(a){var b=a.aoColumns,c=a.aoData,d=m.ext.type.detect,e,f,g,j,i,h,l,q,t;e=0;for(f=b.length;e<f;e++)if(l=b[e],t=[],!l.sType&&l._sManualType)l.sType=l._sManualType;else if(!l.sType){g=0;for(j=d.length;g<j;g++){i=0;for(h=c.length;i<h;i++){t[i]===
-k&&(t[i]=B(a,i,e,"type"));q=d[g](t[i],a);if(!q&&g!==d.length-1)break;if("html"===q)break}if(q){l.sType=q;break}}l.sType||(l.sType="string")}}function hb(a,b,c,d){var e,f,g,j,i,n,l=a.aoColumns;if(b)for(e=b.length-1;0<=e;e--){n=b[e];var q=n.targets!==k?n.targets:n.aTargets;h.isArray(q)||(q=[q]);f=0;for(g=q.length;f<g;f++)if("number"===typeof q[f]&&0<=q[f]){for(;l.length<=q[f];)Da(a);d(q[f],n)}else if("number"===typeof q[f]&&0>q[f])d(l.length+q[f],n);else if("string"===typeof q[f]){j=0;for(i=l.length;j<
-i;j++)("_all"==q[f]||h(l[j].nTh).hasClass(q[f]))&&d(j,n)}}if(c){e=0;for(a=c.length;e<a;e++)d(e,c[e])}}function M(a,b,c,d){var e=a.aoData.length,f=h.extend(!0,{},m.models.oRow,{src:c?"dom":"data",idx:e});f._aData=b;a.aoData.push(f);for(var g=a.aoColumns,j=0,i=g.length;j<i;j++)g[j].sType=null;a.aiDisplayMaster.push(e);b=a.rowIdFn(b);b!==k&&(a.aIds[b]=f);(c||!a.oFeatures.bDeferRender)&&Ga(a,e,c,d);return e}function ma(a,b){var c;b instanceof h||(b=h(b));return b.map(function(b,e){c=Ha(a,e);return M(a,
-c.data,e,c.cells)})}function B(a,b,c,d){var e=a.iDraw,f=a.aoColumns[c],g=a.aoData[b]._aData,j=f.sDefaultContent,i=f.fnGetData(g,d,{settings:a,row:b,col:c});if(i===k)return a.iDrawError!=e&&null===j&&(J(a,0,"Requested unknown parameter "+("function"==typeof f.mData?"{function}":"'"+f.mData+"'")+" for row "+b+", column "+c,4),a.iDrawError=e),j;if((i===g||null===i)&&null!==j&&d!==k)i=j;else if("function"===typeof i)return i.call(g);return null===i&&"display"==d?"":i}function ib(a,b,c,d){a.aoColumns[c].fnSetData(a.aoData[b]._aData,
-d,{settings:a,row:b,col:c})}function Ia(a){return h.map(a.match(/(\\.|[^\.])+/g)||[""],function(a){return a.replace(/\\\./g,".")})}function Q(a){if(h.isPlainObject(a)){var b={};h.each(a,function(a,c){c&&(b[a]=Q(c))});return function(a,c,f,g){var j=b[c]||b._;return j!==k?j(a,c,f,g):a}}if(null===a)return function(a){return a};if("function"===typeof a)return function(b,c,f,g){return a(b,c,f,g)};if("string"===typeof a&&(-1!==a.indexOf(".")||-1!==a.indexOf("[")||-1!==a.indexOf("("))){var c=function(a,
-b,f){var g,j;if(""!==f){j=Ia(f);for(var i=0,n=j.length;i<n;i++){f=j[i].match(ba);g=j[i].match(U);if(f){j[i]=j[i].replace(ba,"");""!==j[i]&&(a=a[j[i]]);g=[];j.splice(0,i+1);j=j.join(".");if(h.isArray(a)){i=0;for(n=a.length;i<n;i++)g.push(c(a[i],b,j))}a=f[0].substring(1,f[0].length-1);a=""===a?g:g.join(a);break}else if(g){j[i]=j[i].replace(U,"");a=a[j[i]]();continue}if(null===a||a[j[i]]===k)return k;a=a[j[i]]}}return a};return function(b,e){return c(b,e,a)}}return function(b){return b[a]}}function R(a){if(h.isPlainObject(a))return R(a._);
-if(null===a)return function(){};if("function"===typeof a)return function(b,d,e){a(b,"set",d,e)};if("string"===typeof a&&(-1!==a.indexOf(".")||-1!==a.indexOf("[")||-1!==a.indexOf("("))){var b=function(a,d,e){var e=Ia(e),f;f=e[e.length-1];for(var g,j,i=0,n=e.length-1;i<n;i++){g=e[i].match(ba);j=e[i].match(U);if(g){e[i]=e[i].replace(ba,"");a[e[i]]=[];f=e.slice();f.splice(0,i+1);g=f.join(".");if(h.isArray(d)){j=0;for(n=d.length;j<n;j++)f={},b(f,d[j],g),a[e[i]].push(f)}else a[e[i]]=d;return}j&&(e[i]=e[i].replace(U,
-""),a=a[e[i]](d));if(null===a[e[i]]||a[e[i]]===k)a[e[i]]={};a=a[e[i]]}if(f.match(U))a[f.replace(U,"")](d);else a[f.replace(ba,"")]=d};return function(c,d){return b(c,d,a)}}return function(b,d){b[a]=d}}function Ja(a){return D(a.aoData,"_aData")}function na(a){a.aoData.length=0;a.aiDisplayMaster.length=0;a.aiDisplay.length=0;a.aIds={}}function oa(a,b,c){for(var d=-1,e=0,f=a.length;e<f;e++)a[e]==b?d=e:a[e]>b&&a[e]--; -1!=d&&c===k&&a.splice(d,1)}function ca(a,b,c,d){var e=a.aoData[b],f,g=function(c,d){for(;c.childNodes.length;)c.removeChild(c.firstChild);
-c.innerHTML=B(a,b,d,"display")};if("dom"===c||(!c||"auto"===c)&&"dom"===e.src)e._aData=Ha(a,e,d,d===k?k:e._aData).data;else{var j=e.anCells;if(j)if(d!==k)g(j[d],d);else{c=0;for(f=j.length;c<f;c++)g(j[c],c)}}e._aSortData=null;e._aFilterData=null;g=a.aoColumns;if(d!==k)g[d].sType=null;else{c=0;for(f=g.length;c<f;c++)g[c].sType=null;Ka(a,e)}}function Ha(a,b,c,d){var e=[],f=b.firstChild,g,j,i=0,n,l=a.aoColumns,q=a._rowReadObject,d=d!==k?d:q?{}:[],t=function(a,b){if("string"===typeof a){var c=a.indexOf("@");
--1!==c&&(c=a.substring(c+1),R(a)(d,b.getAttribute(c)))}},m=function(a){if(c===k||c===i)j=l[i],n=h.trim(a.innerHTML),j&&j._bAttrSrc?(R(j.mData._)(d,n),t(j.mData.sort,a),t(j.mData.type,a),t(j.mData.filter,a)):q?(j._setter||(j._setter=R(j.mData)),j._setter(d,n)):d[i]=n;i++};if(f)for(;f;){g=f.nodeName.toUpperCase();if("TD"==g||"TH"==g)m(f),e.push(f);f=f.nextSibling}else{e=b.anCells;f=0;for(g=e.length;f<g;f++)m(e[f])}if(b=b.firstChild?b:b.nTr)(b=b.getAttribute("id"))&&R(a.rowId)(d,b);return{data:d,cells:e}}
-function Ga(a,b,c,d){var e=a.aoData[b],f=e._aData,g=[],j,i,n,l,q;if(null===e.nTr){j=c||G.createElement("tr");e.nTr=j;e.anCells=g;j._DT_RowIndex=b;Ka(a,e);l=0;for(q=a.aoColumns.length;l<q;l++){n=a.aoColumns[l];i=c?d[l]:G.createElement(n.sCellType);i._DT_CellIndex={row:b,column:l};g.push(i);if((!c||n.mRender||n.mData!==l)&&(!h.isPlainObject(n.mData)||n.mData._!==l+".display"))i.innerHTML=B(a,b,l,"display");n.sClass&&(i.className+=" "+n.sClass);n.bVisible&&!c?j.appendChild(i):!n.bVisible&&c&&i.parentNode.removeChild(i);
-n.fnCreatedCell&&n.fnCreatedCell.call(a.oInstance,i,B(a,b,l),f,b,l)}r(a,"aoRowCreatedCallback",null,[j,f,b])}e.nTr.setAttribute("role","row")}function Ka(a,b){var c=b.nTr,d=b._aData;if(c){var e=a.rowIdFn(d);e&&(c.id=e);d.DT_RowClass&&(e=d.DT_RowClass.split(" "),b.__rowc=b.__rowc?qa(b.__rowc.concat(e)):e,h(c).removeClass(b.__rowc.join(" ")).addClass(d.DT_RowClass));d.DT_RowAttr&&h(c).attr(d.DT_RowAttr);d.DT_RowData&&h(c).data(d.DT_RowData)}}function jb(a){var b,c,d,e,f,g=a.nTHead,j=a.nTFoot,i=0===
-h("th, td",g).length,n=a.oClasses,l=a.aoColumns;i&&(e=h("<tr/>").appendTo(g));b=0;for(c=l.length;b<c;b++)f=l[b],d=h(f.nTh).addClass(f.sClass),i&&d.appendTo(e),a.oFeatures.bSort&&(d.addClass(f.sSortingClass),!1!==f.bSortable&&(d.attr("tabindex",a.iTabIndex).attr("aria-controls",a.sTableId),La(a,f.nTh,b))),f.sTitle!=d[0].innerHTML&&d.html(f.sTitle),Ma(a,"header")(a,d,f,n);i&&da(a.aoHeader,g);h(g).find(">tr").attr("role","row");h(g).find(">tr>th, >tr>td").addClass(n.sHeaderTH);h(j).find(">tr>th, >tr>td").addClass(n.sFooterTH);
-if(null!==j){a=a.aoFooter[0];b=0;for(c=a.length;b<c;b++)f=l[b],f.nTf=a[b].cell,f.sClass&&h(f.nTf).addClass(f.sClass)}}function ea(a,b,c){var d,e,f,g=[],j=[],i=a.aoColumns.length,n;if(b){c===k&&(c=!1);d=0;for(e=b.length;d<e;d++){g[d]=b[d].slice();g[d].nTr=b[d].nTr;for(f=i-1;0<=f;f--)!a.aoColumns[f].bVisible&&!c&&g[d].splice(f,1);j.push([])}d=0;for(e=g.length;d<e;d++){if(a=g[d].nTr)for(;f=a.firstChild;)a.removeChild(f);f=0;for(b=g[d].length;f<b;f++)if(n=i=1,j[d][f]===k){a.appendChild(g[d][f].cell);
-for(j[d][f]=1;g[d+i]!==k&&g[d][f].cell==g[d+i][f].cell;)j[d+i][f]=1,i++;for(;g[d][f+n]!==k&&g[d][f].cell==g[d][f+n].cell;){for(c=0;c<i;c++)j[d+c][f+n]=1;n++}h(g[d][f].cell).attr("rowspan",i).attr("colspan",n)}}}}function N(a){var b=r(a,"aoPreDrawCallback","preDraw",[a]);if(-1!==h.inArray(!1,b))C(a,!1);else{var b=[],c=0,d=a.asStripeClasses,e=d.length,f=a.oLanguage,g=a.iInitDisplayStart,j="ssp"==y(a),i=a.aiDisplay;a.bDrawing=!0;g!==k&&-1!==g&&(a._iDisplayStart=j?g:g>=a.fnRecordsDisplay()?0:g,a.iInitDisplayStart=
--1);var g=a._iDisplayStart,n=a.fnDisplayEnd();if(a.bDeferLoading)a.bDeferLoading=!1,a.iDraw++,C(a,!1);else if(j){if(!a.bDestroying&&!kb(a))return}else a.iDraw++;if(0!==i.length){f=j?a.aoData.length:n;for(j=j?0:g;j<f;j++){var l=i[j],q=a.aoData[l];null===q.nTr&&Ga(a,l);l=q.nTr;if(0!==e){var t=d[c%e];q._sRowStripe!=t&&(h(l).removeClass(q._sRowStripe).addClass(t),q._sRowStripe=t)}r(a,"aoRowCallback",null,[l,q._aData,c,j]);b.push(l);c++}}else c=f.sZeroRecords,1==a.iDraw&&"ajax"==y(a)?c=f.sLoadingRecords:
-f.sEmptyTable&&0===a.fnRecordsTotal()&&(c=f.sEmptyTable),b[0]=h("<tr/>",{"class":e?d[0]:""}).append(h("<td />",{valign:"top",colSpan:aa(a),"class":a.oClasses.sRowEmpty}).html(c))[0];r(a,"aoHeaderCallback","header",[h(a.nTHead).children("tr")[0],Ja(a),g,n,i]);r(a,"aoFooterCallback","footer",[h(a.nTFoot).children("tr")[0],Ja(a),g,n,i]);d=h(a.nTBody);d.children().detach();d.append(h(b));r(a,"aoDrawCallback","draw",[a]);a.bSorted=!1;a.bFiltered=!1;a.bDrawing=!1}}function S(a,b){var c=a.oFeatures,d=c.bFilter;
-c.bSort&&lb(a);d?fa(a,a.oPreviousSearch):a.aiDisplay=a.aiDisplayMaster.slice();!0!==b&&(a._iDisplayStart=0);a._drawHold=b;N(a);a._drawHold=!1}function mb(a){var b=a.oClasses,c=h(a.nTable),c=h("<div/>").insertBefore(c),d=a.oFeatures,e=h("<div/>",{id:a.sTableId+"_wrapper","class":b.sWrapper+(a.nTFoot?"":" "+b.sNoFooter)});a.nHolding=c[0];a.nTableWrapper=e[0];a.nTableReinsertBefore=a.nTable.nextSibling;for(var f=a.sDom.split(""),g,j,i,n,l,q,k=0;k<f.length;k++){g=null;j=f[k];if("<"==j){i=h("<div/>")[0];
-n=f[k+1];if("'"==n||'"'==n){l="";for(q=2;f[k+q]!=n;)l+=f[k+q],q++;"H"==l?l=b.sJUIHeader:"F"==l&&(l=b.sJUIFooter);-1!=l.indexOf(".")?(n=l.split("."),i.id=n[0].substr(1,n[0].length-1),i.className=n[1]):"#"==l.charAt(0)?i.id=l.substr(1,l.length-1):i.className=l;k+=q}e.append(i);e=h(i)}else if(">"==j)e=e.parent();else if("l"==j&&d.bPaginate&&d.bLengthChange)g=nb(a);else if("f"==j&&d.bFilter)g=ob(a);else if("r"==j&&d.bProcessing)g=pb(a);else if("t"==j)g=qb(a);else if("i"==j&&d.bInfo)g=rb(a);else if("p"==
-j&&d.bPaginate)g=sb(a);else if(0!==m.ext.feature.length){i=m.ext.feature;q=0;for(n=i.length;q<n;q++)if(j==i[q].cFeature){g=i[q].fnInit(a);break}}g&&(i=a.aanFeatures,i[j]||(i[j]=[]),i[j].push(g),e.append(g))}c.replaceWith(e);a.nHolding=null}function da(a,b){var c=h(b).children("tr"),d,e,f,g,j,i,n,l,q,k;a.splice(0,a.length);f=0;for(i=c.length;f<i;f++)a.push([]);f=0;for(i=c.length;f<i;f++){d=c[f];for(e=d.firstChild;e;){if("TD"==e.nodeName.toUpperCase()||"TH"==e.nodeName.toUpperCase()){l=1*e.getAttribute("colspan");
-q=1*e.getAttribute("rowspan");l=!l||0===l||1===l?1:l;q=!q||0===q||1===q?1:q;g=0;for(j=a[f];j[g];)g++;n=g;k=1===l?!0:!1;for(j=0;j<l;j++)for(g=0;g<q;g++)a[f+g][n+j]={cell:e,unique:k},a[f+g].nTr=d}e=e.nextSibling}}}function ra(a,b,c){var d=[];c||(c=a.aoHeader,b&&(c=[],da(c,b)));for(var b=0,e=c.length;b<e;b++)for(var f=0,g=c[b].length;f<g;f++)if(c[b][f].unique&&(!d[f]||!a.bSortCellsTop))d[f]=c[b][f].cell;return d}function sa(a,b,c){r(a,"aoServerParams","serverParams",[b]);if(b&&h.isArray(b)){var d={},
-e=/(.*?)\[\]$/;h.each(b,function(a,b){var c=b.name.match(e);c?(c=c[0],d[c]||(d[c]=[]),d[c].push(b.value)):d[b.name]=b.value});b=d}var f,g=a.ajax,j=a.oInstance,i=function(b){r(a,null,"xhr",[a,b,a.jqXHR]);c(b)};if(h.isPlainObject(g)&&g.data){f=g.data;var n=h.isFunction(f)?f(b,a):f,b=h.isFunction(f)&&n?n:h.extend(!0,b,n);delete g.data}n={data:b,success:function(b){var c=b.error||b.sError;c&&J(a,0,c);a.json=b;i(b)},dataType:"json",cache:!1,type:a.sServerMethod,error:function(b,c){var d=r(a,null,"xhr",
-[a,null,a.jqXHR]);-1===h.inArray(!0,d)&&("parsererror"==c?J(a,0,"Invalid JSON response",1):4===b.readyState&&J(a,0,"Ajax error",7));C(a,!1)}};a.oAjaxData=b;r(a,null,"preXhr",[a,b]);a.fnServerData?a.fnServerData.call(j,a.sAjaxSource,h.map(b,function(a,b){return{name:b,value:a}}),i,a):a.sAjaxSource||"string"===typeof g?a.jqXHR=h.ajax(h.extend(n,{url:g||a.sAjaxSource})):h.isFunction(g)?a.jqXHR=g.call(j,b,i,a):(a.jqXHR=h.ajax(h.extend(n,g)),g.data=f)}function kb(a){return a.bAjaxDataGet?(a.iDraw++,C(a,
-!0),sa(a,tb(a),function(b){ub(a,b)}),!1):!0}function tb(a){var b=a.aoColumns,c=b.length,d=a.oFeatures,e=a.oPreviousSearch,f=a.aoPreSearchCols,g,j=[],i,n,l,k=V(a);g=a._iDisplayStart;i=!1!==d.bPaginate?a._iDisplayLength:-1;var t=function(a,b){j.push({name:a,value:b})};t("sEcho",a.iDraw);t("iColumns",c);t("sColumns",D(b,"sName").join(","));t("iDisplayStart",g);t("iDisplayLength",i);var pa={draw:a.iDraw,columns:[],order:[],start:g,length:i,search:{value:e.sSearch,regex:e.bRegex}};for(g=0;g<c;g++)n=b[g],
-l=f[g],i="function"==typeof n.mData?"function":n.mData,pa.columns.push({data:i,name:n.sName,searchable:n.bSearchable,orderable:n.bSortable,search:{value:l.sSearch,regex:l.bRegex}}),t("mDataProp_"+g,i),d.bFilter&&(t("sSearch_"+g,l.sSearch),t("bRegex_"+g,l.bRegex),t("bSearchable_"+g,n.bSearchable)),d.bSort&&t("bSortable_"+g,n.bSortable);d.bFilter&&(t("sSearch",e.sSearch),t("bRegex",e.bRegex));d.bSort&&(h.each(k,function(a,b){pa.order.push({column:b.col,dir:b.dir});t("iSortCol_"+a,b.col);t("sSortDir_"+
-a,b.dir)}),t("iSortingCols",k.length));b=m.ext.legacy.ajax;return null===b?a.sAjaxSource?j:pa:b?j:pa}function ub(a,b){var c=ta(a,b),d=b.sEcho!==k?b.sEcho:b.draw,e=b.iTotalRecords!==k?b.iTotalRecords:b.recordsTotal,f=b.iTotalDisplayRecords!==k?b.iTotalDisplayRecords:b.recordsFiltered;if(d){if(1*d<a.iDraw)return;a.iDraw=1*d}na(a);a._iRecordsTotal=parseInt(e,10);a._iRecordsDisplay=parseInt(f,10);d=0;for(e=c.length;d<e;d++)M(a,c[d]);a.aiDisplay=a.aiDisplayMaster.slice();a.bAjaxDataGet=!1;N(a);a._bInitComplete||
-ua(a,b);a.bAjaxDataGet=!0;C(a,!1)}function ta(a,b){var c=h.isPlainObject(a.ajax)&&a.ajax.dataSrc!==k?a.ajax.dataSrc:a.sAjaxDataProp;return"data"===c?b.aaData||b[c]:""!==c?Q(c)(b):b}function ob(a){var b=a.oClasses,c=a.sTableId,d=a.oLanguage,e=a.oPreviousSearch,f=a.aanFeatures,g='<input type="search" class="'+b.sFilterInput+'"/>',j=d.sSearch,j=j.match(/_INPUT_/)?j.replace("_INPUT_",g):j+g,b=h("<div/>",{id:!f.f?c+"_filter":null,"class":b.sFilter}).append(h("<label/>").append(j)),f=function(){var b=!this.value?
-"":this.value;b!=e.sSearch&&(fa(a,{sSearch:b,bRegex:e.bRegex,bSmart:e.bSmart,bCaseInsensitive:e.bCaseInsensitive}),a._iDisplayStart=0,N(a))},g=null!==a.searchDelay?a.searchDelay:"ssp"===y(a)?400:0,i=h("input",b).val(e.sSearch).attr("placeholder",d.sSearchPlaceholder).on("keyup.DT search.DT input.DT paste.DT cut.DT",g?Na(f,g):f).on("keypress.DT",function(a){if(13==a.keyCode)return!1}).attr("aria-controls",c);h(a.nTable).on("search.dt.DT",function(b,c){if(a===c)try{i[0]!==G.activeElement&&i.val(e.sSearch)}catch(d){}});
-return b[0]}function fa(a,b,c){var d=a.oPreviousSearch,e=a.aoPreSearchCols,f=function(a){d.sSearch=a.sSearch;d.bRegex=a.bRegex;d.bSmart=a.bSmart;d.bCaseInsensitive=a.bCaseInsensitive};Fa(a);if("ssp"!=y(a)){vb(a,b.sSearch,c,b.bEscapeRegex!==k?!b.bEscapeRegex:b.bRegex,b.bSmart,b.bCaseInsensitive);f(b);for(b=0;b<e.length;b++)wb(a,e[b].sSearch,b,e[b].bEscapeRegex!==k?!e[b].bEscapeRegex:e[b].bRegex,e[b].bSmart,e[b].bCaseInsensitive);xb(a)}else f(b);a.bFiltered=!0;r(a,null,"search",[a])}function xb(a){for(var b=
-m.ext.search,c=a.aiDisplay,d,e,f=0,g=b.length;f<g;f++){for(var j=[],i=0,n=c.length;i<n;i++)e=c[i],d=a.aoData[e],b[f](a,d._aFilterData,e,d._aData,i)&&j.push(e);c.length=0;h.merge(c,j)}}function wb(a,b,c,d,e,f){if(""!==b){for(var g=[],j=a.aiDisplay,d=Oa(b,d,e,f),e=0;e<j.length;e++)b=a.aoData[j[e]]._aFilterData[c],d.test(b)&&g.push(j[e]);a.aiDisplay=g}}function vb(a,b,c,d,e,f){var d=Oa(b,d,e,f),f=a.oPreviousSearch.sSearch,g=a.aiDisplayMaster,j,e=[];0!==m.ext.search.length&&(c=!0);j=yb(a);if(0>=b.length)a.aiDisplay=
-g.slice();else{if(j||c||f.length>b.length||0!==b.indexOf(f)||a.bSorted)a.aiDisplay=g.slice();b=a.aiDisplay;for(c=0;c<b.length;c++)d.test(a.aoData[b[c]]._sFilterRow)&&e.push(b[c]);a.aiDisplay=e}}function Oa(a,b,c,d){a=b?a:Pa(a);c&&(a="^(?=.*?"+h.map(a.match(/"[^"]+"|[^ ]+/g)||[""],function(a){if('"'===a.charAt(0))var b=a.match(/^"(.*)"$/),a=b?b[1]:a;return a.replace('"',"")}).join(")(?=.*?")+").*$");return RegExp(a,d?"i":"")}function yb(a){var b=a.aoColumns,c,d,e,f,g,j,i,h,l=m.ext.type.search;c=!1;
-d=0;for(f=a.aoData.length;d<f;d++)if(h=a.aoData[d],!h._aFilterData){j=[];e=0;for(g=b.length;e<g;e++)c=b[e],c.bSearchable?(i=B(a,d,e,"filter"),l[c.sType]&&(i=l[c.sType](i)),null===i&&(i=""),"string"!==typeof i&&i.toString&&(i=i.toString())):i="",i.indexOf&&-1!==i.indexOf("&")&&(va.innerHTML=i,i=Wb?va.textContent:va.innerText),i.replace&&(i=i.replace(/[\r\n]/g,"")),j.push(i);h._aFilterData=j;h._sFilterRow=j.join("  ");c=!0}return c}function zb(a){return{search:a.sSearch,smart:a.bSmart,regex:a.bRegex,
-caseInsensitive:a.bCaseInsensitive}}function Ab(a){return{sSearch:a.search,bSmart:a.smart,bRegex:a.regex,bCaseInsensitive:a.caseInsensitive}}function rb(a){var b=a.sTableId,c=a.aanFeatures.i,d=h("<div/>",{"class":a.oClasses.sInfo,id:!c?b+"_info":null});c||(a.aoDrawCallback.push({fn:Bb,sName:"information"}),d.attr("role","status").attr("aria-live","polite"),h(a.nTable).attr("aria-describedby",b+"_info"));return d[0]}function Bb(a){var b=a.aanFeatures.i;if(0!==b.length){var c=a.oLanguage,d=a._iDisplayStart+
-1,e=a.fnDisplayEnd(),f=a.fnRecordsTotal(),g=a.fnRecordsDisplay(),j=g?c.sInfo:c.sInfoEmpty;g!==f&&(j+=" "+c.sInfoFiltered);j+=c.sInfoPostFix;j=Cb(a,j);c=c.fnInfoCallback;null!==c&&(j=c.call(a.oInstance,a,d,e,f,g,j));h(b).html(j)}}function Cb(a,b){var c=a.fnFormatNumber,d=a._iDisplayStart+1,e=a._iDisplayLength,f=a.fnRecordsDisplay(),g=-1===e;return b.replace(/_START_/g,c.call(a,d)).replace(/_END_/g,c.call(a,a.fnDisplayEnd())).replace(/_MAX_/g,c.call(a,a.fnRecordsTotal())).replace(/_TOTAL_/g,c.call(a,
-f)).replace(/_PAGE_/g,c.call(a,g?1:Math.ceil(d/e))).replace(/_PAGES_/g,c.call(a,g?1:Math.ceil(f/e)))}function ga(a){var b,c,d=a.iInitDisplayStart,e=a.aoColumns,f;c=a.oFeatures;var g=a.bDeferLoading;if(a.bInitialised){mb(a);jb(a);ea(a,a.aoHeader);ea(a,a.aoFooter);C(a,!0);c.bAutoWidth&&Ea(a);b=0;for(c=e.length;b<c;b++)f=e[b],f.sWidth&&(f.nTh.style.width=v(f.sWidth));r(a,null,"preInit",[a]);S(a);e=y(a);if("ssp"!=e||g)"ajax"==e?sa(a,[],function(c){var f=ta(a,c);for(b=0;b<f.length;b++)M(a,f[b]);a.iInitDisplayStart=
-d;S(a);C(a,!1);ua(a,c)},a):(C(a,!1),ua(a))}else setTimeout(function(){ga(a)},200)}function ua(a,b){a._bInitComplete=!0;(b||a.oInit.aaData)&&Y(a);r(a,null,"plugin-init",[a,b]);r(a,"aoInitComplete","init",[a,b])}function Qa(a,b){var c=parseInt(b,10);a._iDisplayLength=c;Ra(a);r(a,null,"length",[a,c])}function nb(a){for(var b=a.oClasses,c=a.sTableId,d=a.aLengthMenu,e=h.isArray(d[0]),f=e?d[0]:d,d=e?d[1]:d,e=h("<select/>",{name:c+"_length","aria-controls":c,"class":b.sLengthSelect}),g=0,j=f.length;g<j;g++)e[0][g]=
-new Option("number"===typeof d[g]?a.fnFormatNumber(d[g]):d[g],f[g]);var i=h("<div><label/></div>").addClass(b.sLength);a.aanFeatures.l||(i[0].id=c+"_length");i.children().append(a.oLanguage.sLengthMenu.replace("_MENU_",e[0].outerHTML));h("select",i).val(a._iDisplayLength).on("change.DT",function(){Qa(a,h(this).val());N(a)});h(a.nTable).on("length.dt.DT",function(b,c,d){a===c&&h("select",i).val(d)});return i[0]}function sb(a){var b=a.sPaginationType,c=m.ext.pager[b],d="function"===typeof c,e=function(a){N(a)},
-b=h("<div/>").addClass(a.oClasses.sPaging+b)[0],f=a.aanFeatures;d||c.fnInit(a,b,e);f.p||(b.id=a.sTableId+"_paginate",a.aoDrawCallback.push({fn:function(a){if(d){var b=a._iDisplayStart,i=a._iDisplayLength,h=a.fnRecordsDisplay(),l=-1===i,b=l?0:Math.ceil(b/i),i=l?1:Math.ceil(h/i),h=c(b,i),k,l=0;for(k=f.p.length;l<k;l++)Ma(a,"pageButton")(a,f.p[l],l,h,b,i)}else c.fnUpdate(a,e)},sName:"pagination"}));return b}function Sa(a,b,c){var d=a._iDisplayStart,e=a._iDisplayLength,f=a.fnRecordsDisplay();0===f||-1===
-e?d=0:"number"===typeof b?(d=b*e,d>f&&(d=0)):"first"==b?d=0:"previous"==b?(d=0<=e?d-e:0,0>d&&(d=0)):"next"==b?d+e<f&&(d+=e):"last"==b?d=Math.floor((f-1)/e)*e:J(a,0,"Unknown paging action: "+b,5);b=a._iDisplayStart!==d;a._iDisplayStart=d;b&&(r(a,null,"page",[a]),c&&N(a));return b}function pb(a){return h("<div/>",{id:!a.aanFeatures.r?a.sTableId+"_processing":null,"class":a.oClasses.sProcessing}).html(a.oLanguage.sProcessing).insertBefore(a.nTable)[0]}function C(a,b){a.oFeatures.bProcessing&&h(a.aanFeatures.r).css("display",
-b?"block":"none");r(a,null,"processing",[a,b])}function qb(a){var b=h(a.nTable);b.attr("role","grid");var c=a.oScroll;if(""===c.sX&&""===c.sY)return a.nTable;var d=c.sX,e=c.sY,f=a.oClasses,g=b.children("caption"),j=g.length?g[0]._captionSide:null,i=h(b[0].cloneNode(!1)),n=h(b[0].cloneNode(!1)),l=b.children("tfoot");l.length||(l=null);i=h("<div/>",{"class":f.sScrollWrapper}).append(h("<div/>",{"class":f.sScrollHead}).css({overflow:"hidden",position:"relative",border:0,width:d?!d?null:v(d):"100%"}).append(h("<div/>",
-{"class":f.sScrollHeadInner}).css({"box-sizing":"content-box",width:c.sXInner||"100%"}).append(i.removeAttr("id").css("margin-left",0).append("top"===j?g:null).append(b.children("thead"))))).append(h("<div/>",{"class":f.sScrollBody}).css({position:"relative",overflow:"auto",width:!d?null:v(d)}).append(b));l&&i.append(h("<div/>",{"class":f.sScrollFoot}).css({overflow:"hidden",border:0,width:d?!d?null:v(d):"100%"}).append(h("<div/>",{"class":f.sScrollFootInner}).append(n.removeAttr("id").css("margin-left",
-0).append("bottom"===j?g:null).append(b.children("tfoot")))));var b=i.children(),k=b[0],f=b[1],t=l?b[2]:null;if(d)h(f).on("scroll.DT",function(){var a=this.scrollLeft;k.scrollLeft=a;l&&(t.scrollLeft=a)});h(f).css(e&&c.bCollapse?"max-height":"height",e);a.nScrollHead=k;a.nScrollBody=f;a.nScrollFoot=t;a.aoDrawCallback.push({fn:ka,sName:"scrolling"});return i[0]}function ka(a){var b=a.oScroll,c=b.sX,d=b.sXInner,e=b.sY,b=b.iBarWidth,f=h(a.nScrollHead),g=f[0].style,j=f.children("div"),i=j[0].style,n=j.children("table"),
-j=a.nScrollBody,l=h(j),q=j.style,t=h(a.nScrollFoot).children("div"),m=t.children("table"),o=h(a.nTHead),p=h(a.nTable),s=p[0],r=s.style,u=a.nTFoot?h(a.nTFoot):null,x=a.oBrowser,T=x.bScrollOversize,Xb=D(a.aoColumns,"nTh"),O,K,P,w,Ta=[],y=[],z=[],A=[],B,C=function(a){a=a.style;a.paddingTop="0";a.paddingBottom="0";a.borderTopWidth="0";a.borderBottomWidth="0";a.height=0};K=j.scrollHeight>j.clientHeight;if(a.scrollBarVis!==K&&a.scrollBarVis!==k)a.scrollBarVis=K,Y(a);else{a.scrollBarVis=K;p.children("thead, tfoot").remove();
-u&&(P=u.clone().prependTo(p),O=u.find("tr"),P=P.find("tr"));w=o.clone().prependTo(p);o=o.find("tr");K=w.find("tr");w.find("th, td").removeAttr("tabindex");c||(q.width="100%",f[0].style.width="100%");h.each(ra(a,w),function(b,c){B=Z(a,b);c.style.width=a.aoColumns[B].sWidth});u&&H(function(a){a.style.width=""},P);f=p.outerWidth();if(""===c){r.width="100%";if(T&&(p.find("tbody").height()>j.offsetHeight||"scroll"==l.css("overflow-y")))r.width=v(p.outerWidth()-b);f=p.outerWidth()}else""!==d&&(r.width=
-v(d),f=p.outerWidth());H(C,K);H(function(a){z.push(a.innerHTML);Ta.push(v(h(a).css("width")))},K);H(function(a,b){if(h.inArray(a,Xb)!==-1)a.style.width=Ta[b]},o);h(K).height(0);u&&(H(C,P),H(function(a){A.push(a.innerHTML);y.push(v(h(a).css("width")))},P),H(function(a,b){a.style.width=y[b]},O),h(P).height(0));H(function(a,b){a.innerHTML='<div class="dataTables_sizing" style="height:0;overflow:hidden;">'+z[b]+"</div>";a.style.width=Ta[b]},K);u&&H(function(a,b){a.innerHTML='<div class="dataTables_sizing" style="height:0;overflow:hidden;">'+
-A[b]+"</div>";a.style.width=y[b]},P);if(p.outerWidth()<f){O=j.scrollHeight>j.offsetHeight||"scroll"==l.css("overflow-y")?f+b:f;if(T&&(j.scrollHeight>j.offsetHeight||"scroll"==l.css("overflow-y")))r.width=v(O-b);(""===c||""!==d)&&J(a,1,"Possible column misalignment",6)}else O="100%";q.width=v(O);g.width=v(O);u&&(a.nScrollFoot.style.width=v(O));!e&&T&&(q.height=v(s.offsetHeight+b));c=p.outerWidth();n[0].style.width=v(c);i.width=v(c);d=p.height()>j.clientHeight||"scroll"==l.css("overflow-y");e="padding"+
-(x.bScrollbarLeft?"Left":"Right");i[e]=d?b+"px":"0px";u&&(m[0].style.width=v(c),t[0].style.width=v(c),t[0].style[e]=d?b+"px":"0px");p.children("colgroup").insertBefore(p.children("thead"));l.scroll();if((a.bSorted||a.bFiltered)&&!a._drawHold)j.scrollTop=0}}function H(a,b,c){for(var d=0,e=0,f=b.length,g,j;e<f;){g=b[e].firstChild;for(j=c?c[e].firstChild:null;g;)1===g.nodeType&&(c?a(g,j,d):a(g,d),d++),g=g.nextSibling,j=c?j.nextSibling:null;e++}}function Ea(a){var b=a.nTable,c=a.aoColumns,d=a.oScroll,
-e=d.sY,f=d.sX,g=d.sXInner,j=c.length,i=la(a,"bVisible"),n=h("th",a.nTHead),l=b.getAttribute("width"),k=b.parentNode,t=!1,m,o,p=a.oBrowser,d=p.bScrollOversize;(m=b.style.width)&&-1!==m.indexOf("%")&&(l=m);for(m=0;m<i.length;m++)o=c[i[m]],null!==o.sWidth&&(o.sWidth=Db(o.sWidthOrig,k),t=!0);if(d||!t&&!f&&!e&&j==aa(a)&&j==n.length)for(m=0;m<j;m++)i=Z(a,m),null!==i&&(c[i].sWidth=v(n.eq(m).width()));else{j=h(b).clone().css("visibility","hidden").removeAttr("id");j.find("tbody tr").remove();var s=h("<tr/>").appendTo(j.find("tbody"));
-j.find("thead, tfoot").remove();j.append(h(a.nTHead).clone()).append(h(a.nTFoot).clone());j.find("tfoot th, tfoot td").css("width","");n=ra(a,j.find("thead")[0]);for(m=0;m<i.length;m++)o=c[i[m]],n[m].style.width=null!==o.sWidthOrig&&""!==o.sWidthOrig?v(o.sWidthOrig):"",o.sWidthOrig&&f&&h(n[m]).append(h("<div/>").css({width:o.sWidthOrig,margin:0,padding:0,border:0,height:1}));if(a.aoData.length)for(m=0;m<i.length;m++)t=i[m],o=c[t],h(Eb(a,t)).clone(!1).append(o.sContentPadding).appendTo(s);h("[name]",
-j).removeAttr("name");o=h("<div/>").css(f||e?{position:"absolute",top:0,left:0,height:1,right:0,overflow:"hidden"}:{}).append(j).appendTo(k);f&&g?j.width(g):f?(j.css("width","auto"),j.removeAttr("width"),j.width()<k.clientWidth&&l&&j.width(k.clientWidth)):e?j.width(k.clientWidth):l&&j.width(l);for(m=e=0;m<i.length;m++)k=h(n[m]),g=k.outerWidth()-k.width(),k=p.bBounding?Math.ceil(n[m].getBoundingClientRect().width):k.outerWidth(),e+=k,c[i[m]].sWidth=v(k-g);b.style.width=v(e);o.remove()}l&&(b.style.width=
-v(l));if((l||f)&&!a._reszEvt)b=function(){h(E).on("resize.DT-"+a.sInstance,Na(function(){Y(a)}))},d?setTimeout(b,1E3):b(),a._reszEvt=!0}function Db(a,b){if(!a)return 0;var c=h("<div/>").css("width",v(a)).appendTo(b||G.body),d=c[0].offsetWidth;c.remove();return d}function Eb(a,b){var c=Fb(a,b);if(0>c)return null;var d=a.aoData[c];return!d.nTr?h("<td/>").html(B(a,c,b,"display"))[0]:d.anCells[b]}function Fb(a,b){for(var c,d=-1,e=-1,f=0,g=a.aoData.length;f<g;f++)c=B(a,f,b,"display")+"",c=c.replace(Yb,
-""),c=c.replace(/&nbsp;/g," "),c.length>d&&(d=c.length,e=f);return e}function v(a){return null===a?"0px":"number"==typeof a?0>a?"0px":a+"px":a.match(/\d$/)?a+"px":a}function V(a){var b,c,d=[],e=a.aoColumns,f,g,j,i;b=a.aaSortingFixed;c=h.isPlainObject(b);var n=[];f=function(a){a.length&&!h.isArray(a[0])?n.push(a):h.merge(n,a)};h.isArray(b)&&f(b);c&&b.pre&&f(b.pre);f(a.aaSorting);c&&b.post&&f(b.post);for(a=0;a<n.length;a++){i=n[a][0];f=e[i].aDataSort;b=0;for(c=f.length;b<c;b++)g=f[b],j=e[g].sType||
-"string",n[a]._idx===k&&(n[a]._idx=h.inArray(n[a][1],e[g].asSorting)),d.push({src:i,col:g,dir:n[a][1],index:n[a]._idx,type:j,formatter:m.ext.type.order[j+"-pre"]})}return d}function lb(a){var b,c,d=[],e=m.ext.type.order,f=a.aoData,g=0,j,i=a.aiDisplayMaster,h;Fa(a);h=V(a);b=0;for(c=h.length;b<c;b++)j=h[b],j.formatter&&g++,Gb(a,j.col);if("ssp"!=y(a)&&0!==h.length){b=0;for(c=i.length;b<c;b++)d[i[b]]=b;g===h.length?i.sort(function(a,b){var c,e,g,j,i=h.length,k=f[a]._aSortData,m=f[b]._aSortData;for(g=
-0;g<i;g++)if(j=h[g],c=k[j.col],e=m[j.col],c=c<e?-1:c>e?1:0,0!==c)return"asc"===j.dir?c:-c;c=d[a];e=d[b];return c<e?-1:c>e?1:0}):i.sort(function(a,b){var c,g,j,i,k=h.length,m=f[a]._aSortData,o=f[b]._aSortData;for(j=0;j<k;j++)if(i=h[j],c=m[i.col],g=o[i.col],i=e[i.type+"-"+i.dir]||e["string-"+i.dir],c=i(c,g),0!==c)return c;c=d[a];g=d[b];return c<g?-1:c>g?1:0})}a.bSorted=!0}function Hb(a){for(var b,c,d=a.aoColumns,e=V(a),a=a.oLanguage.oAria,f=0,g=d.length;f<g;f++){c=d[f];var j=c.asSorting;b=c.sTitle.replace(/<.*?>/g,
-"");var i=c.nTh;i.removeAttribute("aria-sort");c.bSortable&&(0<e.length&&e[0].col==f?(i.setAttribute("aria-sort","asc"==e[0].dir?"ascending":"descending"),c=j[e[0].index+1]||j[0]):c=j[0],b+="asc"===c?a.sSortAscending:a.sSortDescending);i.setAttribute("aria-label",b)}}function Ua(a,b,c,d){var e=a.aaSorting,f=a.aoColumns[b].asSorting,g=function(a,b){var c=a._idx;c===k&&(c=h.inArray(a[1],f));return c+1<f.length?c+1:b?null:0};"number"===typeof e[0]&&(e=a.aaSorting=[e]);c&&a.oFeatures.bSortMulti?(c=h.inArray(b,
-D(e,"0")),-1!==c?(b=g(e[c],!0),null===b&&1===e.length&&(b=0),null===b?e.splice(c,1):(e[c][1]=f[b],e[c]._idx=b)):(e.push([b,f[0],0]),e[e.length-1]._idx=0)):e.length&&e[0][0]==b?(b=g(e[0]),e.length=1,e[0][1]=f[b],e[0]._idx=b):(e.length=0,e.push([b,f[0]]),e[0]._idx=0);S(a);"function"==typeof d&&d(a)}function La(a,b,c,d){var e=a.aoColumns[c];Va(b,{},function(b){!1!==e.bSortable&&(a.oFeatures.bProcessing?(C(a,!0),setTimeout(function(){Ua(a,c,b.shiftKey,d);"ssp"!==y(a)&&C(a,!1)},0)):Ua(a,c,b.shiftKey,d))})}
-function wa(a){var b=a.aLastSort,c=a.oClasses.sSortColumn,d=V(a),e=a.oFeatures,f,g;if(e.bSort&&e.bSortClasses){e=0;for(f=b.length;e<f;e++)g=b[e].src,h(D(a.aoData,"anCells",g)).removeClass(c+(2>e?e+1:3));e=0;for(f=d.length;e<f;e++)g=d[e].src,h(D(a.aoData,"anCells",g)).addClass(c+(2>e?e+1:3))}a.aLastSort=d}function Gb(a,b){var c=a.aoColumns[b],d=m.ext.order[c.sSortDataType],e;d&&(e=d.call(a.oInstance,a,b,$(a,b)));for(var f,g=m.ext.type.order[c.sType+"-pre"],j=0,i=a.aoData.length;j<i;j++)if(c=a.aoData[j],
-c._aSortData||(c._aSortData=[]),!c._aSortData[b]||d)f=d?e[j]:B(a,j,b,"sort"),c._aSortData[b]=g?g(f):f}function xa(a){if(a.oFeatures.bStateSave&&!a.bDestroying){var b={time:+new Date,start:a._iDisplayStart,length:a._iDisplayLength,order:h.extend(!0,[],a.aaSorting),search:zb(a.oPreviousSearch),columns:h.map(a.aoColumns,function(b,d){return{visible:b.bVisible,search:zb(a.aoPreSearchCols[d])}})};r(a,"aoStateSaveParams","stateSaveParams",[a,b]);a.oSavedState=b;a.fnStateSaveCallback.call(a.oInstance,a,
-b)}}function Ib(a,b,c){var d,e,f=a.aoColumns,b=function(b){if(b&&b.time){var g=r(a,"aoStateLoadParams","stateLoadParams",[a,b]);if(-1===h.inArray(!1,g)&&(g=a.iStateDuration,!(0<g&&b.time<+new Date-1E3*g)&&!(b.columns&&f.length!==b.columns.length))){a.oLoadedState=h.extend(!0,{},b);b.start!==k&&(a._iDisplayStart=b.start,a.iInitDisplayStart=b.start);b.length!==k&&(a._iDisplayLength=b.length);b.order!==k&&(a.aaSorting=[],h.each(b.order,function(b,c){a.aaSorting.push(c[0]>=f.length?[0,c[1]]:c)}));b.search!==
-k&&h.extend(a.oPreviousSearch,Ab(b.search));if(b.columns){d=0;for(e=b.columns.length;d<e;d++)g=b.columns[d],g.visible!==k&&(f[d].bVisible=g.visible),g.search!==k&&h.extend(a.aoPreSearchCols[d],Ab(g.search))}r(a,"aoStateLoaded","stateLoaded",[a,b])}}c()};if(a.oFeatures.bStateSave){var g=a.fnStateLoadCallback.call(a.oInstance,a,b);g!==k&&b(g)}else c()}function ya(a){var b=m.settings,a=h.inArray(a,D(b,"nTable"));return-1!==a?b[a]:null}function J(a,b,c,d){c="DataTables warning: "+(a?"table id="+a.sTableId+
-" - ":"")+c;d&&(c+=". For more information about this error, please see http://datatables.net/tn/"+d);if(b)E.console&&console.log&&console.log(c);else if(b=m.ext,b=b.sErrMode||b.errMode,a&&r(a,null,"error",[a,d,c]),"alert"==b)alert(c);else{if("throw"==b)throw Error(c);"function"==typeof b&&b(a,d,c)}}function F(a,b,c,d){h.isArray(c)?h.each(c,function(c,d){h.isArray(d)?F(a,b,d[0],d[1]):F(a,b,d)}):(d===k&&(d=c),b[c]!==k&&(a[d]=b[c]))}function Jb(a,b,c){var d,e;for(e in b)b.hasOwnProperty(e)&&(d=b[e],
-h.isPlainObject(d)?(h.isPlainObject(a[e])||(a[e]={}),h.extend(!0,a[e],d)):a[e]=c&&"data"!==e&&"aaData"!==e&&h.isArray(d)?d.slice():d);return a}function Va(a,b,c){h(a).on("click.DT",b,function(b){a.blur();c(b)}).on("keypress.DT",b,function(a){13===a.which&&(a.preventDefault(),c(a))}).on("selectstart.DT",function(){return!1})}function z(a,b,c,d){c&&a[b].push({fn:c,sName:d})}function r(a,b,c,d){var e=[];b&&(e=h.map(a[b].slice().reverse(),function(b){return b.fn.apply(a.oInstance,d)}));null!==c&&(b=h.Event(c+
-".dt"),h(a.nTable).trigger(b,d),e.push(b.result));return e}function Ra(a){var b=a._iDisplayStart,c=a.fnDisplayEnd(),d=a._iDisplayLength;b>=c&&(b=c-d);b-=b%d;if(-1===d||0>b)b=0;a._iDisplayStart=b}function Ma(a,b){var c=a.renderer,d=m.ext.renderer[b];return h.isPlainObject(c)&&c[b]?d[c[b]]||d._:"string"===typeof c?d[c]||d._:d._}function y(a){return a.oFeatures.bServerSide?"ssp":a.ajax||a.sAjaxSource?"ajax":"dom"}function ha(a,b){var c=[],c=Kb.numbers_length,d=Math.floor(c/2);b<=c?c=W(0,b):a<=d?(c=W(0,
-c-2),c.push("ellipsis"),c.push(b-1)):(a>=b-1-d?c=W(b-(c-2),b):(c=W(a-d+2,a+d-1),c.push("ellipsis"),c.push(b-1)),c.splice(0,0,"ellipsis"),c.splice(0,0,0));c.DT_el="span";return c}function cb(a){h.each({num:function(b){return za(b,a)},"num-fmt":function(b){return za(b,a,Wa)},"html-num":function(b){return za(b,a,Aa)},"html-num-fmt":function(b){return za(b,a,Aa,Wa)}},function(b,c){x.type.order[b+a+"-pre"]=c;b.match(/^html\-/)&&(x.type.search[b+a]=x.type.search.html)})}function Lb(a){return function(){var b=
-[ya(this[m.ext.iApiIndex])].concat(Array.prototype.slice.call(arguments));return m.ext.internal[a].apply(this,b)}}var m=function(a){this.$=function(a,b){return this.api(!0).$(a,b)};this._=function(a,b){return this.api(!0).rows(a,b).data()};this.api=function(a){return a?new s(ya(this[x.iApiIndex])):new s(this)};this.fnAddData=function(a,b){var c=this.api(!0),d=h.isArray(a)&&(h.isArray(a[0])||h.isPlainObject(a[0]))?c.rows.add(a):c.row.add(a);(b===k||b)&&c.draw();return d.flatten().toArray()};this.fnAdjustColumnSizing=
-function(a){var b=this.api(!0).columns.adjust(),c=b.settings()[0],d=c.oScroll;a===k||a?b.draw(!1):(""!==d.sX||""!==d.sY)&&ka(c)};this.fnClearTable=function(a){var b=this.api(!0).clear();(a===k||a)&&b.draw()};this.fnClose=function(a){this.api(!0).row(a).child.hide()};this.fnDeleteRow=function(a,b,c){var d=this.api(!0),a=d.rows(a),e=a.settings()[0],h=e.aoData[a[0][0]];a.remove();b&&b.call(this,e,h);(c===k||c)&&d.draw();return h};this.fnDestroy=function(a){this.api(!0).destroy(a)};this.fnDraw=function(a){this.api(!0).draw(a)};
-this.fnFilter=function(a,b,c,d,e,h){e=this.api(!0);null===b||b===k?e.search(a,c,d,h):e.column(b).search(a,c,d,h);e.draw()};this.fnGetData=function(a,b){var c=this.api(!0);if(a!==k){var d=a.nodeName?a.nodeName.toLowerCase():"";return b!==k||"td"==d||"th"==d?c.cell(a,b).data():c.row(a).data()||null}return c.data().toArray()};this.fnGetNodes=function(a){var b=this.api(!0);return a!==k?b.row(a).node():b.rows().nodes().flatten().toArray()};this.fnGetPosition=function(a){var b=this.api(!0),c=a.nodeName.toUpperCase();
-return"TR"==c?b.row(a).index():"TD"==c||"TH"==c?(a=b.cell(a).index(),[a.row,a.columnVisible,a.column]):null};this.fnIsOpen=function(a){return this.api(!0).row(a).child.isShown()};this.fnOpen=function(a,b,c){return this.api(!0).row(a).child(b,c).show().child()[0]};this.fnPageChange=function(a,b){var c=this.api(!0).page(a);(b===k||b)&&c.draw(!1)};this.fnSetColumnVis=function(a,b,c){a=this.api(!0).column(a).visible(b);(c===k||c)&&a.columns.adjust().draw()};this.fnSettings=function(){return ya(this[x.iApiIndex])};
-this.fnSort=function(a){this.api(!0).order(a).draw()};this.fnSortListener=function(a,b,c){this.api(!0).order.listener(a,b,c)};this.fnUpdate=function(a,b,c,d,e){var h=this.api(!0);c===k||null===c?h.row(b).data(a):h.cell(b,c).data(a);(e===k||e)&&h.columns.adjust();(d===k||d)&&h.draw();return 0};this.fnVersionCheck=x.fnVersionCheck;var b=this,c=a===k,d=this.length;c&&(a={});this.oApi=this.internal=x.internal;for(var e in m.ext.internal)e&&(this[e]=Lb(e));this.each(function(){var e={},g=1<d?Jb(e,a,!0):
-a,j=0,i,e=this.getAttribute("id"),n=!1,l=m.defaults,q=h(this);if("table"!=this.nodeName.toLowerCase())J(null,0,"Non-table node initialisation ("+this.nodeName+")",2);else{db(l);eb(l.column);I(l,l,!0);I(l.column,l.column,!0);I(l,h.extend(g,q.data()));var t=m.settings,j=0;for(i=t.length;j<i;j++){var o=t[j];if(o.nTable==this||o.nTHead.parentNode==this||o.nTFoot&&o.nTFoot.parentNode==this){var s=g.bRetrieve!==k?g.bRetrieve:l.bRetrieve;if(c||s)return o.oInstance;if(g.bDestroy!==k?g.bDestroy:l.bDestroy){o.oInstance.fnDestroy();
-break}else{J(o,0,"Cannot reinitialise DataTable",3);return}}if(o.sTableId==this.id){t.splice(j,1);break}}if(null===e||""===e)this.id=e="DataTables_Table_"+m.ext._unique++;var p=h.extend(!0,{},m.models.oSettings,{sDestroyWidth:q[0].style.width,sInstance:e,sTableId:e});p.nTable=this;p.oApi=b.internal;p.oInit=g;t.push(p);p.oInstance=1===b.length?b:q.dataTable();db(g);g.oLanguage&&Ca(g.oLanguage);g.aLengthMenu&&!g.iDisplayLength&&(g.iDisplayLength=h.isArray(g.aLengthMenu[0])?g.aLengthMenu[0][0]:g.aLengthMenu[0]);
-g=Jb(h.extend(!0,{},l),g);F(p.oFeatures,g,"bPaginate bLengthChange bFilter bSort bSortMulti bInfo bProcessing bAutoWidth bSortClasses bServerSide bDeferRender".split(" "));F(p,g,["asStripeClasses","ajax","fnServerData","fnFormatNumber","sServerMethod","aaSorting","aaSortingFixed","aLengthMenu","sPaginationType","sAjaxSource","sAjaxDataProp","iStateDuration","sDom","bSortCellsTop","iTabIndex","fnStateLoadCallback","fnStateSaveCallback","renderer","searchDelay","rowId",["iCookieDuration","iStateDuration"],
-["oSearch","oPreviousSearch"],["aoSearchCols","aoPreSearchCols"],["iDisplayLength","_iDisplayLength"]]);F(p.oScroll,g,[["sScrollX","sX"],["sScrollXInner","sXInner"],["sScrollY","sY"],["bScrollCollapse","bCollapse"]]);F(p.oLanguage,g,"fnInfoCallback");z(p,"aoDrawCallback",g.fnDrawCallback,"user");z(p,"aoServerParams",g.fnServerParams,"user");z(p,"aoStateSaveParams",g.fnStateSaveParams,"user");z(p,"aoStateLoadParams",g.fnStateLoadParams,"user");z(p,"aoStateLoaded",g.fnStateLoaded,"user");z(p,"aoRowCallback",
-g.fnRowCallback,"user");z(p,"aoRowCreatedCallback",g.fnCreatedRow,"user");z(p,"aoHeaderCallback",g.fnHeaderCallback,"user");z(p,"aoFooterCallback",g.fnFooterCallback,"user");z(p,"aoInitComplete",g.fnInitComplete,"user");z(p,"aoPreDrawCallback",g.fnPreDrawCallback,"user");p.rowIdFn=Q(g.rowId);fb(p);var u=p.oClasses;h.extend(u,m.ext.classes,g.oClasses);q.addClass(u.sTable);p.iInitDisplayStart===k&&(p.iInitDisplayStart=g.iDisplayStart,p._iDisplayStart=g.iDisplayStart);null!==g.iDeferLoading&&(p.bDeferLoading=
-!0,e=h.isArray(g.iDeferLoading),p._iRecordsDisplay=e?g.iDeferLoading[0]:g.iDeferLoading,p._iRecordsTotal=e?g.iDeferLoading[1]:g.iDeferLoading);var v=p.oLanguage;h.extend(!0,v,g.oLanguage);v.sUrl&&(h.ajax({dataType:"json",url:v.sUrl,success:function(a){Ca(a);I(l.oLanguage,a);h.extend(true,v,a);ga(p)},error:function(){ga(p)}}),n=!0);null===g.asStripeClasses&&(p.asStripeClasses=[u.sStripeOdd,u.sStripeEven]);var e=p.asStripeClasses,x=q.children("tbody").find("tr").eq(0);-1!==h.inArray(!0,h.map(e,function(a){return x.hasClass(a)}))&&
-(h("tbody tr",this).removeClass(e.join(" ")),p.asDestroyStripes=e.slice());e=[];t=this.getElementsByTagName("thead");0!==t.length&&(da(p.aoHeader,t[0]),e=ra(p));if(null===g.aoColumns){t=[];j=0;for(i=e.length;j<i;j++)t.push(null)}else t=g.aoColumns;j=0;for(i=t.length;j<i;j++)Da(p,e?e[j]:null);hb(p,g.aoColumnDefs,t,function(a,b){ja(p,a,b)});if(x.length){var w=function(a,b){return a.getAttribute("data-"+b)!==null?b:null};h(x[0]).children("th, td").each(function(a,b){var c=p.aoColumns[a];if(c.mData===
-a){var d=w(b,"sort")||w(b,"order"),e=w(b,"filter")||w(b,"search");if(d!==null||e!==null){c.mData={_:a+".display",sort:d!==null?a+".@data-"+d:k,type:d!==null?a+".@data-"+d:k,filter:e!==null?a+".@data-"+e:k};ja(p,a)}}})}var T=p.oFeatures,e=function(){if(g.aaSorting===k){var a=p.aaSorting;j=0;for(i=a.length;j<i;j++)a[j][1]=p.aoColumns[j].asSorting[0]}wa(p);T.bSort&&z(p,"aoDrawCallback",function(){if(p.bSorted){var a=V(p),b={};h.each(a,function(a,c){b[c.src]=c.dir});r(p,null,"order",[p,a,b]);Hb(p)}});
-z(p,"aoDrawCallback",function(){(p.bSorted||y(p)==="ssp"||T.bDeferRender)&&wa(p)},"sc");var a=q.children("caption").each(function(){this._captionSide=h(this).css("caption-side")}),b=q.children("thead");b.length===0&&(b=h("<thead/>").appendTo(q));p.nTHead=b[0];b=q.children("tbody");b.length===0&&(b=h("<tbody/>").appendTo(q));p.nTBody=b[0];b=q.children("tfoot");if(b.length===0&&a.length>0&&(p.oScroll.sX!==""||p.oScroll.sY!==""))b=h("<tfoot/>").appendTo(q);if(b.length===0||b.children().length===0)q.addClass(u.sNoFooter);
-else if(b.length>0){p.nTFoot=b[0];da(p.aoFooter,p.nTFoot)}if(g.aaData)for(j=0;j<g.aaData.length;j++)M(p,g.aaData[j]);else(p.bDeferLoading||y(p)=="dom")&&ma(p,h(p.nTBody).children("tr"));p.aiDisplay=p.aiDisplayMaster.slice();p.bInitialised=true;n===false&&ga(p)};g.bStateSave?(T.bStateSave=!0,z(p,"aoDrawCallback",xa,"state_save"),Ib(p,g,e)):e()}});b=null;return this},x,s,o,u,Xa={},Mb=/[\r\n]/g,Aa=/<.*?>/g,Zb=/^\d{2,4}[\.\/\-]\d{1,2}[\.\/\-]\d{1,2}([T ]{1}\d{1,2}[:\.]\d{2}([\.:]\d{2})?)?$/,$b=RegExp("(\\/|\\.|\\*|\\+|\\?|\\||\\(|\\)|\\[|\\]|\\{|\\}|\\\\|\\$|\\^|\\-)",
-"g"),Wa=/[',$£€¥%\u2009\u202F\u20BD\u20a9\u20BArfk]/gi,L=function(a){return!a||!0===a||"-"===a?!0:!1},Nb=function(a){var b=parseInt(a,10);return!isNaN(b)&&isFinite(a)?b:null},Ob=function(a,b){Xa[b]||(Xa[b]=RegExp(Pa(b),"g"));return"string"===typeof a&&"."!==b?a.replace(/\./g,"").replace(Xa[b],"."):a},Ya=function(a,b,c){var d="string"===typeof a;if(L(a))return!0;b&&d&&(a=Ob(a,b));c&&d&&(a=a.replace(Wa,""));return!isNaN(parseFloat(a))&&isFinite(a)},Pb=function(a,b,c){return L(a)?!0:!(L(a)||"string"===
-typeof a)?null:Ya(a.replace(Aa,""),b,c)?!0:null},D=function(a,b,c){var d=[],e=0,f=a.length;if(c!==k)for(;e<f;e++)a[e]&&a[e][b]&&d.push(a[e][b][c]);else for(;e<f;e++)a[e]&&d.push(a[e][b]);return d},ia=function(a,b,c,d){var e=[],f=0,g=b.length;if(d!==k)for(;f<g;f++)a[b[f]][c]&&e.push(a[b[f]][c][d]);else for(;f<g;f++)e.push(a[b[f]][c]);return e},W=function(a,b){var c=[],d;b===k?(b=0,d=a):(d=b,b=a);for(var e=b;e<d;e++)c.push(e);return c},Qb=function(a){for(var b=[],c=0,d=a.length;c<d;c++)a[c]&&b.push(a[c]);
-return b},qa=function(a){var b;a:{if(!(2>a.length)){b=a.slice().sort();for(var c=b[0],d=1,e=b.length;d<e;d++){if(b[d]===c){b=!1;break a}c=b[d]}}b=!0}if(b)return a.slice();b=[];var e=a.length,f,g=0,d=0;a:for(;d<e;d++){c=a[d];for(f=0;f<g;f++)if(b[f]===c)continue a;b.push(c);g++}return b};m.util={throttle:function(a,b){var c=b!==k?b:200,d,e;return function(){var b=this,g=+new Date,j=arguments;d&&g<d+c?(clearTimeout(e),e=setTimeout(function(){d=k;a.apply(b,j)},c)):(d=g,a.apply(b,j))}},escapeRegex:function(a){return a.replace($b,
-"\\$1")}};var A=function(a,b,c){a[b]!==k&&(a[c]=a[b])},ba=/\[.*?\]$/,U=/\(\)$/,Pa=m.util.escapeRegex,va=h("<div>")[0],Wb=va.textContent!==k,Yb=/<.*?>/g,Na=m.util.throttle,Rb=[],w=Array.prototype,ac=function(a){var b,c,d=m.settings,e=h.map(d,function(a){return a.nTable});if(a){if(a.nTable&&a.oApi)return[a];if(a.nodeName&&"table"===a.nodeName.toLowerCase())return b=h.inArray(a,e),-1!==b?[d[b]]:null;if(a&&"function"===typeof a.settings)return a.settings().toArray();"string"===typeof a?c=h(a):a instanceof
-h&&(c=a)}else return[];if(c)return c.map(function(){b=h.inArray(this,e);return-1!==b?d[b]:null}).toArray()};s=function(a,b){if(!(this instanceof s))return new s(a,b);var c=[],d=function(a){(a=ac(a))&&(c=c.concat(a))};if(h.isArray(a))for(var e=0,f=a.length;e<f;e++)d(a[e]);else d(a);this.context=qa(c);b&&h.merge(this,b);this.selector={rows:null,cols:null,opts:null};s.extend(this,this,Rb)};m.Api=s;h.extend(s.prototype,{any:function(){return 0!==this.count()},concat:w.concat,context:[],count:function(){return this.flatten().length},
-each:function(a){for(var b=0,c=this.length;b<c;b++)a.call(this,this[b],b,this);return this},eq:function(a){var b=this.context;return b.length>a?new s(b[a],this[a]):null},filter:function(a){var b=[];if(w.filter)b=w.filter.call(this,a,this);else for(var c=0,d=this.length;c<d;c++)a.call(this,this[c],c,this)&&b.push(this[c]);return new s(this.context,b)},flatten:function(){var a=[];return new s(this.context,a.concat.apply(a,this.toArray()))},join:w.join,indexOf:w.indexOf||function(a,b){for(var c=b||0,
-d=this.length;c<d;c++)if(this[c]===a)return c;return-1},iterator:function(a,b,c,d){var e=[],f,g,j,h,n,l=this.context,m,o,u=this.selector;"string"===typeof a&&(d=c,c=b,b=a,a=!1);g=0;for(j=l.length;g<j;g++){var r=new s(l[g]);if("table"===b)f=c.call(r,l[g],g),f!==k&&e.push(f);else if("columns"===b||"rows"===b)f=c.call(r,l[g],this[g],g),f!==k&&e.push(f);else if("column"===b||"column-rows"===b||"row"===b||"cell"===b){o=this[g];"column-rows"===b&&(m=Ba(l[g],u.opts));h=0;for(n=o.length;h<n;h++)f=o[h],f=
-"cell"===b?c.call(r,l[g],f.row,f.column,g,h):c.call(r,l[g],f,g,h,m),f!==k&&e.push(f)}}return e.length||d?(a=new s(l,a?e.concat.apply([],e):e),b=a.selector,b.rows=u.rows,b.cols=u.cols,b.opts=u.opts,a):this},lastIndexOf:w.lastIndexOf||function(a,b){return this.indexOf.apply(this.toArray.reverse(),arguments)},length:0,map:function(a){var b=[];if(w.map)b=w.map.call(this,a,this);else for(var c=0,d=this.length;c<d;c++)b.push(a.call(this,this[c],c));return new s(this.context,b)},pluck:function(a){return this.map(function(b){return b[a]})},
-pop:w.pop,push:w.push,reduce:w.reduce||function(a,b){return gb(this,a,b,0,this.length,1)},reduceRight:w.reduceRight||function(a,b){return gb(this,a,b,this.length-1,-1,-1)},reverse:w.reverse,selector:null,shift:w.shift,slice:function(){return new s(this.context,this)},sort:w.sort,splice:w.splice,toArray:function(){return w.slice.call(this)},to$:function(){return h(this)},toJQuery:function(){return h(this)},unique:function(){return new s(this.context,qa(this))},unshift:w.unshift});s.extend=function(a,
-b,c){if(c.length&&b&&(b instanceof s||b.__dt_wrapper)){var d,e,f,g=function(a,b,c){return function(){var d=b.apply(a,arguments);s.extend(d,d,c.methodExt);return d}};d=0;for(e=c.length;d<e;d++)f=c[d],b[f.name]="function"===typeof f.val?g(a,f.val,f):h.isPlainObject(f.val)?{}:f.val,b[f.name].__dt_wrapper=!0,s.extend(a,b[f.name],f.propExt)}};s.register=o=function(a,b){if(h.isArray(a))for(var c=0,d=a.length;c<d;c++)s.register(a[c],b);else for(var e=a.split("."),f=Rb,g,j,c=0,d=e.length;c<d;c++){g=(j=-1!==
-e[c].indexOf("()"))?e[c].replace("()",""):e[c];var i;a:{i=0;for(var n=f.length;i<n;i++)if(f[i].name===g){i=f[i];break a}i=null}i||(i={name:g,val:{},methodExt:[],propExt:[]},f.push(i));c===d-1?i.val=b:f=j?i.methodExt:i.propExt}};s.registerPlural=u=function(a,b,c){s.register(a,c);s.register(b,function(){var a=c.apply(this,arguments);return a===this?this:a instanceof s?a.length?h.isArray(a[0])?new s(a.context,a[0]):a[0]:k:a})};o("tables()",function(a){var b;if(a){b=s;var c=this.context;if("number"===
-typeof a)a=[c[a]];else var d=h.map(c,function(a){return a.nTable}),a=h(d).filter(a).map(function(){var a=h.inArray(this,d);return c[a]}).toArray();b=new b(a)}else b=this;return b});o("table()",function(a){var a=this.tables(a),b=a.context;return b.length?new s(b[0]):a});u("tables().nodes()","table().node()",function(){return this.iterator("table",function(a){return a.nTable},1)});u("tables().body()","table().body()",function(){return this.iterator("table",function(a){return a.nTBody},1)});u("tables().header()",
-"table().header()",function(){return this.iterator("table",function(a){return a.nTHead},1)});u("tables().footer()","table().footer()",function(){return this.iterator("table",function(a){return a.nTFoot},1)});u("tables().containers()","table().container()",function(){return this.iterator("table",function(a){return a.nTableWrapper},1)});o("draw()",function(a){return this.iterator("table",function(b){"page"===a?N(b):("string"===typeof a&&(a="full-hold"===a?!1:!0),S(b,!1===a))})});o("page()",function(a){return a===
-k?this.page.info().page:this.iterator("table",function(b){Sa(b,a)})});o("page.info()",function(){if(0===this.context.length)return k;var a=this.context[0],b=a._iDisplayStart,c=a.oFeatures.bPaginate?a._iDisplayLength:-1,d=a.fnRecordsDisplay(),e=-1===c;return{page:e?0:Math.floor(b/c),pages:e?1:Math.ceil(d/c),start:b,end:a.fnDisplayEnd(),length:c,recordsTotal:a.fnRecordsTotal(),recordsDisplay:d,serverSide:"ssp"===y(a)}});o("page.len()",function(a){return a===k?0!==this.context.length?this.context[0]._iDisplayLength:
-k:this.iterator("table",function(b){Qa(b,a)})});var Sb=function(a,b,c){if(c){var d=new s(a);d.one("draw",function(){c(d.ajax.json())})}if("ssp"==y(a))S(a,b);else{C(a,!0);var e=a.jqXHR;e&&4!==e.readyState&&e.abort();sa(a,[],function(c){na(a);for(var c=ta(a,c),d=0,e=c.length;d<e;d++)M(a,c[d]);S(a,b);C(a,!1)})}};o("ajax.json()",function(){var a=this.context;if(0<a.length)return a[0].json});o("ajax.params()",function(){var a=this.context;if(0<a.length)return a[0].oAjaxData});o("ajax.reload()",function(a,
-b){return this.iterator("table",function(c){Sb(c,!1===b,a)})});o("ajax.url()",function(a){var b=this.context;if(a===k){if(0===b.length)return k;b=b[0];return b.ajax?h.isPlainObject(b.ajax)?b.ajax.url:b.ajax:b.sAjaxSource}return this.iterator("table",function(b){h.isPlainObject(b.ajax)?b.ajax.url=a:b.ajax=a})});o("ajax.url().load()",function(a,b){return this.iterator("table",function(c){Sb(c,!1===b,a)})});var Za=function(a,b,c,d,e){var f=[],g,j,i,n,l,m;i=typeof b;if(!b||"string"===i||"function"===
-i||b.length===k)b=[b];i=0;for(n=b.length;i<n;i++){j=b[i]&&b[i].split&&!b[i].match(/[\[\(:]/)?b[i].split(","):[b[i]];l=0;for(m=j.length;l<m;l++)(g=c("string"===typeof j[l]?h.trim(j[l]):j[l]))&&g.length&&(f=f.concat(g))}a=x.selector[a];if(a.length){i=0;for(n=a.length;i<n;i++)f=a[i](d,e,f)}return qa(f)},$a=function(a){a||(a={});a.filter&&a.search===k&&(a.search=a.filter);return h.extend({search:"none",order:"current",page:"all"},a)},ab=function(a){for(var b=0,c=a.length;b<c;b++)if(0<a[b].length)return a[0]=
-a[b],a[0].length=1,a.length=1,a.context=[a.context[b]],a;a.length=0;return a},Ba=function(a,b){var c,d,e,f=[],g=a.aiDisplay;c=a.aiDisplayMaster;var j=b.search;d=b.order;e=b.page;if("ssp"==y(a))return"removed"===j?[]:W(0,c.length);if("current"==e){c=a._iDisplayStart;for(d=a.fnDisplayEnd();c<d;c++)f.push(g[c])}else if("current"==d||"applied"==d)f="none"==j?c.slice():"applied"==j?g.slice():h.map(c,function(a){return-1===h.inArray(a,g)?a:null});else if("index"==d||"original"==d){c=0;for(d=a.aoData.length;c<
-d;c++)"none"==j?f.push(c):(e=h.inArray(c,g),(-1===e&&"removed"==j||0<=e&&"applied"==j)&&f.push(c))}return f};o("rows()",function(a,b){a===k?a="":h.isPlainObject(a)&&(b=a,a="");var b=$a(b),c=this.iterator("table",function(c){var e=b,f;return Za("row",a,function(a){var b=Nb(a);if(b!==null&&!e)return[b];f||(f=Ba(c,e));if(b!==null&&h.inArray(b,f)!==-1)return[b];if(a===null||a===k||a==="")return f;if(typeof a==="function")return h.map(f,function(b){var e=c.aoData[b];return a(b,e._aData,e.nTr)?b:null});
-b=Qb(ia(c.aoData,f,"nTr"));if(a.nodeName){if(a._DT_RowIndex!==k)return[a._DT_RowIndex];if(a._DT_CellIndex)return[a._DT_CellIndex.row];b=h(a).closest("*[data-dt-row]");return b.length?[b.data("dt-row")]:[]}if(typeof a==="string"&&a.charAt(0)==="#"){var i=c.aIds[a.replace(/^#/,"")];if(i!==k)return[i.idx]}return h(b).filter(a).map(function(){return this._DT_RowIndex}).toArray()},c,e)},1);c.selector.rows=a;c.selector.opts=b;return c});o("rows().nodes()",function(){return this.iterator("row",function(a,
-b){return a.aoData[b].nTr||k},1)});o("rows().data()",function(){return this.iterator(!0,"rows",function(a,b){return ia(a.aoData,b,"_aData")},1)});u("rows().cache()","row().cache()",function(a){return this.iterator("row",function(b,c){var d=b.aoData[c];return"search"===a?d._aFilterData:d._aSortData},1)});u("rows().invalidate()","row().invalidate()",function(a){return this.iterator("row",function(b,c){ca(b,c,a)})});u("rows().indexes()","row().index()",function(){return this.iterator("row",function(a,
-b){return b},1)});u("rows().ids()","row().id()",function(a){for(var b=[],c=this.context,d=0,e=c.length;d<e;d++)for(var f=0,g=this[d].length;f<g;f++){var h=c[d].rowIdFn(c[d].aoData[this[d][f]]._aData);b.push((!0===a?"#":"")+h)}return new s(c,b)});u("rows().remove()","row().remove()",function(){var a=this;this.iterator("row",function(b,c,d){var e=b.aoData,f=e[c],g,h,i,n,l;e.splice(c,1);g=0;for(h=e.length;g<h;g++)if(i=e[g],l=i.anCells,null!==i.nTr&&(i.nTr._DT_RowIndex=g),null!==l){i=0;for(n=l.length;i<
-n;i++)l[i]._DT_CellIndex.row=g}oa(b.aiDisplayMaster,c);oa(b.aiDisplay,c);oa(a[d],c,!1);0<b._iRecordsDisplay&&b._iRecordsDisplay--;Ra(b);c=b.rowIdFn(f._aData);c!==k&&delete b.aIds[c]});this.iterator("table",function(a){for(var c=0,d=a.aoData.length;c<d;c++)a.aoData[c].idx=c});return this});o("rows.add()",function(a){var b=this.iterator("table",function(b){var c,f,g,h=[];f=0;for(g=a.length;f<g;f++)c=a[f],c.nodeName&&"TR"===c.nodeName.toUpperCase()?h.push(ma(b,c)[0]):h.push(M(b,c));return h},1),c=this.rows(-1);
-c.pop();h.merge(c,b);return c});o("row()",function(a,b){return ab(this.rows(a,b))});o("row().data()",function(a){var b=this.context;if(a===k)return b.length&&this.length?b[0].aoData[this[0]]._aData:k;b[0].aoData[this[0]]._aData=a;ca(b[0],this[0],"data");return this});o("row().node()",function(){var a=this.context;return a.length&&this.length?a[0].aoData[this[0]].nTr||null:null});o("row.add()",function(a){a instanceof h&&a.length&&(a=a[0]);var b=this.iterator("table",function(b){return a.nodeName&&
-"TR"===a.nodeName.toUpperCase()?ma(b,a)[0]:M(b,a)});return this.row(b[0])});var bb=function(a,b){var c=a.context;if(c.length&&(c=c[0].aoData[b!==k?b:a[0]])&&c._details)c._details.remove(),c._detailsShow=k,c._details=k},Tb=function(a,b){var c=a.context;if(c.length&&a.length){var d=c[0].aoData[a[0]];if(d._details){(d._detailsShow=b)?d._details.insertAfter(d.nTr):d._details.detach();var e=c[0],f=new s(e),g=e.aoData;f.off("draw.dt.DT_details column-visibility.dt.DT_details destroy.dt.DT_details");0<D(g,
-"_details").length&&(f.on("draw.dt.DT_details",function(a,b){e===b&&f.rows({page:"current"}).eq(0).each(function(a){a=g[a];a._detailsShow&&a._details.insertAfter(a.nTr)})}),f.on("column-visibility.dt.DT_details",function(a,b){if(e===b)for(var c,d=aa(b),f=0,h=g.length;f<h;f++)c=g[f],c._details&&c._details.children("td[colspan]").attr("colspan",d)}),f.on("destroy.dt.DT_details",function(a,b){if(e===b)for(var c=0,d=g.length;c<d;c++)g[c]._details&&bb(f,c)}))}}};o("row().child()",function(a,b){var c=this.context;
-if(a===k)return c.length&&this.length?c[0].aoData[this[0]]._details:k;if(!0===a)this.child.show();else if(!1===a)bb(this);else if(c.length&&this.length){var d=c[0],c=c[0].aoData[this[0]],e=[],f=function(a,b){if(h.isArray(a)||a instanceof h)for(var c=0,k=a.length;c<k;c++)f(a[c],b);else a.nodeName&&"tr"===a.nodeName.toLowerCase()?e.push(a):(c=h("<tr><td/></tr>").addClass(b),h("td",c).addClass(b).html(a)[0].colSpan=aa(d),e.push(c[0]))};f(a,b);c._details&&c._details.detach();c._details=h(e);c._detailsShow&&
-c._details.insertAfter(c.nTr)}return this});o(["row().child.show()","row().child().show()"],function(){Tb(this,!0);return this});o(["row().child.hide()","row().child().hide()"],function(){Tb(this,!1);return this});o(["row().child.remove()","row().child().remove()"],function(){bb(this);return this});o("row().child.isShown()",function(){var a=this.context;return a.length&&this.length?a[0].aoData[this[0]]._detailsShow||!1:!1});var bc=/^([^:]+):(name|visIdx|visible)$/,Ub=function(a,b,c,d,e){for(var c=
-[],d=0,f=e.length;d<f;d++)c.push(B(a,e[d],b));return c};o("columns()",function(a,b){a===k?a="":h.isPlainObject(a)&&(b=a,a="");var b=$a(b),c=this.iterator("table",function(c){var e=a,f=b,g=c.aoColumns,j=D(g,"sName"),i=D(g,"nTh");return Za("column",e,function(a){var b=Nb(a);if(a==="")return W(g.length);if(b!==null)return[b>=0?b:g.length+b];if(typeof a==="function"){var e=Ba(c,f);return h.map(g,function(b,f){return a(f,Ub(c,f,0,0,e),i[f])?f:null})}var k=typeof a==="string"?a.match(bc):"";if(k)switch(k[2]){case "visIdx":case "visible":b=
-parseInt(k[1],10);if(b<0){var m=h.map(g,function(a,b){return a.bVisible?b:null});return[m[m.length+b]]}return[Z(c,b)];case "name":return h.map(j,function(a,b){return a===k[1]?b:null});default:return[]}if(a.nodeName&&a._DT_CellIndex)return[a._DT_CellIndex.column];b=h(i).filter(a).map(function(){return h.inArray(this,i)}).toArray();if(b.length||!a.nodeName)return b;b=h(a).closest("*[data-dt-column]");return b.length?[b.data("dt-column")]:[]},c,f)},1);c.selector.cols=a;c.selector.opts=b;return c});u("columns().header()",
-"column().header()",function(){return this.iterator("column",function(a,b){return a.aoColumns[b].nTh},1)});u("columns().footer()","column().footer()",function(){return this.iterator("column",function(a,b){return a.aoColumns[b].nTf},1)});u("columns().data()","column().data()",function(){return this.iterator("column-rows",Ub,1)});u("columns().dataSrc()","column().dataSrc()",function(){return this.iterator("column",function(a,b){return a.aoColumns[b].mData},1)});u("columns().cache()","column().cache()",
-function(a){return this.iterator("column-rows",function(b,c,d,e,f){return ia(b.aoData,f,"search"===a?"_aFilterData":"_aSortData",c)},1)});u("columns().nodes()","column().nodes()",function(){return this.iterator("column-rows",function(a,b,c,d,e){return ia(a.aoData,e,"anCells",b)},1)});u("columns().visible()","column().visible()",function(a,b){var c=this.iterator("column",function(b,c){if(a===k)return b.aoColumns[c].bVisible;var f=b.aoColumns,g=f[c],j=b.aoData,i,n,l;if(a!==k&&g.bVisible!==a){if(a){var m=
-h.inArray(!0,D(f,"bVisible"),c+1);i=0;for(n=j.length;i<n;i++)l=j[i].nTr,f=j[i].anCells,l&&l.insertBefore(f[c],f[m]||null)}else h(D(b.aoData,"anCells",c)).detach();g.bVisible=a;ea(b,b.aoHeader);ea(b,b.aoFooter);xa(b)}});a!==k&&(this.iterator("column",function(c,e){r(c,null,"column-visibility",[c,e,a,b])}),(b===k||b)&&this.columns.adjust());return c});u("columns().indexes()","column().index()",function(a){return this.iterator("column",function(b,c){return"visible"===a?$(b,c):c},1)});o("columns.adjust()",
-function(){return this.iterator("table",function(a){Y(a)},1)});o("column.index()",function(a,b){if(0!==this.context.length){var c=this.context[0];if("fromVisible"===a||"toData"===a)return Z(c,b);if("fromData"===a||"toVisible"===a)return $(c,b)}});o("column()",function(a,b){return ab(this.columns(a,b))});o("cells()",function(a,b,c){h.isPlainObject(a)&&(a.row===k?(c=a,a=null):(c=b,b=null));h.isPlainObject(b)&&(c=b,b=null);if(null===b||b===k)return this.iterator("table",function(b){var d=a,e=$a(c),f=
-b.aoData,g=Ba(b,e),j=Qb(ia(f,g,"anCells")),i=h([].concat.apply([],j)),l,n=b.aoColumns.length,m,o,u,s,r,v;return Za("cell",d,function(a){var c=typeof a==="function";if(a===null||a===k||c){m=[];o=0;for(u=g.length;o<u;o++){l=g[o];for(s=0;s<n;s++){r={row:l,column:s};if(c){v=f[l];a(r,B(b,l,s),v.anCells?v.anCells[s]:null)&&m.push(r)}else m.push(r)}}return m}if(h.isPlainObject(a))return[a];c=i.filter(a).map(function(a,b){return{row:b._DT_CellIndex.row,column:b._DT_CellIndex.column}}).toArray();if(c.length||
-!a.nodeName)return c;v=h(a).closest("*[data-dt-row]");return v.length?[{row:v.data("dt-row"),column:v.data("dt-column")}]:[]},b,e)});var d=this.columns(b,c),e=this.rows(a,c),f,g,j,i,n,l=this.iterator("table",function(a,b){f=[];g=0;for(j=e[b].length;g<j;g++){i=0;for(n=d[b].length;i<n;i++)f.push({row:e[b][g],column:d[b][i]})}return f},1);h.extend(l.selector,{cols:b,rows:a,opts:c});return l});u("cells().nodes()","cell().node()",function(){return this.iterator("cell",function(a,b,c){return(a=a.aoData[b])&&
-a.anCells?a.anCells[c]:k},1)});o("cells().data()",function(){return this.iterator("cell",function(a,b,c){return B(a,b,c)},1)});u("cells().cache()","cell().cache()",function(a){a="search"===a?"_aFilterData":"_aSortData";return this.iterator("cell",function(b,c,d){return b.aoData[c][a][d]},1)});u("cells().render()","cell().render()",function(a){return this.iterator("cell",function(b,c,d){return B(b,c,d,a)},1)});u("cells().indexes()","cell().index()",function(){return this.iterator("cell",function(a,
-b,c){return{row:b,column:c,columnVisible:$(a,c)}},1)});u("cells().invalidate()","cell().invalidate()",function(a){return this.iterator("cell",function(b,c,d){ca(b,c,a,d)})});o("cell()",function(a,b,c){return ab(this.cells(a,b,c))});o("cell().data()",function(a){var b=this.context,c=this[0];if(a===k)return b.length&&c.length?B(b[0],c[0].row,c[0].column):k;ib(b[0],c[0].row,c[0].column,a);ca(b[0],c[0].row,"data",c[0].column);return this});o("order()",function(a,b){var c=this.context;if(a===k)return 0!==
-c.length?c[0].aaSorting:k;"number"===typeof a?a=[[a,b]]:a.length&&!h.isArray(a[0])&&(a=Array.prototype.slice.call(arguments));return this.iterator("table",function(b){b.aaSorting=a.slice()})});o("order.listener()",function(a,b,c){return this.iterator("table",function(d){La(d,a,b,c)})});o("order.fixed()",function(a){if(!a){var b=this.context,b=b.length?b[0].aaSortingFixed:k;return h.isArray(b)?{pre:b}:b}return this.iterator("table",function(b){b.aaSortingFixed=h.extend(!0,{},a)})});o(["columns().order()",
-"column().order()"],function(a){var b=this;return this.iterator("table",function(c,d){var e=[];h.each(b[d],function(b,c){e.push([c,a])});c.aaSorting=e})});o("search()",function(a,b,c,d){var e=this.context;return a===k?0!==e.length?e[0].oPreviousSearch.sSearch:k:this.iterator("table",function(e){e.oFeatures.bFilter&&fa(e,h.extend({},e.oPreviousSearch,{sSearch:a+"",bRegex:null===b?!1:b,bSmart:null===c?!0:c,bCaseInsensitive:null===d?!0:d}),1)})});u("columns().search()","column().search()",function(a,
-b,c,d){return this.iterator("column",function(e,f){var g=e.aoPreSearchCols;if(a===k)return g[f].sSearch;e.oFeatures.bFilter&&(h.extend(g[f],{sSearch:a+"",bRegex:null===b?!1:b,bSmart:null===c?!0:c,bCaseInsensitive:null===d?!0:d}),fa(e,e.oPreviousSearch,1))})});o("state()",function(){return this.context.length?this.context[0].oSavedState:null});o("state.clear()",function(){return this.iterator("table",function(a){a.fnStateSaveCallback.call(a.oInstance,a,{})})});o("state.loaded()",function(){return this.context.length?
-this.context[0].oLoadedState:null});o("state.save()",function(){return this.iterator("table",function(a){xa(a)})});m.versionCheck=m.fnVersionCheck=function(a){for(var b=m.version.split("."),a=a.split("."),c,d,e=0,f=a.length;e<f;e++)if(c=parseInt(b[e],10)||0,d=parseInt(a[e],10)||0,c!==d)return c>d;return!0};m.isDataTable=m.fnIsDataTable=function(a){var b=h(a).get(0),c=!1;if(a instanceof m.Api)return!0;h.each(m.settings,function(a,e){var f=e.nScrollHead?h("table",e.nScrollHead)[0]:null,g=e.nScrollFoot?
-h("table",e.nScrollFoot)[0]:null;if(e.nTable===b||f===b||g===b)c=!0});return c};m.tables=m.fnTables=function(a){var b=!1;h.isPlainObject(a)&&(b=a.api,a=a.visible);var c=h.map(m.settings,function(b){if(!a||a&&h(b.nTable).is(":visible"))return b.nTable});return b?new s(c):c};m.camelToHungarian=I;o("$()",function(a,b){var c=this.rows(b).nodes(),c=h(c);return h([].concat(c.filter(a).toArray(),c.find(a).toArray()))});h.each(["on","one","off"],function(a,b){o(b+"()",function(){var a=Array.prototype.slice.call(arguments);
-a[0]=h.map(a[0].split(/\s/),function(a){return!a.match(/\.dt\b/)?a+".dt":a}).join(" ");var d=h(this.tables().nodes());d[b].apply(d,a);return this})});o("clear()",function(){return this.iterator("table",function(a){na(a)})});o("settings()",function(){return new s(this.context,this.context)});o("init()",function(){var a=this.context;return a.length?a[0].oInit:null});o("data()",function(){return this.iterator("table",function(a){return D(a.aoData,"_aData")}).flatten()});o("destroy()",function(a){a=a||
-!1;return this.iterator("table",function(b){var c=b.nTableWrapper.parentNode,d=b.oClasses,e=b.nTable,f=b.nTBody,g=b.nTHead,j=b.nTFoot,i=h(e),f=h(f),k=h(b.nTableWrapper),l=h.map(b.aoData,function(a){return a.nTr}),o;b.bDestroying=!0;r(b,"aoDestroyCallback","destroy",[b]);a||(new s(b)).columns().visible(!0);k.off(".DT").find(":not(tbody *)").off(".DT");h(E).off(".DT-"+b.sInstance);e!=g.parentNode&&(i.children("thead").detach(),i.append(g));j&&e!=j.parentNode&&(i.children("tfoot").detach(),i.append(j));
-b.aaSorting=[];b.aaSortingFixed=[];wa(b);h(l).removeClass(b.asStripeClasses.join(" "));h("th, td",g).removeClass(d.sSortable+" "+d.sSortableAsc+" "+d.sSortableDesc+" "+d.sSortableNone);f.children().detach();f.append(l);g=a?"remove":"detach";i[g]();k[g]();!a&&c&&(c.insertBefore(e,b.nTableReinsertBefore),i.css("width",b.sDestroyWidth).removeClass(d.sTable),(o=b.asDestroyStripes.length)&&f.children().each(function(a){h(this).addClass(b.asDestroyStripes[a%o])}));c=h.inArray(b,m.settings);-1!==c&&m.settings.splice(c,
-1)})});h.each(["column","row","cell"],function(a,b){o(b+"s().every()",function(a){var d=this.selector.opts,e=this;return this.iterator(b,function(f,g,h,i,n){a.call(e[b](g,"cell"===b?h:d,"cell"===b?d:k),g,h,i,n)})})});o("i18n()",function(a,b,c){var d=this.context[0],a=Q(a)(d.oLanguage);a===k&&(a=b);c!==k&&h.isPlainObject(a)&&(a=a[c]!==k?a[c]:a._);return a.replace("%d",c)});m.version="1.10.16";m.settings=[];m.models={};m.models.oSearch={bCaseInsensitive:!0,sSearch:"",bRegex:!1,bSmart:!0};m.models.oRow=
-{nTr:null,anCells:null,_aData:[],_aSortData:null,_aFilterData:null,_sFilterRow:null,_sRowStripe:"",src:null,idx:-1};m.models.oColumn={idx:null,aDataSort:null,asSorting:null,bSearchable:null,bSortable:null,bVisible:null,_sManualType:null,_bAttrSrc:!1,fnCreatedCell:null,fnGetData:null,fnSetData:null,mData:null,mRender:null,nTh:null,nTf:null,sClass:null,sContentPadding:null,sDefaultContent:null,sName:null,sSortDataType:"std",sSortingClass:null,sSortingClassJUI:null,sTitle:null,sType:null,sWidth:null,
-sWidthOrig:null};m.defaults={aaData:null,aaSorting:[[0,"asc"]],aaSortingFixed:[],ajax:null,aLengthMenu:[10,25,50,100],aoColumns:null,aoColumnDefs:null,aoSearchCols:[],asStripeClasses:null,bAutoWidth:!0,bDeferRender:!1,bDestroy:!1,bFilter:!0,bInfo:!0,bLengthChange:!0,bPaginate:!0,bProcessing:!1,bRetrieve:!1,bScrollCollapse:!1,bServerSide:!1,bSort:!0,bSortMulti:!0,bSortCellsTop:!1,bSortClasses:!0,bStateSave:!1,fnCreatedRow:null,fnDrawCallback:null,fnFooterCallback:null,fnFormatNumber:function(a){return a.toString().replace(/\B(?=(\d{3})+(?!\d))/g,
-this.oLanguage.sThousands)},fnHeaderCallback:null,fnInfoCallback:null,fnInitComplete:null,fnPreDrawCallback:null,fnRowCallback:null,fnServerData:null,fnServerParams:null,fnStateLoadCallback:function(a){try{return JSON.parse((-1===a.iStateDuration?sessionStorage:localStorage).getItem("DataTables_"+a.sInstance+"_"+location.pathname))}catch(b){}},fnStateLoadParams:null,fnStateLoaded:null,fnStateSaveCallback:function(a,b){try{(-1===a.iStateDuration?sessionStorage:localStorage).setItem("DataTables_"+a.sInstance+
-"_"+location.pathname,JSON.stringify(b))}catch(c){}},fnStateSaveParams:null,iStateDuration:7200,iDeferLoading:null,iDisplayLength:10,iDisplayStart:0,iTabIndex:0,oClasses:{},oLanguage:{oAria:{sSortAscending:": activate to sort column ascending",sSortDescending:": activate to sort column descending"},oPaginate:{sFirst:"First",sLast:"Last",sNext:"Next",sPrevious:"Previous"},sEmptyTable:"No data available in table",sInfo:"Showing _START_ to _END_ of _TOTAL_ entries",sInfoEmpty:"Showing 0 to 0 of 0 entries",
-sInfoFiltered:"(filtered from _MAX_ total entries)",sInfoPostFix:"",sDecimal:"",sThousands:",",sLengthMenu:"Show _MENU_ entries",sLoadingRecords:"Loading...",sProcessing:"Processing...",sSearch:"Search:",sSearchPlaceholder:"",sUrl:"",sZeroRecords:"No matching records found"},oSearch:h.extend({},m.models.oSearch),sAjaxDataProp:"data",sAjaxSource:null,sDom:"lfrtip",searchDelay:null,sPaginationType:"simple_numbers",sScrollX:"",sScrollXInner:"",sScrollY:"",sServerMethod:"GET",renderer:null,rowId:"DT_RowId"};
-X(m.defaults);m.defaults.column={aDataSort:null,iDataSort:-1,asSorting:["asc","desc"],bSearchable:!0,bSortable:!0,bVisible:!0,fnCreatedCell:null,mData:null,mRender:null,sCellType:"td",sClass:"",sContentPadding:"",sDefaultContent:null,sName:"",sSortDataType:"std",sTitle:null,sType:null,sWidth:null};X(m.defaults.column);m.models.oSettings={oFeatures:{bAutoWidth:null,bDeferRender:null,bFilter:null,bInfo:null,bLengthChange:null,bPaginate:null,bProcessing:null,bServerSide:null,bSort:null,bSortMulti:null,
-bSortClasses:null,bStateSave:null},oScroll:{bCollapse:null,iBarWidth:0,sX:null,sXInner:null,sY:null},oLanguage:{fnInfoCallback:null},oBrowser:{bScrollOversize:!1,bScrollbarLeft:!1,bBounding:!1,barWidth:0},ajax:null,aanFeatures:[],aoData:[],aiDisplay:[],aiDisplayMaster:[],aIds:{},aoColumns:[],aoHeader:[],aoFooter:[],oPreviousSearch:{},aoPreSearchCols:[],aaSorting:null,aaSortingFixed:[],asStripeClasses:null,asDestroyStripes:[],sDestroyWidth:0,aoRowCallback:[],aoHeaderCallback:[],aoFooterCallback:[],
-aoDrawCallback:[],aoRowCreatedCallback:[],aoPreDrawCallback:[],aoInitComplete:[],aoStateSaveParams:[],aoStateLoadParams:[],aoStateLoaded:[],sTableId:"",nTable:null,nTHead:null,nTFoot:null,nTBody:null,nTableWrapper:null,bDeferLoading:!1,bInitialised:!1,aoOpenRows:[],sDom:null,searchDelay:null,sPaginationType:"two_button",iStateDuration:0,aoStateSave:[],aoStateLoad:[],oSavedState:null,oLoadedState:null,sAjaxSource:null,sAjaxDataProp:null,bAjaxDataGet:!0,jqXHR:null,json:k,oAjaxData:k,fnServerData:null,
-aoServerParams:[],sServerMethod:null,fnFormatNumber:null,aLengthMenu:null,iDraw:0,bDrawing:!1,iDrawError:-1,_iDisplayLength:10,_iDisplayStart:0,_iRecordsTotal:0,_iRecordsDisplay:0,oClasses:{},bFiltered:!1,bSorted:!1,bSortCellsTop:null,oInit:null,aoDestroyCallback:[],fnRecordsTotal:function(){return"ssp"==y(this)?1*this._iRecordsTotal:this.aiDisplayMaster.length},fnRecordsDisplay:function(){return"ssp"==y(this)?1*this._iRecordsDisplay:this.aiDisplay.length},fnDisplayEnd:function(){var a=this._iDisplayLength,
-b=this._iDisplayStart,c=b+a,d=this.aiDisplay.length,e=this.oFeatures,f=e.bPaginate;return e.bServerSide?!1===f||-1===a?b+d:Math.min(b+a,this._iRecordsDisplay):!f||c>d||-1===a?d:c},oInstance:null,sInstance:null,iTabIndex:0,nScrollHead:null,nScrollFoot:null,aLastSort:[],oPlugins:{},rowIdFn:null,rowId:null};m.ext=x={buttons:{},classes:{},build:"dt/dt-1.10.16/fh-3.1.3/sc-1.4.3",errMode:"alert",feature:[],search:[],selector:{cell:[],column:[],row:[]},internal:{},legacy:{ajax:null},pager:{},renderer:{pageButton:{},header:{}},
-order:{},type:{detect:[],search:{},order:{}},_unique:0,fnVersionCheck:m.fnVersionCheck,iApiIndex:0,oJUIClasses:{},sVersion:m.version};h.extend(x,{afnFiltering:x.search,aTypes:x.type.detect,ofnSearch:x.type.search,oSort:x.type.order,afnSortData:x.order,aoFeatures:x.feature,oApi:x.internal,oStdClasses:x.classes,oPagination:x.pager});h.extend(m.ext.classes,{sTable:"dataTable",sNoFooter:"no-footer",sPageButton:"paginate_button",sPageButtonActive:"current",sPageButtonDisabled:"disabled",sStripeOdd:"odd",
-sStripeEven:"even",sRowEmpty:"dataTables_empty",sWrapper:"dataTables_wrapper",sFilter:"dataTables_filter",sInfo:"dataTables_info",sPaging:"dataTables_paginate paging_",sLength:"dataTables_length",sProcessing:"dataTables_processing",sSortAsc:"sorting_asc",sSortDesc:"sorting_desc",sSortable:"sorting",sSortableAsc:"sorting_asc_disabled",sSortableDesc:"sorting_desc_disabled",sSortableNone:"sorting_disabled",sSortColumn:"sorting_",sFilterInput:"",sLengthSelect:"",sScrollWrapper:"dataTables_scroll",sScrollHead:"dataTables_scrollHead",
-sScrollHeadInner:"dataTables_scrollHeadInner",sScrollBody:"dataTables_scrollBody",sScrollFoot:"dataTables_scrollFoot",sScrollFootInner:"dataTables_scrollFootInner",sHeaderTH:"",sFooterTH:"",sSortJUIAsc:"",sSortJUIDesc:"",sSortJUI:"",sSortJUIAscAllowed:"",sSortJUIDescAllowed:"",sSortJUIWrapper:"",sSortIcon:"",sJUIHeader:"",sJUIFooter:""});var Kb=m.ext.pager;h.extend(Kb,{simple:function(){return["previous","next"]},full:function(){return["first","previous","next","last"]},numbers:function(a,b){return[ha(a,
-b)]},simple_numbers:function(a,b){return["previous",ha(a,b),"next"]},full_numbers:function(a,b){return["first","previous",ha(a,b),"next","last"]},first_last_numbers:function(a,b){return["first",ha(a,b),"last"]},_numbers:ha,numbers_length:7});h.extend(!0,m.ext.renderer,{pageButton:{_:function(a,b,c,d,e,f){var g=a.oClasses,j=a.oLanguage.oPaginate,i=a.oLanguage.oAria.paginate||{},n,l,m=0,o=function(b,d){var k,s,u,r,v=function(b){Sa(a,b.data.action,true)};k=0;for(s=d.length;k<s;k++){r=d[k];if(h.isArray(r)){u=
-h("<"+(r.DT_el||"div")+"/>").appendTo(b);o(u,r)}else{n=null;l="";switch(r){case "ellipsis":b.append('<span class="ellipsis">&#x2026;</span>');break;case "first":n=j.sFirst;l=r+(e>0?"":" "+g.sPageButtonDisabled);break;case "previous":n=j.sPrevious;l=r+(e>0?"":" "+g.sPageButtonDisabled);break;case "next":n=j.sNext;l=r+(e<f-1?"":" "+g.sPageButtonDisabled);break;case "last":n=j.sLast;l=r+(e<f-1?"":" "+g.sPageButtonDisabled);break;default:n=r+1;l=e===r?g.sPageButtonActive:""}if(n!==null){u=h("<a>",{"class":g.sPageButton+
-" "+l,"aria-controls":a.sTableId,"aria-label":i[r],"data-dt-idx":m,tabindex:a.iTabIndex,id:c===0&&typeof r==="string"?a.sTableId+"_"+r:null}).html(n).appendTo(b);Va(u,{action:r},v);m++}}}},s;try{s=h(b).find(G.activeElement).data("dt-idx")}catch(u){}o(h(b).empty(),d);s!==k&&h(b).find("[data-dt-idx="+s+"]").focus()}}});h.extend(m.ext.type.detect,[function(a,b){var c=b.oLanguage.sDecimal;return Ya(a,c)?"num"+c:null},function(a){if(a&&!(a instanceof Date)&&!Zb.test(a))return null;var b=Date.parse(a);
-return null!==b&&!isNaN(b)||L(a)?"date":null},function(a,b){var c=b.oLanguage.sDecimal;return Ya(a,c,!0)?"num-fmt"+c:null},function(a,b){var c=b.oLanguage.sDecimal;return Pb(a,c)?"html-num"+c:null},function(a,b){var c=b.oLanguage.sDecimal;return Pb(a,c,!0)?"html-num-fmt"+c:null},function(a){return L(a)||"string"===typeof a&&-1!==a.indexOf("<")?"html":null}]);h.extend(m.ext.type.search,{html:function(a){return L(a)?a:"string"===typeof a?a.replace(Mb," ").replace(Aa,""):""},string:function(a){return L(a)?
-a:"string"===typeof a?a.replace(Mb," "):a}});var za=function(a,b,c,d){if(0!==a&&(!a||"-"===a))return-Infinity;b&&(a=Ob(a,b));a.replace&&(c&&(a=a.replace(c,"")),d&&(a=a.replace(d,"")));return 1*a};h.extend(x.type.order,{"date-pre":function(a){return Date.parse(a)||-Infinity},"html-pre":function(a){return L(a)?"":a.replace?a.replace(/<.*?>/g,"").toLowerCase():a+""},"string-pre":function(a){return L(a)?"":"string"===typeof a?a.toLowerCase():!a.toString?"":a.toString()},"string-asc":function(a,b){return a<
-b?-1:a>b?1:0},"string-desc":function(a,b){return a<b?1:a>b?-1:0}});cb("");h.extend(!0,m.ext.renderer,{header:{_:function(a,b,c,d){h(a.nTable).on("order.dt.DT",function(e,f,g,h){if(a===f){e=c.idx;b.removeClass(c.sSortingClass+" "+d.sSortAsc+" "+d.sSortDesc).addClass(h[e]=="asc"?d.sSortAsc:h[e]=="desc"?d.sSortDesc:c.sSortingClass)}})},jqueryui:function(a,b,c,d){h("<div/>").addClass(d.sSortJUIWrapper).append(b.contents()).append(h("<span/>").addClass(d.sSortIcon+" "+c.sSortingClassJUI)).appendTo(b);
-h(a.nTable).on("order.dt.DT",function(e,f,g,h){if(a===f){e=c.idx;b.removeClass(d.sSortAsc+" "+d.sSortDesc).addClass(h[e]=="asc"?d.sSortAsc:h[e]=="desc"?d.sSortDesc:c.sSortingClass);b.find("span."+d.sSortIcon).removeClass(d.sSortJUIAsc+" "+d.sSortJUIDesc+" "+d.sSortJUI+" "+d.sSortJUIAscAllowed+" "+d.sSortJUIDescAllowed).addClass(h[e]=="asc"?d.sSortJUIAsc:h[e]=="desc"?d.sSortJUIDesc:c.sSortingClassJUI)}})}}});var Vb=function(a){return"string"===typeof a?a.replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,
-"&quot;"):a};m.render={number:function(a,b,c,d,e){return{display:function(f){if("number"!==typeof f&&"string"!==typeof f)return f;var g=0>f?"-":"",h=parseFloat(f);if(isNaN(h))return Vb(f);h=h.toFixed(c);f=Math.abs(h);h=parseInt(f,10);f=c?b+(f-h).toFixed(c).substring(2):"";return g+(d||"")+h.toString().replace(/\B(?=(\d{3})+(?!\d))/g,a)+f+(e||"")}}},text:function(){return{display:Vb}}};h.extend(m.ext.internal,{_fnExternApiFunc:Lb,_fnBuildAjax:sa,_fnAjaxUpdate:kb,_fnAjaxParameters:tb,_fnAjaxUpdateDraw:ub,
-_fnAjaxDataSrc:ta,_fnAddColumn:Da,_fnColumnOptions:ja,_fnAdjustColumnSizing:Y,_fnVisibleToColumnIndex:Z,_fnColumnIndexToVisible:$,_fnVisbleColumns:aa,_fnGetColumns:la,_fnColumnTypes:Fa,_fnApplyColumnDefs:hb,_fnHungarianMap:X,_fnCamelToHungarian:I,_fnLanguageCompat:Ca,_fnBrowserDetect:fb,_fnAddData:M,_fnAddTr:ma,_fnNodeToDataIndex:function(a,b){return b._DT_RowIndex!==k?b._DT_RowIndex:null},_fnNodeToColumnIndex:function(a,b,c){return h.inArray(c,a.aoData[b].anCells)},_fnGetCellData:B,_fnSetCellData:ib,
-_fnSplitObjNotation:Ia,_fnGetObjectDataFn:Q,_fnSetObjectDataFn:R,_fnGetDataMaster:Ja,_fnClearTable:na,_fnDeleteIndex:oa,_fnInvalidate:ca,_fnGetRowElements:Ha,_fnCreateTr:Ga,_fnBuildHead:jb,_fnDrawHead:ea,_fnDraw:N,_fnReDraw:S,_fnAddOptionsHtml:mb,_fnDetectHeader:da,_fnGetUniqueThs:ra,_fnFeatureHtmlFilter:ob,_fnFilterComplete:fa,_fnFilterCustom:xb,_fnFilterColumn:wb,_fnFilter:vb,_fnFilterCreateSearch:Oa,_fnEscapeRegex:Pa,_fnFilterData:yb,_fnFeatureHtmlInfo:rb,_fnUpdateInfo:Bb,_fnInfoMacros:Cb,_fnInitialise:ga,
-_fnInitComplete:ua,_fnLengthChange:Qa,_fnFeatureHtmlLength:nb,_fnFeatureHtmlPaginate:sb,_fnPageChange:Sa,_fnFeatureHtmlProcessing:pb,_fnProcessingDisplay:C,_fnFeatureHtmlTable:qb,_fnScrollDraw:ka,_fnApplyToChildren:H,_fnCalculateColumnWidths:Ea,_fnThrottle:Na,_fnConvertToWidth:Db,_fnGetWidestNode:Eb,_fnGetMaxLenString:Fb,_fnStringToCss:v,_fnSortFlatten:V,_fnSort:lb,_fnSortAria:Hb,_fnSortListener:Ua,_fnSortAttachListener:La,_fnSortingClasses:wa,_fnSortData:Gb,_fnSaveState:xa,_fnLoadState:Ib,_fnSettingsFromNode:ya,
-_fnLog:J,_fnMap:F,_fnBindAction:Va,_fnCallbackReg:z,_fnCallbackFire:r,_fnLengthOverflow:Ra,_fnRenderer:Ma,_fnDataSource:y,_fnRowAttributes:Ka,_fnCalculateEnd:function(){}});h.fn.dataTable=m;m.$=h;h.fn.dataTableSettings=m.settings;h.fn.dataTableExt=m.ext;h.fn.DataTable=function(a){return h(this).dataTable(a).api()};h.each(m,function(a,b){h.fn.DataTable[a]=b});return h.fn.dataTable});
-
-
-/*!
- FixedHeader 3.1.3
- ©2009-2017 SpryMedia Ltd - datatables.net/license
-*/
-(function(d){"function"===typeof define&&define.amd?define(["jquery","datatables"],function(g){return d(g,window,document)}):"object"===typeof exports?module.exports=function(g,h){g||(g=window);if(!h||!h.fn.dataTable)h=require("datatables")(g,h).$;return d(h,g,g.document)}:d(jQuery,window,document)})(function(d,g,h,k){var j=d.fn.dataTable,l=0,i=function(b,a){if(!(this instanceof i))throw"FixedHeader must be initialised with the 'new' keyword.";!0===a&&(a={});b=new j.Api(b);this.c=d.extend(!0,
-{},i.defaults,a);this.s={dt:b,position:{theadTop:0,tbodyTop:0,tfootTop:0,tfootBottom:0,width:0,left:0,tfootHeight:0,theadHeight:0,windowHeight:d(g).height(),visible:!0},headerMode:null,footerMode:null,autoWidth:b.settings()[0].oFeatures.bAutoWidth,namespace:".dtfc"+l++,scrollLeft:{header:-1,footer:-1},enable:!0};this.dom={floatingHeader:null,thead:d(b.table().header()),tbody:d(b.table().body()),tfoot:d(b.table().footer()),header:{host:null,floating:null,placeholder:null},footer:{host:null,floating:null,
-placeholder:null}};this.dom.header.host=this.dom.thead.parent();this.dom.footer.host=this.dom.tfoot.parent();var e=b.settings()[0];if(e._fixedHeader)throw"FixedHeader already initialised on table "+e.nTable.id;e._fixedHeader=this;this._constructor()};d.extend(i.prototype,{enable:function(b){this.s.enable=b;this.c.header&&this._modeChange("in-place","header",!0);this.c.footer&&this.dom.tfoot.length&&this._modeChange("in-place","footer",!0);this.update()},headerOffset:function(b){b!==k&&(this.c.headerOffset=
-b,this.update());return this.c.headerOffset},footerOffset:function(b){b!==k&&(this.c.footerOffset=b,this.update());return this.c.footerOffset},update:function(){this._positions();this._scroll(!0)},_constructor:function(){var b=this,a=this.s.dt;d(g).on("scroll"+this.s.namespace,function(){b._scroll()}).on("resize"+this.s.namespace,function(){b.s.position.windowHeight=d(g).height();b.update()});var e=d(".fh-fixedHeader");!this.c.headerOffset&&e.length&&(this.c.headerOffset=e.outerHeight());e=d(".fh-fixedFooter");
-!this.c.footerOffset&&e.length&&(this.c.footerOffset=e.outerHeight());a.on("column-reorder.dt.dtfc column-visibility.dt.dtfc draw.dt.dtfc column-sizing.dt.dtfc",function(){b.update()});a.on("destroy.dtfc",function(){a.off(".dtfc");d(g).off(b.s.namespace)});this._positions();this._scroll()},_clone:function(b,a){var e=this.s.dt,c=this.dom[b],f="header"===b?this.dom.thead:this.dom.tfoot;!a&&c.floating?c.floating.removeClass("fixedHeader-floating fixedHeader-locked"):(c.floating&&(c.placeholder.remove(),
-this._unsize(b),c.floating.children().detach(),c.floating.remove()),c.floating=d(e.table().node().cloneNode(!1)).css("table-layout","fixed").removeAttr("id").append(f).appendTo("body"),c.placeholder=f.clone(!1),c.placeholder.find("*[id]").removeAttr("id"),c.host.prepend(c.placeholder),this._matchWidths(c.placeholder,c.floating))},_matchWidths:function(b,a){var e=function(a){return d(a,b).map(function(){return d(this).width()}).toArray()},c=function(b,c){d(b,a).each(function(a){d(this).css({width:c[a],
-minWidth:c[a]})})},f=e("th"),e=e("td");c("th",f);c("td",e)},_unsize:function(b){var a=this.dom[b].floating;a&&("footer"===b||"header"===b&&!this.s.autoWidth)?d("th, td",a).css({width:"",minWidth:""}):a&&"header"===b&&d("th, td",a).css("min-width","")},_horizontal:function(b,a){var e=this.dom[b],c=this.s.position,d=this.s.scrollLeft;e.floating&&d[b]!==a&&(e.floating.css("left",c.left-a),d[b]=a)},_modeChange:function(b,a,e){var c=this.dom[a],f=this.s.position,g=d.contains(this.dom["footer"===a?"tfoot":
-"thead"][0],h.activeElement)?h.activeElement:null;if("in-place"===b){if(c.placeholder&&(c.placeholder.remove(),c.placeholder=null),this._unsize(a),"header"===a?c.host.prepend(this.dom.thead):c.host.append(this.dom.tfoot),c.floating)c.floating.remove(),c.floating=null}else"in"===b?(this._clone(a,e),c.floating.addClass("fixedHeader-floating").css("header"===a?"top":"bottom",this.c[a+"Offset"]).css("left",f.left+"px").css("width",f.width+"px"),"footer"===a&&c.floating.css("top","")):"below"===b?(this._clone(a,
-e),c.floating.addClass("fixedHeader-locked").css("top",f.tfootTop-f.theadHeight).css("left",f.left+"px").css("width",f.width+"px")):"above"===b&&(this._clone(a,e),c.floating.addClass("fixedHeader-locked").css("top",f.tbodyTop).css("left",f.left+"px").css("width",f.width+"px"));g&&g!==h.activeElement&&g.focus();this.s.scrollLeft.header=-1;this.s.scrollLeft.footer=-1;this.s[a+"Mode"]=b},_positions:function(){var b=this.s.dt.table(),a=this.s.position,e=this.dom,b=d(b.node()),c=b.children("thead"),f=
-b.children("tfoot"),e=e.tbody;a.visible=b.is(":visible");a.width=b.outerWidth();a.left=b.offset().left;a.theadTop=c.offset().top;a.tbodyTop=e.offset().top;a.theadHeight=a.tbodyTop-a.theadTop;f.length?(a.tfootTop=f.offset().top,a.tfootBottom=a.tfootTop+f.outerHeight(),a.tfootHeight=a.tfootBottom-a.tfootTop):(a.tfootTop=a.tbodyTop+e.outerHeight(),a.tfootBottom=a.tfootTop,a.tfootHeight=a.tfootTop)},_scroll:function(b){var a=d(h).scrollTop(),e=d(h).scrollLeft(),c=this.s.position,f;if(this.s.enable&&(this.c.header&&
-(f=!c.visible||a<=c.theadTop-this.c.headerOffset?"in-place":a<=c.tfootTop-c.theadHeight-this.c.headerOffset?"in":"below",(b||f!==this.s.headerMode)&&this._modeChange(f,"header",b),this._horizontal("header",e)),this.c.footer&&this.dom.tfoot.length))a=!c.visible||a+c.windowHeight>=c.tfootBottom+this.c.footerOffset?"in-place":c.windowHeight+a>c.tbodyTop+c.tfootHeight+this.c.footerOffset?"in":"above",(b||a!==this.s.footerMode)&&this._modeChange(a,"footer",b),this._horizontal("footer",e)}});i.version=
-"3.1.3";i.defaults={header:!0,footer:!1,headerOffset:0,footerOffset:0};d.fn.dataTable.FixedHeader=i;d.fn.DataTable.FixedHeader=i;d(h).on("init.dt.dtfh",function(b,a){if("dt"===b.namespace){var e=a.oInit.fixedHeader,c=j.defaults.fixedHeader;if((e||c)&&!a._fixedHeader)c=d.extend({},c,e),!1!==e&&new i(a,c)}});j.Api.register("fixedHeader()",function(){});j.Api.register("fixedHeader.adjust()",function(){return this.iterator("table",function(b){(b=b._fixedHeader)&&b.update()})});j.Api.register("fixedHeader.enable()",
-function(b){return this.iterator("table",function(a){a=a._fixedHeader;b=b!==k?b:!0;a&&b!==a.s.enable&&a.enable(b)})});j.Api.register("fixedHeader.disable()",function(){return this.iterator("table",function(b){(b=b._fixedHeader)&&b.s.enable&&b.enable(!1)})});d.each(["header","footer"],function(b,a){j.Api.register("fixedHeader."+a+"Offset()",function(b){var c=this.context;return b===k?c.length&&c[0]._fixedHeader?c[0]._fixedHeader[a+"Offset"]():k:this.iterator("table",function(c){if(c=c._fixedHeader)c[a+
-"Offset"](b)})})});return i});
-
-
-/*!
- Scroller 1.4.3
- ©2011-2017 SpryMedia Ltd - datatables.net/license
-*/
-(function(e){"function"===typeof define&&define.amd?define(["jquery","datatables"],function(g){return e(g,window,document)}):"object"===typeof exports?module.exports=function(g,j){g||(g=window);if(!j||!j.fn.dataTable)j=require("datatables")(g,j).$;return e(j,g,g.document)}:e(jQuery,window,document)})(function(e,g,j,l){var m=e.fn.dataTable,h=function(a,b){this instanceof h?(b===l&&(b={}),this.s={dt:e.fn.dataTable.Api(a).settings()[0],tableTop:0,tableBottom:0,redrawTop:0,redrawBottom:0,autoHeight:!0,
-viewportRows:0,stateTO:null,drawTO:null,heights:{jump:null,page:null,virtual:null,scroll:null,row:null,viewport:null},topRowFloat:0,scrollDrawDiff:null,loaderVisible:!1,forceReposition:!1},this.s=e.extend(this.s,h.oDefaults,b),this.s.heights.row=this.s.rowHeight,this.dom={force:j.createElement("div"),scroller:null,table:null,loader:null},this.s.dt.oScroller||(this.s.dt.oScroller=this,this._fnConstruct())):alert("Scroller warning: Scroller must be initialised with the 'new' keyword.")};e.extend(h.prototype,
-{fnRowToPixels:function(a,b,c){a=c?this._domain("virtualToPhysical",a*this.s.heights.row):this.s.baseScrollTop+(a-this.s.baseRowTop)*this.s.heights.row;return b||b===l?parseInt(a,10):a},fnPixelsToRow:function(a,b,c){var d=a-this.s.baseScrollTop,a=c?this._domain("physicalToVirtual",a)/this.s.heights.row:d/this.s.heights.row+this.s.baseRowTop;return b||b===l?parseInt(a,10):a},fnScrollToRow:function(a,b){var c=this,d=!1,f=this.fnRowToPixels(a),i=a-(this.s.displayBuffer-1)/2*this.s.viewportRows;0>i&&
-(i=0);if((f>this.s.redrawBottom||f<this.s.redrawTop)&&this.s.dt._iDisplayStart!==i)d=!0,f=this.fnRowToPixels(a,!1,!0),this.s.redrawTop<f&&f<this.s.redrawBottom&&(this.s.forceReposition=!0,b=!1);"undefined"==typeof b||b?(this.s.ani=d,e(this.dom.scroller).animate({scrollTop:f},function(){setTimeout(function(){c.s.ani=!1},25)})):e(this.dom.scroller).scrollTop(f)},fnMeasure:function(a){this.s.autoHeight&&this._fnCalcRowHeight();var b=this.s.heights;b.row&&(b.viewport=e.contains(j,this.dom.scroller)?e(this.dom.scroller).height():
-this._parseHeight(e(this.dom.scroller).css("height")),b.viewport||(b.viewport=this._parseHeight(e(this.dom.scroller).css("max-height"))),this.s.viewportRows=parseInt(b.viewport/b.row,10)+1,this.s.dt._iDisplayLength=this.s.viewportRows*this.s.displayBuffer);(a===l||a)&&this.s.dt.oInstance.fnDraw(!1)},fnPageInfo:function(){var a=this.dom.scroller.scrollTop,b=this.s.dt.fnRecordsDisplay(),c=Math.ceil(this.fnPixelsToRow(a+this.s.heights.viewport,!1,this.s.ani));return{start:Math.floor(this.fnPixelsToRow(a,
-!1,this.s.ani)),end:b<c?b-1:c-1}},_fnConstruct:function(){var a=this;if(this.s.dt.oFeatures.bPaginate){this.dom.force.style.position="relative";this.dom.force.style.top="0px";this.dom.force.style.left="0px";this.dom.force.style.width="1px";this.dom.scroller=e("div."+this.s.dt.oClasses.sScrollBody,this.s.dt.nTableWrapper)[0];this.dom.scroller.appendChild(this.dom.force);this.dom.scroller.style.position="relative";this.dom.table=e(">table",this.dom.scroller)[0];this.dom.table.style.position="absolute";
-this.dom.table.style.top="0px";this.dom.table.style.left="0px";e(this.s.dt.nTableWrapper).addClass("DTS");this.s.loadingIndicator&&(this.dom.loader=e('<div class="dataTables_processing DTS_Loading">'+this.s.dt.oLanguage.sLoadingRecords+"</div>").css("display","none"),e(this.dom.scroller.parentNode).css("position","relative").append(this.dom.loader));this.s.heights.row&&"auto"!=this.s.heights.row&&(this.s.autoHeight=!1);this.fnMeasure(!1);this.s.ingnoreScroll=!0;this.s.stateSaveThrottle=this.s.dt.oApi._fnThrottle(function(){a.s.dt.oApi._fnSaveState(a.s.dt)},
-500);e(this.dom.scroller).on("scroll.DTS",function(){a._fnScroll.call(a)});e(this.dom.scroller).on("touchstart.DTS",function(){a._fnScroll.call(a)});this.s.dt.aoDrawCallback.push({fn:function(){a.s.dt.bInitialised&&a._fnDrawCallback.call(a)},sName:"Scroller"});e(g).on("resize.DTS",function(){a.fnMeasure(false);a._fnInfo()});var b=!0;this.s.dt.oApi._fnCallbackReg(this.s.dt,"aoStateSaveParams",function(c,d){if(b&&a.s.dt.oLoadedState){d.iScroller=a.s.dt.oLoadedState.iScroller;d.iScrollerTopRow=a.s.dt.oLoadedState.iScrollerTopRow;
-b=false}else{d.iScroller=a.dom.scroller.scrollTop;d.iScrollerTopRow=a.s.topRowFloat}},"Scroller_State");this.s.dt.oLoadedState&&(this.s.topRowFloat=this.s.dt.oLoadedState.iScrollerTopRow||0);e(this.s.dt.nTable).one("init.dt",function(){a.fnMeasure()});this.s.dt.aoDestroyCallback.push({sName:"Scroller",fn:function(){e(g).off("resize.DTS");e(a.dom.scroller).off("touchstart.DTS scroll.DTS");e(a.s.dt.nTableWrapper).removeClass("DTS");e("div.DTS_Loading",a.dom.scroller.parentNode).remove();e(a.s.dt.nTable).off("init.dt");
-a.dom.table.style.position="";a.dom.table.style.top="";a.dom.table.style.left=""}})}else this.s.dt.oApi._fnLog(this.s.dt,0,"Pagination must be enabled for Scroller")},_fnScroll:function(){var a=this,b=this.s.heights,c=this.dom.scroller.scrollTop,d;if(!this.s.skip&&!this.s.ingnoreScroll)if(this.s.dt.bFiltered||this.s.dt.bSorted)this.s.lastScrollTop=0;else{this._fnInfo();clearTimeout(this.s.stateTO);this.s.stateTO=setTimeout(function(){a.s.dt.oApi._fnSaveState(a.s.dt)},250);if(this.s.forceReposition||
-c<this.s.redrawTop||c>this.s.redrawBottom){var f=Math.ceil((this.s.displayBuffer-1)/2*this.s.viewportRows);Math.abs(c-this.s.lastScrollTop)>b.viewport||this.s.ani||this.s.forceReposition?(d=parseInt(this._domain("physicalToVirtual",c)/b.row,10)-f,this.s.topRowFloat=this._domain("physicalToVirtual",c)/b.row):(d=this.fnPixelsToRow(c)-f,this.s.topRowFloat=this.fnPixelsToRow(c,!1));this.s.forceReposition=!1;0>=d?d=0:d+this.s.dt._iDisplayLength>this.s.dt.fnRecordsDisplay()?(d=this.s.dt.fnRecordsDisplay()-
-this.s.dt._iDisplayLength,0>d&&(d=0)):0!==d%2&&d++;if(d!=this.s.dt._iDisplayStart&&(this.s.tableTop=e(this.s.dt.nTable).offset().top,this.s.tableBottom=e(this.s.dt.nTable).height()+this.s.tableTop,b=function(){if(a.s.scrollDrawReq===null)a.s.scrollDrawReq=c;a.s.dt._iDisplayStart=d;a.s.dt.oApi._fnDraw(a.s.dt)},this.s.dt.oFeatures.bServerSide?(clearTimeout(this.s.drawTO),this.s.drawTO=setTimeout(b,this.s.serverWait)):b(),this.dom.loader&&!this.s.loaderVisible))this.dom.loader.css("display","block"),
-this.s.loaderVisible=!0}else this.s.topRowFloat=this._domain("physicalToVirtual",c)/b.row;this.s.lastScrollTop=c;this.s.stateSaveThrottle()}},_domain:function(a,b){var c=this.s.heights,d;if(c.virtual===c.scroll)return b;var e=(c.scroll-c.viewport)/2,i=(c.virtual-c.viewport)/2;d=i/(e*e);if("virtualToPhysical"===a){if(b<i)return Math.pow(b/d,0.5);b=2*i-b;return 0>b?c.scroll:2*e-Math.pow(b/d,0.5)}if("physicalToVirtual"===a){if(b<e)return b*b*d;b=2*e-b;return 0>b?c.virtual:2*i-b*b*d}},_parseHeight:function(a){var b,
-c=/^([+-]?(?:\d+(?:\.\d+)?|\.\d+))(px|em|rem|vh)$/.exec(a);if(null===c)return 0;a=parseFloat(c[1]);c=c[2];"px"===c?b=a:"vh"===c?b=a/100*e(g).height():"rem"===c?b=a*parseFloat(e(":root").css("font-size")):"em"===c&&(b=a*parseFloat(e("body").css("font-size")));return b?b:0},_fnDrawCallback:function(){var a=this,b=this.s.heights,c=this.dom.scroller.scrollTop,d=e(this.s.dt.nTable).height(),f=this.s.dt._iDisplayStart,i=this.s.dt._iDisplayLength,h=this.s.dt.fnRecordsDisplay();this.s.skip=!0;this._fnScrollForce();
-c=0===f?this.s.topRowFloat*b.row:f+i>=h?b.scroll-(h-this.s.topRowFloat)*b.row:this._domain("virtualToPhysical",this.s.topRowFloat*b.row);this.dom.scroller.scrollTop=c;this.s.baseScrollTop=c;this.s.baseRowTop=this.s.topRowFloat;var g=c-(this.s.topRowFloat-f)*b.row;0===f?g=0:f+i>=h&&(g=b.scroll-d);this.dom.table.style.top=g+"px";this.s.tableTop=g;this.s.tableBottom=d+this.s.tableTop;d=(c-this.s.tableTop)*this.s.boundaryScale;this.s.redrawTop=c-d;this.s.redrawBottom=c+d>b.scroll-b.viewport-b.row?b.scroll-
-b.viewport-b.row:c+d;this.s.skip=!1;this.s.dt.oFeatures.bStateSave&&null!==this.s.dt.oLoadedState&&"undefined"!=typeof this.s.dt.oLoadedState.iScroller?((c=(this.s.dt.sAjaxSource||a.s.dt.ajax)&&!this.s.dt.oFeatures.bServerSide?!0:!1)&&2==this.s.dt.iDraw||!c&&1==this.s.dt.iDraw)&&setTimeout(function(){e(a.dom.scroller).scrollTop(a.s.dt.oLoadedState.iScroller);a.s.redrawTop=a.s.dt.oLoadedState.iScroller-b.viewport/2;setTimeout(function(){a.s.ingnoreScroll=!1},0)},0):a.s.ingnoreScroll=!1;this.s.dt.oFeatures.bInfo&&
-setTimeout(function(){a._fnInfo.call(a)},0);this.dom.loader&&this.s.loaderVisible&&(this.dom.loader.css("display","none"),this.s.loaderVisible=!1)},_fnScrollForce:function(){var a=this.s.heights;a.virtual=a.row*this.s.dt.fnRecordsDisplay();a.scroll=a.virtual;1E6<a.scroll&&(a.scroll=1E6);this.dom.force.style.height=a.scroll>this.s.heights.row?a.scroll+"px":this.s.heights.row+"px"},_fnCalcRowHeight:function(){var a=this.s.dt,b=a.nTable,c=b.cloneNode(!1),d=e("<tbody/>").appendTo(c),f=e('<div class="'+
-a.oClasses.sWrapper+' DTS"><div class="'+a.oClasses.sScrollWrapper+'"><div class="'+a.oClasses.sScrollBody+'"></div></div></div>');for(e("tbody tr:lt(4)",b).clone().appendTo(d);3>e("tr",d).length;)d.append("<tr><td>&nbsp;</td></tr>");e("div."+a.oClasses.sScrollBody,f).append(c);a=this.s.dt.nHolding||b.parentNode;e(a).is(":visible")||(a="body");f.appendTo(a);this.s.heights.row=e("tr",d).eq(1).outerHeight();f.remove()},_fnInfo:function(){if(this.s.dt.oFeatures.bInfo){var a=this.s.dt,b=a.oLanguage,c=
-this.dom.scroller.scrollTop,d=Math.floor(this.fnPixelsToRow(c,!1,this.s.ani)+1),f=a.fnRecordsTotal(),i=a.fnRecordsDisplay(),c=Math.ceil(this.fnPixelsToRow(c+this.s.heights.viewport,!1,this.s.ani)),c=i<c?i:c,g=a.fnFormatNumber(d),h=a.fnFormatNumber(c),j=a.fnFormatNumber(f),k=a.fnFormatNumber(i),g=0===a.fnRecordsDisplay()&&a.fnRecordsDisplay()==a.fnRecordsTotal()?b.sInfoEmpty+b.sInfoPostFix:0===a.fnRecordsDisplay()?b.sInfoEmpty+" "+b.sInfoFiltered.replace("_MAX_",j)+b.sInfoPostFix:a.fnRecordsDisplay()==
-a.fnRecordsTotal()?b.sInfo.replace("_START_",g).replace("_END_",h).replace("_MAX_",j).replace("_TOTAL_",k)+b.sInfoPostFix:b.sInfo.replace("_START_",g).replace("_END_",h).replace("_MAX_",j).replace("_TOTAL_",k)+" "+b.sInfoFiltered.replace("_MAX_",a.fnFormatNumber(a.fnRecordsTotal()))+b.sInfoPostFix;(b=b.fnInfoCallback)&&(g=b.call(a.oInstance,a,d,c,f,i,g));d=a.aanFeatures.i;if("undefined"!=typeof d){f=0;for(i=d.length;f<i;f++)e(d[f]).html(g)}e(a.nTable).triggerHandler("info.dt")}}});h.defaults={trace:!1,
-rowHeight:"auto",serverWait:200,displayBuffer:9,boundaryScale:0.5,loadingIndicator:!1};h.oDefaults=h.defaults;h.version="1.4.3";"function"==typeof e.fn.dataTable&&"function"==typeof e.fn.dataTableExt.fnVersionCheck&&e.fn.dataTableExt.fnVersionCheck("1.10.0")?e.fn.dataTableExt.aoFeatures.push({fnInit:function(a){var b=a.oInit;new h(a,b.scroller||b.oScroller||{})},cFeature:"S",sFeature:"Scroller"}):alert("Warning: Scroller requires DataTables 1.10.0 or greater - www.datatables.net/download");e(j).on("preInit.dt.dtscroller",
-function(a,b){if("dt"===a.namespace){var c=b.oInit.scroller,d=m.defaults.scroller;if(c||d)d=e.extend({},c,d),!1!==c&&new h(b,d)}});e.fn.dataTable.Scroller=h;e.fn.DataTable.Scroller=h;var k=e.fn.dataTable.Api;k.register("scroller()",function(){return this});k.register("scroller().rowToPixels()",function(a,b,c){var d=this.context;if(d.length&&d[0].oScroller)return d[0].oScroller.fnRowToPixels(a,b,c)});k.register("scroller().pixelsToRow()",function(a,b,c){var d=this.context;if(d.length&&d[0].oScroller)return d[0].oScroller.fnPixelsToRow(a,
-b,c)});k.register("scroller().scrollToRow()",function(a,b){this.iterator("table",function(c){c.oScroller&&c.oScroller.fnScrollToRow(a,b)});return this});k.register("row().scrollTo()",function(a){var b=this;this.iterator("row",function(c,d){if(c.oScroller){var e=b.rows({order:"applied",search:"applied"}).indexes().indexOf(d);c.oScroller.fnScrollToRow(e,a)}});return this});k.register("scroller.measure()",function(a){this.iterator("table",function(b){b.oScroller&&b.oScroller.fnMeasure(a)});return this});
-k.register("scroller.page()",function(){var a=this.context;if(a.length&&a[0].oScroller)return a[0].oScroller.fnPageInfo()});return h});
-
-
-
-/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2016 University of California San Diego
@@ -12779,7 +14883,7 @@ k.register("scroller.page()",function(){var a=this.context;if(a.length&&a[0].oSc
  */
 
 var igv = (function (igv) {
-
+    
 
     function canBePaired(alignment) {
         return alignment.isPaired() &&
@@ -12804,7 +14908,7 @@ var igv = (function (igv) {
         this.samplingWindowSize = samplingWindowSize === undefined ? 100 : samplingWindowSize;
         this.samplingDepth = samplingDepth === undefined ? 50 : samplingDepth;
 
-        this.pairsSupported = pairsSupported;
+        this.pairsSupported = pairsSupported === undefined ? true : pairsSupported;
         this.paired = false;  // false until proven otherwise
         this.pairsCache = {};  // working cache of paired alignments by read name
 
@@ -13922,7 +16026,7 @@ var igv = (function (igv) {
 var igv = (function (igv) {
 
 
-    const MAX_GZIP_BLOCK_SIZE = 65536;   //  APPARENTLY.  Where is this documented???
+    const MAX_GZIP_BLOCK_SIZE = 65536; // See BGZF compression format in SAM format specification
     const DEFAULT_SAMPLING_WINDOW_SIZE = 100;
     const DEFAULT_SAMPLING_DEPTH = 50;
     const MAXIMUM_SAMPLING_DEPTH = 2500;
@@ -13966,103 +16070,89 @@ var igv = (function (igv) {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
 
-            getChrIndex(self)
+        return getChrIndex(self)
 
-                .then(function (chrToIndex) {
+            .then(function (chrToIndex) {
 
-                    var chrId, queryChr, alignmentContainer;
+                var chrId, queryChr, alignmentContainer;
 
-                    queryChr = self.chrAliasTable.hasOwnProperty(chr) ? self.chrAliasTable[chr] : chr;
+                queryChr = self.chrAliasTable.hasOwnProperty(chr) ? self.chrAliasTable[chr] : chr;
 
-                    chrId = chrToIndex[queryChr];
+                chrId = chrToIndex[queryChr];
 
-                    alignmentContainer = new igv.AlignmentContainer(chr, bpStart, bpEnd, self.samplingWindowSize, self.samplingDepth, self.pairsSupported);
+                alignmentContainer = new igv.AlignmentContainer(chr, bpStart, bpEnd, self.samplingWindowSize, self.samplingDepth, self.pairsSupported);
 
-                    if (chrId === undefined) {
-                        fulfill(alignmentContainer);
-                    } else {
+                if (chrId === undefined) {
+                    return Promise.resolve(alignmentContainer);
 
-                        getIndex(self)
-                            .then(function (bamIndex) {
+                } else {
 
-                                var chunks = bamIndex.blocksForRange(chrId, bpStart, bpEnd),
-                                    promises = [];
+                    return getIndex(self)
 
+                        .then(function (bamIndex) {
 
-                                if (!chunks) {
-                                    fulfill(null);
-                                    reject("Error reading bam index");
-                                    return;
-                                }
-                                if (chunks.length === 0) {
-                                    fulfill(alignmentContainer);
-                                    return;
-                                }
-
-                                chunks.forEach(function (c) {
-
-                                    promises.push(new Promise(function (fulfill, reject) {
-
-                                        var fetchMin = c.minv.block,
-                                            fetchMax = c.maxv.block + 65000,   // Make sure we get the whole block.
-                                            range = {start: fetchMin, size: fetchMax - fetchMin + 1};
-
-                                        igv.xhr.loadArrayBuffer(self.bamPath, igv.buildOptions(self.config, {range: range}))
-                                            .then(function (compressed) {
-
-                                                var ba = new Uint8Array(igv.unbgzf(compressed)); //new Uint8Array(igv.unbgzf(compressed)); //, c.maxv.block - c.minv.block + 1));
-                                                igv.BamUtils.decodeBamRecords(ba, c.minv.offset, alignmentContainer, bpStart, bpEnd, chrId, self.indexToChr, self.filter);
-
-                                                fulfill(alignmentContainer);
-
-                                            }).catch(function (obj) {
-                                            reject(obj);
-                                        });
-
-                                    }))
-                                });
+                            var chunks = bamIndex.blocksForRange(chrId, bpStart, bpEnd),
+                                promises = [];
 
 
-                                Promise.all(promises).then(function (ignored) {
-                                    alignmentContainer.finish();
-                                    fulfill(alignmentContainer);
-                                }).catch(function (obj) {
-                                    reject(obj);
-                                });
-                            }).catch(reject);
-                    }
-                }).catch(reject);
-        });
+                            if (!chunks) {
+                                return Promise.resolve(null);
+                            }
+                            if (chunks.length === 0) {
+                                return Promise.resolve(alignmentContainer);
+                            }
 
-    }
+                            chunks.forEach(function (c) {
+
+                                promises.push(new Promise(function (fulfill, reject) {
+
+                                    var fetchMin = c.minv.block,
+                                        fetchMax = c.maxv.block + 65000,   // Make sure we get the whole block.
+                                        range = {start: fetchMin, size: fetchMax - fetchMin + 1};
+
+                                    igv.xhr.loadArrayBuffer(self.bamPath, igv.buildOptions(self.config, {range: range}))
+                                        .then(function (compressed) {
+
+                                            var ba = new Uint8Array(igv.unbgzf(compressed)); //new Uint8Array(igv.unbgzf(compressed)); //, c.maxv.block - c.minv.block + 1));
+                                            igv.BamUtils.decodeBamRecords(ba, c.minv.offset, alignmentContainer, bpStart, bpEnd, chrId, self.indexToChr, self.filter);
+
+                                            fulfill(alignmentContainer);
+
+                                        })
+                                        .catch(reject);
+
+                                }));
+                            });
+
+                            return Promise.all(promises);
+                        })
+                        .then(function (ignored) {
+                            alignmentContainer.finish();
+                            return alignmentContainer;
+                        });
+                }
+            });
+    };
 
     igv.BamReader.prototype.readHeader = function () {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
+        return getIndex(self)
 
-            getIndex(self)
+            .then(function (index) {
 
-                .then(function (index) {
+                var len = index.firstAlignmentBlock + MAX_GZIP_BLOCK_SIZE,   // Insure we get the complete compressed block containing the header
+                    options = igv.buildOptions(self.config, {range: {start: 0, size: len}}),
+                    genome = igv.browser ? igv.browser.genome : null;
 
-                    var len = index.firstAlignmentBlock + MAX_GZIP_BLOCK_SIZE,   // Insure we get the complete compressed block containing the header
-                        options = igv.buildOptions(self.config, {range: {start: 0, size: len}}),
-                        genome = igv.browser ? igv.browser.genome : null,
-                        header;
-
-                    igv.BamUtils.readHeader(self.bamPath, options, genome)
-                        .then(function (header) {
-                            fulfill(header);
-                        })
-                        .catch(reject);
-
-                })
-                .catch(reject);
-        });
-    }
+                return igv.BamUtils.readHeader(self.bamPath, options, genome);
+            })
+            .then(function (header) {
+                return header;
+            });
+    };
 
     function getIndex(bam) {
 
@@ -14070,18 +16160,11 @@ var igv = (function (igv) {
             return Promise.resolve(bam.index);
         }
         else {
-
-            return new Promise(function (fulfill, reject) {
-
-                igv
-                    .loadBamIndex(bam.baiPath, bam.config)
-                    .then(function (index) {
-                        bam.index = index;
-                        fulfill(bam.index);
-                    })
-                    .catch(reject);
-
-            });
+            return igv.loadBamIndex(bam.baiPath, bam.config)
+                .then(function (index) {
+                    bam.index = index;
+                    return bam.index;
+                });
         }
     }
 
@@ -14091,15 +16174,11 @@ var igv = (function (igv) {
             return Promise.resolve(bam.chrToIndex);
         }
         else {
-            return new Promise(function (fulfill, reject) {
-
-                bam.readHeader().then(function (header) {
-                    bam.chrToIndex = header.chrToIndex;
-                    bam.indexToChr = header.chrNames;
-                    bam.chrAliasTable = header.chrAliasTable;
-                    fulfill(bam.chrToIndex);
-                }).catch(reject);
-
+            return bam.readHeader().then(function (header) {
+                bam.chrToIndex = header.chrToIndex;
+                bam.indexToChr = header.chrNames;
+                bam.chrAliasTable = header.chrAliasTable;
+                return bam.chrToIndex;
             });
         }
     }
@@ -14149,6 +16228,8 @@ var igv = (function (igv) {
             this.bamReader = new igv.Ga4ghAlignmentReader(config);
         } else if ("pysam" === config.sourceType) {
             this.bamReader = new igv.BamWebserviceReader(config)
+        } else if("htsget" === config.sourceType) {
+            this.bamReader = new igv.HtsgetReader(config);
         } else {
             this.bamReader = new igv.BamReader(config);
         }
@@ -14577,9 +16658,6 @@ var igv = (function (igv) {
             colorByMenuItems = [],
             tagLabel,
             selected;
-
-        // color picker
-        menuItems.push(igv.colorPickerMenuItem(popover, this.trackView));
 
         // sort by genomic location
         menuItems.push(sortMenuItem(popover));
@@ -15448,7 +17526,8 @@ var igv = (function (igv) {
     var READ_STRAND_FLAG = 0x10;
     var MATE_STRAND_FLAG = 0x20;
 
-
+    var BAM1_MAGIC_BYTES = new Uint8Array([0x42, 0x41, 0x4d, 0x01]); // BAM\1
+    var BAM1_MAGIC_NUMBER = readInt(BAM1_MAGIC_BYTES, 0);
 
     igv.BamUtils = {
 
@@ -15460,9 +17539,12 @@ var igv = (function (igv) {
 
                     .then(function (compressedBuffer) {
 
-                        var header;
+                        var header, unc, uncba;
 
-                        header = igv.BamUtils.decodeBamHeader(compressedBuffer, genome);
+                        unc = igv.unbgzf(compressedBuffer);
+                        uncba = new Uint8Array(unc);
+
+                        header = igv.BamUtils.decodeBamHeader(uncba, genome);
 
                         fulfill(header);
 
@@ -15474,34 +17556,42 @@ var igv = (function (igv) {
             });
         },
 
-        decodeBamHeader: function (compressedBuffer, genome) {
+        /**
+         *
+         * @param ba  bytes to decode as a UInt8Array
+         * @param genome  optional igv genome object
+         * @returns {{ magicNumer: number, size: number, chrNames: Array, chrToIndex: ({}|*), chrAliasTable: ({}|*) }}
+         */
+        decodeBamHeader: function (ba, genome) {
 
-            var unc, uncba, magic, samHeaderLen, samHeader, chrToIndex, chrNames, chrAliasTable, alias;
+            var magic, samHeaderLen, samHeader, chrToIndex, chrNames, chrAliasTable, alias;
 
-            unc = igv.unbgzf(compressedBuffer);
-            uncba = new Uint8Array(unc);
-            magic = readInt(uncba, 0);
-            samHeaderLen = readInt(uncba, 4);
+            magic = readInt(ba, 0);
+            if (magic !== BAM1_MAGIC_NUMBER) {
+                throw new Error('BAM header contains an invalid BAM magic');
+            }
+
+            samHeaderLen = readInt(ba, 4);
             samHeader = '';
 
             for (var i = 0; i < samHeaderLen; ++i) {
-                samHeader += String.fromCharCode(uncba[i + 8]);
+                samHeader += String.fromCharCode(ba[i + 8]);
             }
 
-            var nRef = readInt(uncba, samHeaderLen + 8);
+            var nRef = readInt(ba, samHeaderLen + 8);
             var p = samHeaderLen + 12;
 
             chrToIndex = {};
             chrNames = [];
             chrAliasTable = {};
 
-            for (var i = 0; i < nRef; ++i) {
-                var lName = readInt(uncba, p);
+            for (i = 0; i < nRef; ++i) {
+                var lName = readInt(ba, p);
                 var name = '';
                 for (var j = 0; j < lName - 1; ++j) {
-                    name += String.fromCharCode(uncba[p + 4 + j]);
+                    name += String.fromCharCode(ba[p + 4 + j]);
                 }
-                var lRef = readInt(uncba, p + lName + 4);
+                var lRef = readInt(ba, p + lName + 4);
                 //dlog(name + ': ' + lRef);
 
                 chrToIndex[name] = i;
@@ -15516,13 +17606,71 @@ var igv = (function (igv) {
             }
 
             return {
+                magicNumber: magic,
+                size: p,
                 chrNames: chrNames,
                 chrToIndex: chrToIndex,
                 chrAliasTable: chrAliasTable
-            }
+            };
 
         },
 
+        bam_tag2cigar: function(ba, block_end, seq_offset, lseq, al, cigarArray) {
+
+            function type2size(x) {
+                if (x == 'C' || x == 'c' || x == 'A') return 1;
+                else if (x == 'S' || x == 's') return 2;
+                else if (x == 'I' || x == 'i' || x == 'f') return 4;
+                else return 0;
+            }
+
+            // test if the real CIGAR is encoded in a CG:B,I tag
+            if (cigarArray.length != 1 || al.start < 0) return false;
+            var p = seq_offset + ((lseq + 1) >> 1) + lseq;
+            while (p + 4 < block_end) {
+                var tag = String.fromCharCode(ba[p]) + String.fromCharCode(ba[p+1]);
+                if (tag == 'CG') break;
+                var type = String.fromCharCode(ba[p+2]);
+                if (type == 'B') { // the binary array type
+                    type = String.fromCharCode(ba[p+3]);
+                    var size = type2size(type);
+                    var len = readInt(ba, p+4);
+                    p += 8 + size * len;
+                } else if (type == 'Z' || type == 'H') { // 0-terminated string
+                    p += 3;
+                    while (ba[p++] != 0) {}
+                } else { // other atomic types
+                    p += 3 + type2size(type);
+                }
+            }
+            if (p >= block_end) return false; // no CG tag
+            if (String.fromCharCode(ba[p+2]) != 'B' || String.fromCharCode(ba[p+3]) != 'I') return false; // not of type B,I
+
+            // now we know the real CIGAR length and its offset in the binary array
+            var cigar_len = readInt(ba, p+4);
+            var cigar_offset = p + 8; // 4 for "CGBI" and 4 for length
+            if (cigar_offset + cigar_len * 4 > block_end) return false; // out of bound
+
+            // decode CIGAR
+            var cigar = '';
+            var lengthOnRef = 0;
+            cigarArray.length = 0; // empty the old array
+            p = cigar_offset;
+            for (var k = 0; k < cigar_len; ++k, p += 4) {
+                var cigop = readInt(ba, p);
+                var opLen = (cigop >> 4);
+                var opLtr = CIGAR_DECODER[cigop & 0xf];
+                if (opLtr == 'M' || opLtr == 'EQ' || opLtr == 'X' || opLtr == 'D' || opLtr == 'N' || opLtr == '=')
+                    lengthOnRef += opLen;
+                cigar = cigar + opLen + opLtr;
+                cigarArray.push({len: opLen, ltr: opLtr});
+            }
+
+            // update alignment record. We are not updating bin, as apparently it is not used.
+            al.cigar = cigar;
+            al.lengthOnRef = lengthOnRef;
+            return true;
+        },
 
         /**
          *
@@ -15604,10 +17752,13 @@ var igv = (function (igv) {
                 alignment.start = pos;
                 alignment.flags = flag;
                 alignment.strand = !(flag & READ_STRAND_FLAG);
-                alignment.readName = readName;               alignment.cigar = cigar;
+                alignment.readName = readName;
+                alignment.cigar = cigar;
                 alignment.lengthOnRef = lengthOnRef;
                 alignment.fragmentLength = tlen;
                 alignment.mq = mq;
+
+                igv.BamUtils.bam_tag2cigar(ba, blockEnd, p, lseq, alignment, cigarArray);
 
                 if (alignment.start + alignment.lengthOnRef < min) {
                     offset = blockEnd;
@@ -15626,8 +17777,7 @@ var igv = (function (igv) {
                 p += seqBytes;
 
 
-
-                if (lseq === 1 && String.fromCharCode(ba[p + j] + 33) === "*") {
+                if (lseq === 1 && String.fromCharCode(ba[p + j] + 33) === '*') {
                     // TODO == how to represent this?
                 } else {
                     qualArray = [];
@@ -15648,7 +17798,7 @@ var igv = (function (igv) {
 
                 alignment.seq = seq;
                 alignment.qual = qualArray;
-                alignment.tagBA = new Uint8Array(ba.buffer.slice(p, blockEnd));  // decode thiese on demand
+                alignment.tagBA = new Uint8Array(ba.buffer.slice(p, blockEnd));  // decode these on demand
 
                 if (!min || alignment.start <= max &&
                     alignment.start + alignment.lengthOnRef >= min &&
@@ -15683,13 +17833,13 @@ var igv = (function (igv) {
                 alignment.start = Number.parseInt(tokens[3]) - 1;
                 alignment.flags = Number.parseInt(tokens[1]);
                 alignment.readName = tokens[0];
-                alignment.strand = !(alignment.flags & READ_STRAND_FLAG)
+                alignment.strand = !(alignment.flags & READ_STRAND_FLAG);
                 alignment.mq = Number.parseInt(tokens[4]);
                 alignment.cigar = tokens[5];
                 alignment.fragmentLength = Number.parseInt(tokens[8]);
                 alignment.seq = tokens[9];
 
-                if (alignment.chr === "*" || !alignment.isMapped()) continue;  // Unmapped
+                if (alignment.chr === '*' || !alignment.isMapped()) continue;  // Unmapped
 
                 if (alignment.chr !== chr) {
                     if (started) break; // Off the right edge, we're done
@@ -15707,6 +17857,7 @@ var igv = (function (igv) {
                         lengthOnRef += opLen;
                 });
                 alignment.lengthOnRef = lengthOnRef;
+                // TODO for lh3: parse the CG:B,I tag in SAM here
 
                 if (alignment.start + lengthOnRef < min) {
                     continue;    // To the left, skip and continue
@@ -15715,7 +17866,7 @@ var igv = (function (igv) {
 
                 qualString = tokens[10];
                 alignment.qual = [];
-                for(j=0; j < qualString.length; j++) {
+                for (j = 0; j < qualString.length; j++) {
                     alignment.qual[j] = qualString.charCodeAt(j) - 33;
                 }
                 alignment.tagDict = tokens.length < 11 ? {} : decodeSamTags(tokens.slice(11));
@@ -15723,7 +17874,7 @@ var igv = (function (igv) {
                 if (alignment.isMateMapped()) {
                     rnext = tokens[6];
                     alignment.mate = {
-                        chr: (rnext === "=") ? alignment.chr : rnext,
+                        chr: (rnext === '=') ? alignment.chr : rnext,
                         position: Number.parseInt(tokens[7]),
                         strand: !(alignment.flags & MATE_STRAND_FLAG)
                     };
@@ -15737,7 +17888,7 @@ var igv = (function (igv) {
                 }
             }
         }
-    }
+    };
 
 
     /**
@@ -15787,7 +17938,7 @@ var igv = (function (igv) {
                     gapType = 'D';
                     break;
                 case 'I' :
-                    blockSeq = record.seq === "*" ? "*" : record.seq.substr(seqOffset, c.len);
+                    blockSeq = record.seq === '*' ? '*' : record.seq.substr(seqOffset, c.len);
                     blockQuals = record.qual ? record.qual.slice(seqOffset, c.len) : undefined;
                     if (insertions === undefined) insertions = [];
                     insertions.push({start: pos, len: c.len, seq: blockSeq, qual: blockQuals});
@@ -15798,7 +17949,7 @@ var igv = (function (igv) {
                 case '=' :
                 case 'X' :
 
-                    blockSeq = record.seq === "*" ? "*" : record.seq.substr(seqOffset, c.len);
+                    blockSeq = record.seq === '*' ? '*' : record.seq.substr(seqOffset, c.len);
                     blockQuals = record.qual ? record.qual.slice(seqOffset, c.len) : undefined;
                     blocks.push({start: pos, len: c.len, seq: blockSeq, qual: blockQuals, gapType: gapType});
                     seqOffset += c.len;
@@ -15807,7 +17958,7 @@ var igv = (function (igv) {
                     break;
 
                 default :
-                    console.log("Error processing cigar element: " + c.len + c.ltr);
+                    console.log('Error processing cigar element: ' + c.len + c.ltr);
             }
         }
 
@@ -15870,7 +18021,7 @@ var igv = (function (igv) {
 
         var tagDict = {};
         tags.forEach(function (tag) {
-            var tokens = tag.split(":");
+            var tokens = tag.split(':');
             tagDict[tokens[0]] = tokens[2];
         });
 
@@ -15915,7 +18066,7 @@ var igv = (function (igv) {
 var igv = (function (igv) {
 
 
-    const MAX_GZIP_BLOCK_SIZE = 65536;   //  APPARENTLY.  Where is this documented???
+    const MAX_GZIP_BLOCK_SIZE = 65536; // See BGZF compression format in SAM format specification
     const DEFAULT_SAMPLING_WINDOW_SIZE = 100;
     const DEFAULT_SAMPLING_DEPTH = 50;
     const MAXIMUM_SAMPLING_DEPTH = 2500;
@@ -16277,6 +18428,208 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+var igv = (function (igv) {
+
+    igv.HtsgetReader = function (config) {
+        this.config = config;
+    };
+
+    igv.HtsgetReader.prototype.readAlignments = function (chr, start, end) {
+
+        var self = this;
+
+        return new Promise(function (fulfill, reject) {
+
+                getHeader()
+
+                    .then(function (header) {
+
+                        var queryChr, url;
+
+                        queryChr = header.chrAliasTable.hasOwnProperty(chr) ? header.chrAliasTable[chr] : chr;
+
+                        url = self.config.endpoint + '/reads/' + self.config.id +
+                            '?referenceName=' + queryChr +
+                            '&start=' + start +
+                            '&end=' + end;
+
+                        return igv.xhr.loadJson(url, self.config)
+                    })
+                    .then(function (data) {
+                        return loadUrls(data.htsget.urls)
+                    })
+                    .then(function (dataArr) {
+
+                        var compressedData, unc, ba, alignmentContainer, chrIdx;
+
+                        compressedData = concatArrays(dataArr);  // In essence a complete bam file
+                        unc = igv.unbgzf(compressedData.buffer);
+                        ba = new Uint8Array(unc);
+
+
+                        chrIdx = self.header.chrToIndex[chr];
+                        alignmentContainer = new igv.AlignmentContainer(chr, start, end);
+                        igv.BamUtils.decodeBamRecords(ba, self.header.size, alignmentContainer, start, end, chrIdx, self.header.chrNames);
+                        alignmentContainer.finish()
+                        fulfill(alignmentContainer);
+                    })
+                    .catch(function (error) {
+                        reject(error);
+                    });
+
+
+                function getHeader() {
+
+                    if (self.header) {
+                        return Promise.resolve(self.header);
+                    }
+                    else {
+                        return new Promise(function (fulfill, reject) {
+
+                            // htsget does not specify a method to get the header alone.  specify a non-sensical range
+                            // to return just the header
+
+                            var url = self.config.endpoint + '/reads/' + self.config.id + '?referenceName=noSuchReference';
+
+                            igv.xhr.loadJson(url, self.config)
+
+                                .then(function (data) {
+
+                                    var genome = igv.browser ? igv.browser.genome : undefined;
+
+                                    if (data && data.htsget && data.htsget.urls) {
+
+                                        loadUrls(data.htsget.urls)
+
+                                            .then(function (dataArr) {
+
+                                                var compressedData, unc, ba, alignmentContainer, chrIdx;
+
+                                                compressedData = concatArrays(dataArr);  // In essence a complete bam file
+                                                unc = igv.unbgzf(compressedData.buffer);
+                                                ba = new Uint8Array(unc);
+
+                                                self.header = igv.BamUtils.decodeBamHeader(ba, genome);
+
+                                                fulfill(self.header);
+                                            });
+                                    }
+                                    else {
+                                        reject("Error querying htsget: " + headerUrl);
+                                    }
+                                });
+
+                        })
+                    }
+
+                }
+            }
+        );
+    }
+
+
+    function loadUrls(urls) {
+        var promiseArray = [];
+        urls.forEach(function (urlData) {
+            if (urlData.url.startsWith('data:')) {
+                // this is a data-uri
+                promiseArray.push(Promise.resolve(dataUriToBlob(urlData.url)));
+            } else {
+                var options = {};
+
+                if (urlData.headers) {
+                    options.headers = urlData.headers;
+                    if (options.headers.hasOwnProperty("referer")) {
+                        delete options.headers["referer"];
+                    }
+                }
+
+                promiseArray.push(new Promise(function (fulfill, reject) {
+                    igv.xhr.loadArrayBuffer(urlData.url, options)
+                        .then(function (buffer) {
+                            fulfill(new Uint8Array(buffer));
+                        });
+                }));
+            }
+        });
+        return Promise.all(promiseArray);
+    }
+
+    /**
+     * Concatenate a list of Uint8Arrays
+     * @param arrays
+     */
+    function concatArrays(arrays) {
+
+        var len, newArray, offset;
+        len = 0;
+        arrays.forEach(function (a) {
+            len += a.length;
+        });
+
+        offset = 0;
+        newArray = new Uint8Array(len);
+        arrays.forEach(function (a) {
+            newArray.set(a, offset);
+            offset += a.length;
+        });
+
+        return newArray;
+
+    }
+
+    function dataUriToBlob(dataUri) {
+        var bytes,
+            split = dataUri.split(','),
+            info = split[0].split(':')[1],
+            dataString = split[1];
+
+        if (info.indexOf('base64') >= 0) {
+            dataString = atob(dataString);
+        } else {
+            dataString = decodeURI(dataString);
+        }
+
+        bytes = new Uint8Array(dataString.length);
+        for (var i = 0; i < dataString.length; i++) {
+            bytes[i] = dataString.charCodeAt(i);
+        }
+
+        return bytes;
+        //return new Blob([bytes], {type: 'application/octet-stream'});
+    }
+
+
+    return igv;
+})
+(igv || {});
+
+/*
+ * The MIT License (MIT)
+ *
  * Copyright (c) 2016 University of California San Diego
  * Author: Jim Robinson
  *
@@ -16492,395 +18845,49 @@ var igv = (function (igv) {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
-            var hasData = (self.data && (self.range.start <= requestedRange.start) &&
-                ((self.range.start + self.range.size) >= (requestedRange.start + requestedRange.size))),
-                bufferSize,
-                loadRange;
+        var hasData = (self.data && (self.range.start <= requestedRange.start) &&
+            ((self.range.start + self.range.size) >= (requestedRange.start + requestedRange.size))),
+            bufferSize,
+            loadRange;
 
-            if (hasData) {
-                subbuffer(self, requestedRange, asUint8);
+        if (hasData) {
+            return Promise.resolve(subbuffer(self, requestedRange, asUint8));
+        }
+        else {
+            // Expand buffer size if needed, but not beyond content length
+            bufferSize = Math.max(self.bufferSize, requestedRange.size);
+
+            if (self.contentLength > 0 && requestedRange.start + bufferSize > self.contentLength) {
+                loadRange = {start: requestedRange.start};
             }
             else {
-                // Expand buffer size if needed, but not beyond content length
-                bufferSize = Math.max(self.bufferSize, requestedRange.size);
+                loadRange = {start: requestedRange.start, size: bufferSize};
+            }
 
-                if (self.contentLength > 0 && requestedRange.start + bufferSize > self.contentLength) {
-                    loadRange = {start: requestedRange.start};
-                }
-                else {
-                    loadRange = {start: requestedRange.start, size: bufferSize};
-                }
-
-                igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: loadRange}))
-                    .then(function (arrayBuffer) {
+            return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: loadRange}))
+                .then(function (arrayBuffer) {
                     self.data = arrayBuffer;
                     self.range = loadRange;
-                    subbuffer(self, requestedRange, asUint8);
-                }).catch(reject);
-
-            }
-
-
-            function subbuffer(bufferedReader, requestedRange, asUint8) {
-
-                var len = bufferedReader.data.byteLength,
-                    bufferStart = requestedRange.start - bufferedReader.range.start,
-                    result = asUint8 ?
-                        new Uint8Array(bufferedReader.data, bufferStart, len - bufferStart) :
-                        new DataView(bufferedReader.data, bufferStart, len - bufferStart);
-                fulfill(result);
-            }
-        });
-
-    }
-
-
-    return igv;
-
-})(igv || {});
-
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Broad Institute
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
- * Created by jrobinso on 4/7/14.
- */
-
-
-var igv = (function (igv) {
-
-    var BPTREE_MAGIC_LTH = 0x78CA8C91;
-    var BPTREE_MAGIC_HTL = 0x918CCA78;
-    var BPTREE_HEADER_SIZE = 32;
-
-
-    igv.BPTree = function (binaryParser, startOffset) {
-
-        var self = this,
-            genome = igv.browser ? igv.browser.genome : null;
-
-        this.header = {};
-        this.header.magic = binaryParser.getInt();
-        this.header.blockSize = binaryParser.getInt();
-        this.header.keySize = binaryParser.getInt();
-        this.header.valSize = binaryParser.getInt();
-        this.header.itemCount = binaryParser.getLong();
-        this.header.reserved = binaryParser.getLong();
-
-        this.dictionary = {};
-
-        // Recursively walk tree to populate dictionary
-        readTreeNode(binaryParser, -1, this.header.keySize, this.dictionary);
-
-        var itemSize = 8 + this.header.keySize;
-        var minSize = 4 + itemSize;   // Bytes for a node with 1 item
-
-        function readTreeNode(byteBuffer, offset, keySize, dictionary) {
-
-            if (offset >= 0) byteBuffer.position = offset;
-
-            var type = byteBuffer.getByte(),
-                reserved = byteBuffer.getByte(),
-                count = byteBuffer.getUShort(),
-                i,
-                key,
-                chromId,
-                chromSize,
-                childOffset,
-                bufferOffset,
-                currOffset;
-
-
-            if (type == 1) {
-
-                for (i = 0; i < count; i++) {
-
-                    key = byteBuffer.getFixedLengthTrimmedString(keySize);
-                    chromId = byteBuffer.getInt();
-                    chromSize = byteBuffer.getInt();
-
-                    if(genome) key = genome.getChromosomeName(key);  // Translate to canonical chr name
-                    dictionary[key] = chromId;
-
-                }
-            }
-            else { // non-leaf
-
-                for (i = 0; i < count; i++) {
-
-                    key = byteBuffer.getFixedLengthTrimmedString(keySize);
-                    childOffset = byteBuffer.getLong();
-                    bufferOffset = childOffset - startOffset;
-                    currOffset = byteBuffer.position;
-                    readTreeNode(byteBuffer, bufferOffset, keySize, dictionary);
-                    byteBuffer.position = currOffset;
-                }
-            }
-
-        }
-    }
-
-
-    return igv;
-
-})(igv || {});
-
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Broad Institute
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
- * Created by jrobinso on 4/7/14.
- */
-
-
-var igv = (function (igv) {
-
-    var RPTREE_MAGIC_LTH = 0x2468ACE0;
-    var RPTREE_MAGIC_HTL = 0xE0AC6824;
-    var RPTREE_HEADER_SIZE = 48;
-    var RPTREE_NODE_LEAF_ITEM_SIZE = 32;   // leaf item size
-    var RPTREE_NODE_CHILD_ITEM_SIZE = 24;  // child item size
-    var BUFFER_SIZE = 512000;     //  buffer
-
-    igv.RPTree = function (fileOffset, contentLength, config, littleEndian) {
-
-        this.config = config;
-        this.filesize = contentLength;
-        this.fileOffset = fileOffset; // File offset to beginning of tree
-        this.path = config.url;
-        this.littleEndian = littleEndian;
-    }
-
-
-    igv.RPTree.prototype.load = function () {
-
-        var self = this;
-
-        return new Promise(function (fulfill, reject) {
-            var rootNodeOffset = self.fileOffset + RPTREE_HEADER_SIZE,
-                bufferedReader = new igv.BufferedReader(self.config, self.filesize, BUFFER_SIZE);
-
-            self.readNode(rootNodeOffset, bufferedReader).then(function (node) {
-                self.rootNode = node;
-                fulfill(self);
-            }).catch(reject);
-        });
-    }
-
-
-    igv.RPTree.prototype.readNode = function (filePosition, bufferedReader) {
-
-        var self = this;
-
-        return new Promise(function (fulfill, reject) {
-
-            bufferedReader.dataViewForRange({start: filePosition, size: 4}, false).then(function (dataView) {
-                var binaryParser = new igv.BinaryParser(dataView, self.littleEndian);
-
-                var type = binaryParser.getByte();
-                var isLeaf = (type === 1) ? true : false;
-                var reserved = binaryParser.getByte();
-                var count = binaryParser.getUShort();
-
-                filePosition += 4;
-
-                var bytesRequired = count * (isLeaf ? RPTREE_NODE_LEAF_ITEM_SIZE : RPTREE_NODE_CHILD_ITEM_SIZE);
-                var range2 = {start: filePosition, size: bytesRequired};
-
-                bufferedReader.dataViewForRange(range2, false).then(function (dataView) {
-
-                    var i,
-                        items = new Array(count),
-                        binaryParser = new igv.BinaryParser(dataView);
-
-                    if (isLeaf) {
-                        for (i = 0; i < count; i++) {
-                            var item = {
-                                isLeaf: true,
-                                startChrom: binaryParser.getInt(),
-                                startBase: binaryParser.getInt(),
-                                endChrom: binaryParser.getInt(),
-                                endBase: binaryParser.getInt(),
-                                dataOffset: binaryParser.getLong(),
-                                dataSize: binaryParser.getLong()
-                            };
-                            items[i] = item;
-
-                        }
-                        fulfill(new RPTreeNode(items));
-                    }
-                    else { // non-leaf
-                        for (i = 0; i < count; i++) {
-
-                            var item = {
-                                isLeaf: false,
-                                startChrom: binaryParser.getInt(),
-                                startBase: binaryParser.getInt(),
-                                endChrom: binaryParser.getInt(),
-                                endBase: binaryParser.getInt(),
-                                childOffset: binaryParser.getLong()
-                            };
-                            items[i] = item;
-
-                        }
-
-                        fulfill(new RPTreeNode(items));
-                    }
-                }).catch(reject);
-            }).catch(reject);
-        });
-    }
-
-
-    igv.RPTree.prototype.findLeafItemsOverlapping = function (chrIdx, startBase, endBase) {
-
-        var self = this;
-
-        return new Promise(function (fulfill, reject) {
-
-            var leafItems = [],
-                processing = new Set(),
-                bufferedReader = new igv.BufferedReader(self.config, self.filesize, BUFFER_SIZE);
-
-            processing.add(0);  // Zero represents the root node
-            findLeafItems(self.rootNode, 0);
-
-            function findLeafItems(node, nodeId) {
-
-                if (overlaps(node, chrIdx, startBase, endBase)) {
-
-                    var items = node.items;
-
-                    items.forEach(function (item) {
-
-                        if (overlaps(item, chrIdx, startBase, endBase)) {
-
-                            if (item.isLeaf) {
-                                leafItems.push(item);
-                            }
-
-                            else {
-                                if (item.childNode) {
-                                    findLeafItems(item.childNode);
-                                }
-                                else {
-                                    processing.add(item.childOffset);  // Represent node to-be-loaded by its file position
-                                    self.readNode(item.childOffset, bufferedReader).then(function (node) {
-                                        item.childNode = node;
-                                        findLeafItems(node, item.childOffset);
-                                    }).catch(reject);
-                                }
-                            }
-                        }
-                    });
-
-                }
-
-                if (nodeId != undefined) processing.delete(nodeId);
-
-                // Wait until all nodes are processed
-                if (processing.size === 0) {
-                    fulfill(leafItems);
-                }
-            }
-        });
-    }
-
-
-    function RPTreeNode(items) {
-
-
-        this.items = items;
-
-        var minChromId = Number.MAX_VALUE,
-            maxChromId = 0,
-            minStartBase = Number.MAX_VALUE,
-            maxEndBase = 0,
-            i,
-            item;
-
-        for (i = 0; i < items.length; i++) {
-            item = items[i];
-            minChromId = Math.min(minChromId, item.startChrom);
-            maxChromId = Math.max(maxChromId, item.endChrom);
-            minStartBase = Math.min(minStartBase, item.startBase);
-            maxEndBase = Math.max(maxEndBase, item.endBase);
+                    return subbuffer(self, requestedRange, asUint8);
+                })
         }
 
-        this.startChrom = minChromId;
-        this.endChrom = maxChromId;
-        this.startBase = minStartBase;
-        this.endBase = maxEndBase;
 
-    }
+        function subbuffer(bufferedReader, requestedRange, asUint8) {
 
-    /**
-     * Return true if {chrIdx:startBase-endBase} overlaps item's interval
-     * @returns {boolean}
-     */
-    function overlaps(item, chrIdx, startBase, endBase) {
-
-        //  if (chrIdx > item.endChrom || chrIdx < item.startChrom) return false;
-
-        if (!item) {
-            console.log("null item");
-            return false;
+            var len = bufferedReader.data.byteLength,
+                bufferStart = requestedRange.start - bufferedReader.range.start,
+                result = asUint8 ?
+                    new Uint8Array(bufferedReader.data, bufferStart, len - bufferStart) :
+                    new DataView(bufferedReader.data, bufferStart, len - bufferStart);
+            return result;
         }
-
-        return ((chrIdx > item.startChrom) || (chrIdx == item.startChrom && endBase >= item.startBase)) &&
-            ((chrIdx < item.endChrom) || (chrIdx == item.endChrom && startBase < item.endBase));
 
 
     }
 
 
     return igv;
-
 
 })(igv || {});
 
@@ -16921,7 +18928,11 @@ var igv = (function (igv) {
     var BIGBED_MAGIC_LTH = 0x8789F2EB; // BigBed Magic Low to High
     var BIGBED_MAGIC_HTL = 0xEBF28987; // BigBed Magic High to Low
     var BBFILE_HEADER_SIZE = 64;
-
+    var RPTREE_HEADER_SIZE = 48;
+    var RPTREE_NODE_LEAF_ITEM_SIZE = 32;   // leaf item size
+    var RPTREE_NODE_CHILD_ITEM_SIZE = 24;  // child item size
+    var BUFFER_SIZE = 512000;     //  buffer
+    var BPTREE_HEADER_SIZE = 32;
 
     igv.BWReader = function (config) {
         this.path = config.url;
@@ -16930,33 +18941,144 @@ var igv = (function (igv) {
         this.config = config;
     };
 
+    igv.BWReader.prototype.readWGFeatures = function (genome, bpPerPixel, windowFunction) {
+
+        var self = this;
+        return self.getZoomHeaders()
+            .then(function (zoomLevelHeaders) {
+                var chrIdx1, chrIdx2, chr1, chr2;
+
+                chrIdx1 = 0;
+                chrIdx2 = self.chromTree.idToChrom.length - 1;
+                chr1 = self.chromTree.idToChrom[chrIdx1];
+                chr2 = self.chromTree.idToChrom[chrIdx2];
+
+                return self.readFeatures(chr1, 0, chr2, Number.MAX_VALUE, bpPerPixel, windowFunction);
+            });
+
+    }
+
+    igv.BWReader.prototype.readFeatures = function (chr1, bpStart, chr2, bpEnd, bpPerPixel, windowFunction) {
+
+        var self = this,
+            decodeFunction,
+            chrIdx1,
+            chrIdx2,
+            bufferedReader = new igv.BufferedReader(self.config);
+
+        return self.getZoomHeaders()
+
+            .then(function (zoomLevelHeaders) {
+
+                // Select a biwig "zoom level" appropriate for the current resolution
+                var zoomLevelHeader = zoomLevelForScale(bpPerPixel, zoomLevelHeaders),
+                    treeOffset;
+
+                if (zoomLevelHeader) {
+                    treeOffset = zoomLevelHeader.indexOffset;
+                    decodeFunction = decodeZoomData;
+                } else {
+                    treeOffset = self.header.fullIndexOffset;
+                    if (self.type === "BigWig") {
+                        decodeFunction = decodeWigData;
+                    }
+                    else {
+                        decodeFunction = decodeBedData;
+                    }
+                }
+
+                return self.loadRPTree(treeOffset);
+            })
+
+            .then(function (rpTree) {
+
+                chrIdx1 = self.chromTree.chromToID[chr1];
+                chrIdx2 = self.chromTree.chromToID[chr2];
+                if (chrIdx1 === undefined || chrIdx2 === undefined) {
+                    return undefined;
+                }
+                else {
+                    return rpTree.findLeafItemsOverlapping(chrIdx1, bpStart, chrIdx2, bpEnd)
+                }
+            })
+
+            .then(function (leafItems) {
+
+                var promises = [];
+
+                if (!leafItems || leafItems.length == 0) {
+                    return [];
+                }
+                else {
+                    leafItems.forEach(function (item) {
+
+                        promises.push(
+                            bufferedReader.dataViewForRange({
+                                start: item.dataOffset,
+                                size: item.dataSize
+                            }, true)
+                                .then(function (uint8Array) {
+                                    var features = [];
+                                    var inflate = new Zlib.Inflate(uint8Array);
+                                    var plain = inflate.decompress();
+                                    decodeFunction(new DataView(plain.buffer), chrIdx1, bpStart, chrIdx2, bpEnd, features, self.chromTree.idToChrom, windowFunction);
+                                    return features;
+                                })
+                        )
+                    });
+
+                    return Promise.all(promises);
+                }
+            })
+
+            .then(function (featureArrays) {
+
+                var i, allFeatures = [];
+
+
+                allFeatures = allFeatures.concat.apply(allFeatures, featureArrays);
+
+                // for (i = 0; i < featureArrays.length; i++) {
+                //     allFeatures = allFeatures.concat(featureArrays[i]);
+                // }
+
+                allFeatures.sort(function (a, b) {
+                    return a.start - b.start;
+                });
+
+                return allFeatures;
+            })
+    }
+
     igv.BWReader.prototype.getZoomHeaders = function () {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
-            if (self.zoomLevelHeaders) {
-                fulfill(self.zoomLevelHeaders);
-            }
-            else {
-                self.loadHeader().then(function () {
-                    fulfill(self.zoomLevelHeaders);
-                }).catch(function (error) {
-                    reject(error);
-                });
-            }
-        });
+        if (self.zoomLevelHeaders) {
+            return Promise.resolve(self.zoomLevelHeaders);
+        }
+        else {
+            return self.loadHeader()
+                .then(function () {
+                    return self.zoomLevelHeaders;
+                })
+        }
+
     }
 
     igv.BWReader.prototype.loadHeader = function () {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
-            igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: {start: 0, size: BBFILE_HEADER_SIZE}}))
-                .then(function (data) {
+        return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
+            range: {
+                start: 0,
+                size: BBFILE_HEADER_SIZE
+            }
+        }))
+            .then(function (data) {
 
-                if (!data) return;
+                var header;
 
                 // Assume low-to-high unless proven otherwise
                 self.littleEndian = true;
@@ -16988,113 +19110,109 @@ var igv = (function (igv) {
                     else {
                         // TODO -- error, unknown file type  or BE
                     }
-
                 }
                 // Table 5  "Common header for BigWig and BigBed files"
-                self.header = {};
-                self.header.bwVersion = binaryParser.getUShort();
-                self.header.nZoomLevels = binaryParser.getUShort();
-                self.header.chromTreeOffset = binaryParser.getLong();
-                self.header.fullDataOffset = binaryParser.getLong();
-                self.header.fullIndexOffset = binaryParser.getLong();
-                self.header.fieldCount = binaryParser.getUShort();
-                self.header.definedFieldCount = binaryParser.getUShort();
-                self.header.autoSqlOffset = binaryParser.getLong();
-                self.header.totalSummaryOffset = binaryParser.getLong();
-                self.header.uncompressBuffSize = binaryParser.getInt();
-                self.header.reserved = binaryParser.getLong();
+                header = {};
+                header.bwVersion = binaryParser.getUShort();
+                header.nZoomLevels = binaryParser.getUShort();
+                header.chromTreeOffset = binaryParser.getLong();
+                header.fullDataOffset = binaryParser.getLong();
+                header.fullIndexOffset = binaryParser.getLong();
+                header.fieldCount = binaryParser.getUShort();
+                header.definedFieldCount = binaryParser.getUShort();
+                header.autoSqlOffset = binaryParser.getLong();
+                header.totalSummaryOffset = binaryParser.getLong();
+                header.uncompressBuffSize = binaryParser.getInt();
+                header.reserved = binaryParser.getLong();
 
-                loadZoomHeadersAndChrTree.call(self).then(fulfill).catch(reject);
-            }).catch(function (error) {
-                    reject(error);
-                });
+                return header;
 
-        });
-    }
+            })
+
+            .then(function (header) {
+
+                self.header = header;
+
+                return loadZoomHeadersAndChrTree.call(self);
+
+            })
 
 
-    function loadZoomHeadersAndChrTree() {
+        function loadZoomHeadersAndChrTree() {
 
-
-        var startOffset = BBFILE_HEADER_SIZE,
-            self = this;
-
-        return new Promise(function (fulfill, reject) {
+            var startOffset = BBFILE_HEADER_SIZE,
+                self = this;
 
             var range = {start: startOffset, size: (self.header.fullDataOffset - startOffset + 5)};
 
-            igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: range}))
+            return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: range}))
                 .then(function (data) {
 
-                var nZooms = self.header.nZoomLevels,
-                    binaryParser = new igv.BinaryParser(new DataView(data)),
-                    i,
-                    len,
-                    zoomNumber,
-                    zlh;
+                    var nZooms = self.header.nZoomLevels,
+                        binaryParser = new igv.BinaryParser(new DataView(data)),
+                        i,
+                        len,
+                        zoomNumber,
+                        zlh;
 
-                self.zoomLevelHeaders = [];
+                    self.zoomLevelHeaders = [];
 
-                self.firstZoomDataOffset = Number.MAX_VALUE;
-                for (i = 1; i <= nZooms; i++) {
-                    zoomNumber = nZooms - i;
-                    zlh = new ZoomLevelHeader(zoomNumber, binaryParser);
-                    self.firstZoomDataOffset = Math.min(zlh.dataOffset, self.firstZoomDataOffset);
-                    self.zoomLevelHeaders[zoomNumber] = zlh;
-                }
+                    self.firstZoomDataOffset = Number.MAX_VALUE;
+                    for (i = 1; i <= nZooms; i++) {
+                        zoomNumber = nZooms - i;
+                        zlh = new ZoomLevelHeader(zoomNumber, binaryParser);
+                        self.firstZoomDataOffset = Math.min(zlh.dataOffset, self.firstZoomDataOffset);
+                        self.zoomLevelHeaders[zoomNumber] = zlh;
+                    }
 
-                // Autosql
-                if (self.header.autoSqlOffset > 0) {
-                    binaryParser.position = self.header.autoSqlOffset - startOffset;
-                    self.autoSql = binaryParser.getString();
-                }
+                    // Autosql
+                    if (self.header.autoSqlOffset > 0) {
+                        binaryParser.position = self.header.autoSqlOffset - startOffset;
+                        self.autoSql = binaryParser.getString();
+                    }
 
-                // Total summary
-                if (self.header.totalSummaryOffset > 0) {
-                    binaryParser.position = self.header.totalSummaryOffset - startOffset;
-                    self.totalSummary = new igv.BWTotalSummary(binaryParser);
-                }
+                    // Total summary
+                    if (self.header.totalSummaryOffset > 0) {
+                        binaryParser.position = self.header.totalSummaryOffset - startOffset;
+                        self.totalSummary = new BWTotalSummary(binaryParser);
+                    }
 
-                // Chrom data index
-                if (self.header.chromTreeOffset > 0) {
-                    binaryParser.position = self.header.chromTreeOffset - startOffset;
-                    self.chromTree = new igv.BPTree(binaryParser, startOffset);
-                }
-                else {
-                    // TODO -- this is an error, not expected
-                }
+                    // Chrom data index
+                    if (self.header.chromTreeOffset > 0) {
+                        binaryParser.position = self.header.chromTreeOffset - startOffset;
+                        self.chromTree = new BPTree(binaryParser, startOffset);
+                    }
+                    else {
+                        // TODO -- this is an error, not expected
+                    }
 
-                //Finally total data count
-                binaryParser.position = self.header.fullDataOffset - startOffset;
-                self.dataCount = binaryParser.getInt();
+                    //Finally total data count
+                    binaryParser.position = self.header.fullDataOffset - startOffset;
+                    self.dataCount = binaryParser.getInt();
 
-                fulfill();
+                    return self.header;
 
-            }).catch(reject);
-        });
+                })
+        }
+
     }
 
     igv.BWReader.prototype.loadRPTree = function (offset) {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
-            var rpTree = self.rpTreeCache[offset];
-            if (rpTree) {
-                fulfill(rpTree);
-            }
-            else {
-                rpTree = new igv.RPTree(offset, self.contentLength, self.config, self.littleEndian);
-                self.rpTreeCache[offset] = rpTree;
-                rpTree.load().then(function () {
-                    fulfill(rpTree);
-                }).catch(reject);
-            }
-        });
+        var rpTree = self.rpTreeCache[offset];
+        if (rpTree) {
+            return Promise.resolve(rpTree);
+        }
+        else {
+            rpTree = new RPTree(offset, self.contentLength, self.config, self.littleEndian);
+            self.rpTreeCache[offset] = rpTree;
+            return rpTree.load();
+        }
     }
 
-
-    var ZoomLevelHeader = function (index, byteBuffer) {
+    function ZoomLevelHeader(index, byteBuffer) {
         this.index = index;
         this.reductionLevel = byteBuffer.getInt();
         this.reserved = byteBuffer.getInt();
@@ -17103,8 +19221,510 @@ var igv = (function (igv) {
 
     }
 
+    function RPTree(fileOffset, contentLength, config, littleEndian) {
+
+        this.config = config;
+        this.filesize = contentLength;
+        this.fileOffset = fileOffset; // File offset to beginning of tree
+        this.path = config.url;
+        this.littleEndian = littleEndian;
+    }
+
+    RPTree.prototype.load = function () {
+
+        var self = this;
+
+        var rootNodeOffset = self.fileOffset + RPTREE_HEADER_SIZE,
+            bufferedReader = new igv.BufferedReader(self.config, self.filesize, BUFFER_SIZE);
+
+        return self.readNode(rootNodeOffset, bufferedReader)
+
+            .then(function (node) {
+                self.rootNode = node;
+                return self;
+            })
+    }
+
+    RPTree.prototype.readNode = function (filePosition, bufferedReader) {
+
+        var self = this;
+
+
+        var count, isLeaf;
+
+        return bufferedReader.dataViewForRange({start: filePosition, size: 4}, false)
+
+            .then(function (dataView) {
+                var binaryParser, type, reserved;
+
+                binaryParser = new igv.BinaryParser(dataView, self.littleEndian);
+                type = binaryParser.getByte();
+                isLeaf = (type === 1) ? true : false;
+                reserved = binaryParser.getByte();
+                count = binaryParser.getUShort();
+
+                filePosition += 4;
+
+                var bytesRequired = count * (isLeaf ? RPTREE_NODE_LEAF_ITEM_SIZE : RPTREE_NODE_CHILD_ITEM_SIZE);
+                var range2 = {start: filePosition, size: bytesRequired};
+
+                return bufferedReader.dataViewForRange(range2, false);
+            })
+
+            .then(function (dataView) {
+
+                var i,
+                    items = new Array(count),
+                    binaryParser = new igv.BinaryParser(dataView);
+
+                if (isLeaf) {
+                    for (i = 0; i < count; i++) {
+                        var item = {
+                            isLeaf: true,
+                            startChrom: binaryParser.getInt(),
+                            startBase: binaryParser.getInt(),
+                            endChrom: binaryParser.getInt(),
+                            endBase: binaryParser.getInt(),
+                            dataOffset: binaryParser.getLong(),
+                            dataSize: binaryParser.getLong()
+                        };
+                        items[i] = item;
+
+                    }
+                    return new RPTreeNode(items);
+                }
+                else { // non-leaf
+                    for (i = 0; i < count; i++) {
+
+                        var item = {
+                            isLeaf: false,
+                            startChrom: binaryParser.getInt(),
+                            startBase: binaryParser.getInt(),
+                            endChrom: binaryParser.getInt(),
+                            endBase: binaryParser.getInt(),
+                            childOffset: binaryParser.getLong()
+                        };
+                        items[i] = item;
+
+                    }
+
+                    return new RPTreeNode(items);
+                }
+            })
+    }
+
+    RPTree.prototype.findLeafItemsOverlapping = function (chrIdx1, startBase, chrIdx2, endBase) {
+
+        var self = this;
+
+        return new Promise(function (fulfill, reject) {
+
+            var leafItems = [],
+                processing = new Set(),
+                bufferedReader = new igv.BufferedReader(self.config, self.filesize, BUFFER_SIZE);
+
+            processing.add(0);  // Zero represents the root node
+            findLeafItems(self.rootNode, 0);
+
+            function findLeafItems(node, nodeId) {
+
+                if (overlaps(node, chrIdx1, startBase, chrIdx2, endBase)) {
+
+                    var items = node.items;
+
+                    items.forEach(function (item) {
+
+                        if (overlaps(item, chrIdx1, startBase, chrIdx2, endBase)) {
+
+                            if (item.isLeaf) {
+                                leafItems.push(item);
+                            }
+
+                            else {
+                                if (item.childNode) {
+                                    findLeafItems(item.childNode);
+                                }
+                                else {
+                                    processing.add(item.childOffset);  // Represent node to-be-loaded by its file position
+
+                                    self.readNode(item.childOffset, bufferedReader)
+                                        .then(function (node) {
+                                            item.childNode = node;
+                                            findLeafItems(node, item.childOffset);
+                                        })
+                                        .catch(reject);
+                                }
+                            }
+                        }
+                    });
+
+                }
+
+                if (nodeId != undefined) processing.delete(nodeId);
+
+                // Wait until all nodes are processed
+                if (processing.size === 0) {
+                    fulfill(leafItems);
+                }
+            }
+        });
+    }
+
+    function RPTreeNode(items) {
+
+
+        this.items = items;
+
+        var minChromId = Number.MAX_VALUE,
+            maxChromId = 0,
+            minStartBase = Number.MAX_VALUE,
+            maxEndBase = 0,
+            i,
+            item;
+
+        for (i = 0; i < items.length; i++) {
+            item = items[i];
+            minChromId = Math.min(minChromId, item.startChrom);
+            maxChromId = Math.max(maxChromId, item.endChrom);
+            minStartBase = Math.min(minStartBase, item.startBase);
+            maxEndBase = Math.max(maxEndBase, item.endBase);
+        }
+
+        this.startChrom = minChromId;
+        this.endChrom = maxChromId;
+        this.startBase = minStartBase;
+        this.endBase = maxEndBase;
+
+    }
+
+    function BPTree(binaryParser, startOffset) {
+
+        var self = this,
+            genome = igv.browser ? igv.browser.genome : null;
+
+        var magic = binaryParser.getInt();
+        var blockSize = binaryParser.getInt();
+        var keySize = binaryParser.getInt();
+        var valSize = binaryParser.getInt();
+        var itemCount = binaryParser.getLong();
+        var reserved = binaryParser.getLong();
+        var chromToId = {};
+        var idToChrom = [];
+
+        this.chromToID = chromToId;
+        this.idToChrom = idToChrom;
+
+        // Recursively walk tree to populate dictionary
+        readTreeNode(binaryParser, -1);
+
+
+        function readTreeNode(byteBuffer, offset) {
+
+            if (offset >= 0) byteBuffer.position = offset;
+
+            var type = byteBuffer.getByte(),
+                reserved = byteBuffer.getByte(),
+                count = byteBuffer.getUShort(),
+                i,
+                key,
+                chromId,
+                chromSize,
+                childOffset,
+                bufferOffset,
+                currOffset;
+
+
+            if (type == 1) {
+
+                for (i = 0; i < count; i++) {
+
+                    key = byteBuffer.getFixedLengthTrimmedString(keySize);
+                    chromId = byteBuffer.getInt();
+                    chromSize = byteBuffer.getInt();
+
+                    if (genome) key = genome.getChromosomeName(key);  // Translate to canonical chr name
+                    chromToId[key] = chromId;
+                    idToChrom[chromId] = key;
+
+                }
+            }
+            else { // non-leaf
+
+                for (i = 0; i < count; i++) {
+
+                    key = byteBuffer.getFixedLengthTrimmedString(keySize);
+                    childOffset = byteBuffer.getLong();
+                    bufferOffset = childOffset - startOffset;
+                    currOffset = byteBuffer.position;
+                    readTreeNode(byteBuffer, bufferOffset);
+                    byteBuffer.position = currOffset;
+                }
+            }
+
+        }
+    }
+
+    /**
+     * Return true if {chrIdx1:startBase-chrIdx2:endBase} overlaps item's interval
+     * @returns {boolean}
+     */
+    function overlaps(item, chrIdx1, startBase, chrIdx2, endBase) {
+
+        if (!item) {
+            console.log("null item");
+            return false;
+        }
+
+        return ((chrIdx2 > item.startChrom) || (chrIdx2 == item.startChrom && endBase >= item.startBase)) &&
+            ((chrIdx1 < item.endChrom) || (chrIdx1 == item.endChrom && startBase <= item.endBase));
+
+
+    }
+
+    function BWTotalSummary(byteBuffer) {
+
+        if (byteBuffer) {
+
+            this.basesCovered = byteBuffer.getLong();
+            this.minVal = byteBuffer.getDouble();
+            this.maxVal = byteBuffer.getDouble();
+            this.sumData = byteBuffer.getDouble();
+            this.sumSquares = byteBuffer.getDouble();
+
+            computeStats.call(this);
+        }
+        else {
+            this.basesCovered = 0;
+            this.minVal = 0;
+            this.maxVal = 0;
+            this.sumData = 0;
+            this.sumSquares = 0;
+            this.mean = 0;
+            this.stddev = 0;
+        }
+    }
+
+
+    BWTotalSummary.prototype.updateStats = function (stats) {
+
+        this.basesCovered += stats.count;
+        this.sumData += status.sumData;
+        this.sumSquares += sumSquares;
+        this.minVal = MIN(_minVal, min);
+        this.maxVal = MAX(_maxVal, max);
+
+        computeStats.call(this);
+
+    }
+
+    function computeStats() {
+        var n = this.basesCovered;
+        if (n > 0) {
+            this.mean = this.sumData / n;
+            this.stddev = Math.sqrt(this.sumSquares / (n - 1));
+
+            var min = this.minVal < 0 ? this.mean - 2 * this.stddev : 0,
+                max = this.maxVal > 0 ? this.mean + 2 * this.stddev : 0;
+
+            this.defaultRange = {
+                min: 0,
+                max: this.mean + 3 * this.stddev
+            }
+        }
+    }
+
+    function zoomLevelForScale(bpPerPixel, zoomLevelHeaders) {
+
+        var level = null, i, zl;
+
+        for (i = 0; i < zoomLevelHeaders.length; i++) {
+
+            zl = zoomLevelHeaders[i];
+
+            if (zl.reductionLevel < bpPerPixel) {
+                level = zl;
+                break;
+            }
+        }
+
+        return level;
+    }
+
+    function decodeWigData(data, chrIdx1, bpStart, chrIdx2, bpEnd, featureArray, chrDict) {
+
+        var binaryParser = new igv.BinaryParser(data),
+            chromId = binaryParser.getInt(),
+            chromStart = binaryParser.getInt(),
+            chromEnd = binaryParser.getInt(),
+            itemStep = binaryParser.getInt(),
+            itemSpan = binaryParser.getInt(),
+            type = binaryParser.getByte(),
+            reserved = binaryParser.getByte(),
+            itemCount = binaryParser.getUShort(),
+            value,
+            chr;
+
+        if (chromId >= chrIdx1 && chromId <= chrIdx2) {
+
+            while (itemCount-- > 0) {
+
+                switch (type) {
+                    case 1:
+                        chromStart = binaryParser.getInt();
+                        chromEnd = binaryParser.getInt();
+                        value = binaryParser.getFloat();
+                        break;
+                    case 2:
+                        chromStart = binaryParser.getInt();
+                        value = binaryParser.getFloat();
+                        chromEnd = chromStart + itemSpan;
+                        break;
+                    case 3:  // Fixed step
+                        value = binaryParser.getFloat();
+                        chromEnd = chromStart + itemSpan;
+                        chromStart += itemStep;
+                        break;
+
+                }
+
+                if (chromId < chrIdx1 || (chromId === chrIdx1 && chromEnd < bpStart)) continue;
+                else if (chromId > chrIdx2 || (chromId === chrIdx2 && chromStart >= bpEnd))  break;
+
+                if (Number.isFinite(value)) {
+                    chr = chrDict[chromId];
+                    featureArray.push({chr: chr, start: chromStart, end: chromEnd, value: value});
+
+                }
+            }
+        }
+
+    }
+
+
+    function decodeBedData(data, chrIdx1, bpStart, chrIdx2, bpEnd, featureArray, chrDict) {
+
+        var binaryParser = new igv.BinaryParser(data),
+            minSize = 3 * 4 + 1,   // Minimum # of bytes required for a bed record
+            chromId,
+            chromStart,
+            chromEnd,
+            rest,
+            tokens,
+            feature,
+            exonCount, exonSizes, exonStarts, exons, eStart, eEnd, chr;
+
+
+        while (binaryParser.remLength() >= minSize) {
+
+            chromId = binaryParser.getInt();
+            chr = chrDict[chromId];
+            chromStart = binaryParser.getInt();
+            chromEnd = binaryParser.getInt();
+            rest = binaryParser.getString();
+
+            if (chromId < chrIdx1 || (chromId === chrIdx1 && chromEnd < bpStart)) continue;
+            else if (chromId > chrIdx2 || (chromId === chrIdx2 && chromStart >= bpEnd))  break;
+
+
+            feature = {chr: chr, start: chromStart, end: chromEnd};
+
+            featureArray.push(feature);
+
+            tokens = rest.split("\t");
+
+            if (tokens.length > 0) {
+                feature.name = tokens[0];
+            }
+
+            if (tokens.length > 1) {
+                feature.score = parseFloat(tokens[1]);
+            }
+            if (tokens.length > 2) {
+                feature.strand = tokens[2];
+            }
+            if (tokens.length > 3) {
+                feature.cdStart = parseInt(tokens[3]);
+            }
+            if (tokens.length > 4) {
+                feature.cdEnd = parseInt(tokens[4]);
+            }
+            if (tokens.length > 5) {
+                if (tokens[5] !== "." && tokens[5] !== "0")
+                    feature.color = igv.createColorString(tokens[5]);
+            }
+            if (tokens.length > 8) {
+                exonCount = parseInt(tokens[6]);
+                exonSizes = tokens[7].split(',');
+                exonStarts = tokens[8].split(',');
+                exons = [];
+
+                for (var i = 0; i < exonCount; i++) {
+                    eStart = start + parseInt(exonStarts[i]);
+                    eEnd = eStart + parseInt(exonSizes[i]);
+                    exons.push({start: eStart, end: eEnd});
+                }
+
+                feature.exons = exons;
+            }
+
+        }
+
+    }
+
+
+    function decodeZoomData(data, chrIdx1, bpStart, chrIdx2, bpEnd, featureArray, chrDict, windowFunction) {
+
+        var binaryParser = new igv.BinaryParser(data),
+            minSize = 8 * 4,   // Minimum # of bytes required for a zoom record
+            chromId,
+            chromStart,
+            chromEnd,
+            validCount,
+            minVal,
+            maxVal,
+            sumData,
+            sumSquares,
+            value,
+            chr;
+
+        while (binaryParser.remLength() >= minSize) {
+
+            chromId = binaryParser.getInt();
+            chr = chrDict[chromId];
+            chromStart = binaryParser.getInt();
+            chromEnd = binaryParser.getInt();
+
+            if (chromId < chrIdx1 || (chromId === chrIdx1 && chromEnd < bpStart)) continue;
+            if (chromId > chrIdx2 || (chromId === chrIdx2 && chromStart >= bpEnd)) break;
+
+
+            validCount = binaryParser.getInt();
+            minVal = binaryParser.getFloat();
+            maxVal = binaryParser.getFloat();
+            sumData = binaryParser.getFloat();
+            sumSquares = binaryParser.getFloat();
+            switch (windowFunction) {
+                case "min":
+                    value = minVal;
+                    break;
+                case "max":
+                    value = maxVal;
+                    break;
+                default:
+                    value = validCount == 0 ? 0 : sumData / validCount;
+            }
+
+
+            if (Number.isFinite(value)) {
+                featureArray.push({chr: chr, start: chromStart, end: chromEnd, value: value});
+
+
+            }
+        }
+    }
 
     return igv;
+
 
 })
 (igv || {});
@@ -17142,102 +19762,43 @@ var igv = (function (igv) {
 var igv = (function (igv) {
 
     igv.BWSource = function (config) {
-
         this.reader = new igv.BWReader(config);
-        this.bufferedReader = new igv.BufferedReader(config);
+        this.cache = true;
+        this.wgValues = {};
     };
 
-    igv.BWSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
+    igv.BWSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel, windowFunction) {
 
-        var self = this;
+        var self = this,
+            featureCache = self.featureCache,
+            genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
 
-        return new Promise(function (fulfill, reject) {
+        genomicInterval.bpPerPixel = bpPerPixel;
 
-            self.reader.getZoomHeaders().then(function (zoomLevelHeaders) {
+        if (chr.toLowerCase() === "all") {
+            return self.getWGValues(windowFunction);
+        }
+        else if (featureCache && featureCache.range.bpPerPixel === bpPerPixel && featureCache.range.containsRange(genomicInterval)) {
+            return Promise.resolve(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
+        }
+        else {
 
-                // Select a biwig "zoom level" appropriate for the current resolution
-                var bwReader = self.reader,
-                    bufferedReader = self.bufferedReader,
-                    zoomLevelHeader = zoomLevelForScale(bpPerPixel, zoomLevelHeaders),
-                    treeOffset,
-                    decodeFunction;
+            return self.reader.readFeatures(chr, bpStart, chr, bpEnd, bpPerPixel, windowFunction)
 
-                if (zoomLevelHeader) {
-                    treeOffset = zoomLevelHeader.indexOffset;
-                    decodeFunction = decodeZoomData;
-                } else {
-                    treeOffset = bwReader.header.fullIndexOffset;
-                    if (bwReader.type === "BigWig") {
-                        decodeFunction = decodeWigData;
-                    }
-                    else {
-                        decodeFunction = decodeBedData;
-                    }
-                }
+                .then(function (features) {
 
-                bwReader.loadRPTree(treeOffset).then(function (rpTree) {
+                    // Note -- replacing feature cache
+                    if (self.cache) self.featureCache = new igv.FeatureCache(features, genomicInterval);
 
-                    var chrIdx = self.reader.chromTree.dictionary[chr];
-                    if (chrIdx === undefined) {
-                        fulfill(null);
-                    }
-                    else {
+                    return features;
+                })
 
-                        rpTree.findLeafItemsOverlapping(chrIdx, bpStart, bpEnd).then(function (leafItems) {
-
-                            var promises = [];
-
-                            if (!leafItems || leafItems.length == 0) fulfill([]);
-
-                            leafItems.forEach(function (item) {
-
-                                promises.push(new Promise(function (fulfill, reject) {
-                                    var features = [];
-
-                                    bufferedReader.dataViewForRange({
-                                        start: item.dataOffset,
-                                        size: item.dataSize
-                                    }, true).then(function (uint8Array) {
-
-                                        var inflate = new Zlib.Inflate(uint8Array);
-                                        var plain = inflate.decompress();
-                                        decodeFunction(new DataView(plain.buffer), chr, chrIdx, bpStart, bpEnd, features);
-
-                                        fulfill(features);
-
-                                    }).catch(reject);
-                                }));
-                            });
-
-
-                            Promise.all(promises).then(function (featureArrays) {
-
-                                var i, allFeatures = featureArrays[0];
-                                if(featureArrays.length > 1) {
-                                   for(i=1; i<featureArrays.length; i++) {
-                                       allFeatures = allFeatures.concat(featureArrays[i]);
-                                   }
-                                }
-                                allFeatures.sort(function (a, b) {
-                                    return a.start - b.start;
-                                })
-
-                                fulfill(allFeatures)
-                            }).catch(reject);
-
-                        }).catch(reject);
-                    }
-                }).catch(reject);
-            }).catch(reject);
-
-
-        });
+        }
     }
-
 
     igv.BWSource.prototype.getDefaultRange = function () {
 
-        if(this.reader.totalSummary != undefined) {
+        if (this.reader.totalSummary != undefined) {
             return this.reader.totalSummary.defaultRange;
         }
         else {
@@ -17246,177 +19807,45 @@ var igv = (function (igv) {
 
     }
 
+    igv.BWSource.prototype.getWGValues = function (windowFunction) {
+        var self = this,
+            bpPerPixel,
+            nominalScreenWidth = 500;      // This doesn't need to be precise
 
-    function zoomLevelForScale(bpPerPixel, zoomLevelHeaders) {
-
-        var level = null, i, zl;
-
-        for (i = 0; i < zoomLevelHeaders.length; i++) {
-
-            zl = zoomLevelHeaders[i];
-
-            if (zl.reductionLevel < bpPerPixel) {
-                level = zl;
-                break;
-            }
+        if (self.wgValues[windowFunction]) {
+            return Promise.resolve(self.wgValues[windowFunction]);
         }
+        else {
 
-        return level;
-    }
+            bpPerPixel = igv.browser.genome.getGenomeLength() / nominalScreenWidth;
 
-    function decodeWigData(data, chr, chrIdx, bpStart, bpEnd, featureArray) {
+            return self.reader.readWGFeatures(igv.browser.genome, bpPerPixel, windowFunction)
 
-        var binaryParser = new igv.BinaryParser(data),
-            chromId = binaryParser.getInt(),
-            chromStart = binaryParser.getInt(),
-            chromEnd = binaryParser.getInt(),
-            itemStep = binaryParser.getInt(),
-            itemSpan = binaryParser.getInt(),
-            type = binaryParser.getByte(),
-            reserved = binaryParser.getByte(),
-            itemCount = binaryParser.getUShort(),
-            value;
+                .then(function (features) {
 
-        if (chromId === chrIdx) {
+                    var wgValues = [];
 
-            while (itemCount-- > 0) {
+                    features.forEach(function (f) {
 
-                switch (type) {
-                    case 1:
-                        chromStart = binaryParser.getInt();
-                        chromEnd = binaryParser.getInt();
-                        value = binaryParser.getFloat();
-                        break;
-                    case 2:
-                        chromStart = binaryParser.getInt();
-                        value = binaryParser.getFloat();
-                        chromEnd = chromStart + itemSpan;
-                        break;
-                    case 3:  // Fixed step
-                        value = binaryParser.getFloat();
-                        chromEnd = chromStart + itemSpan;
-                        chromStart += itemStep;
-                        break;
+                        var wgFeature, offset, chr;
 
-                }
+                        chr = f.chr;
+                        offset = igv.browser.genome.getCumulativeOffset(chr);
 
-                if (chromStart >= bpEnd) {
-                    break; // Out of interval
-                } else if (chromEnd > bpStart && Number.isFinite(value)) {
-                    featureArray.push({chr: chr, start: chromStart, end: chromEnd, value: value});
-                }
+                        wgFeature = Object.assign({}, f);
+                        wgFeature.chr = "all";
+                        wgFeature.start = offset + f.start;
+                        wgFeature.end = offset + f.end;
+                        wgValues.push(wgFeature);
+                    })
 
+                    self.wgValues[windowFunction] = wgValues;
 
-            }
+                    return wgValues;
+
+                })
+
         }
-
-    }
-
-    function decodeZoomData(data, chr, chrIdx, bpStart, bpEnd, featureArray) {
-
-        var binaryParser = new igv.BinaryParser(data),
-            minSize = 8 * 4,   // Minimum # of bytes required for a zoom record
-            chromId,
-            chromStart,
-            chromEnd,
-            validCount,
-            minVal,
-            maxVal,
-            sumData,
-            sumSquares,
-            value;
-
-        while (binaryParser.remLength() >= minSize) {
-            chromId = binaryParser.getInt();
-            if (chromId === chrIdx) {
-
-                chromStart = binaryParser.getInt();
-                chromEnd = binaryParser.getInt();
-                validCount = binaryParser.getInt();
-                minVal = binaryParser.getFloat();
-                maxVal = binaryParser.getFloat();
-                sumData = binaryParser.getFloat();
-                sumSquares = binaryParser.getFloat();
-                value = validCount == 0 ? 0 : sumData / validCount;
-
-                if (chromStart >= bpEnd) {
-                    break; // Out of interval
-
-                } else if (chromEnd > bpStart && Number.isFinite(value)) {
-                    featureArray.push({chr: chr, start: chromStart, end: chromEnd, value: value});
-                }
-
-            }
-        }
-
-    }
-
-    function decodeBedData(data, chr, chrIdx, bpStart, bpEnd, featureArray) {
-
-        var binaryParser = new igv.BinaryParser(data),
-            minSize = 3 * 4 + 1,   // Minimum # of bytes required for a bed record
-            chromId,
-            chromStart,
-            chromEnd,
-            rest,
-            tokens,
-            feature,
-            exonCount, exonSizes, exonStarts, exons, eStart, eEnd;
-
-
-        while (binaryParser.remLength() >= minSize) {
-
-            chromId = binaryParser.getInt();
-            if (chromId != chrIdx) continue;
-
-            chromStart = binaryParser.getInt();
-            chromEnd = binaryParser.getInt();
-            rest = binaryParser.getString();
-
-            feature = {chr: chr, start: chromStart, end: chromEnd};
-
-            if (chromStart < bpEnd && chromEnd >= bpStart) {
-                featureArray.push(feature);
-
-                tokens = rest.split("\t");
-
-                if (tokens.length > 0) {
-                    feature.name = tokens[0];
-                }
-
-                if (tokens.length > 1) {
-                    feature.score = parseFloat(tokens[1]);
-                }
-                if (tokens.length > 2) {
-                    feature.strand = tokens[2];
-                }
-                if (tokens.length > 3) {
-                    feature.cdStart = parseInt(tokens[3]);
-                }
-                if (tokens.length > 4) {
-                    feature.cdEnd = parseInt(tokens[4]);
-                }
-                if (tokens.length > 5) {
-                    if (tokens[5] !== "." && tokens[5] !== "0")
-                        feature.color = igv.createColorString(tokens[5]);
-                }
-                if (tokens.length > 8) {
-                    exonCount = parseInt(tokens[6]);
-                    exonSizes = tokens[7].split(',');
-                    exonStarts = tokens[8].split(',');
-                    exons = [];
-
-                    for (var i = 0; i < exonCount; i++) {
-                        eStart = start + parseInt(exonStarts[i]);
-                        eEnd = eStart + parseInt(exonSizes[i]);
-                        exons.push({start: eStart, end: eEnd});
-                    }
-
-                    feature.exons = exons;
-                }
-            }
-        }
-
     }
 
 
@@ -17425,96 +19854,6 @@ var igv = (function (igv) {
 
 })
 (igv || {});
-
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2014 Broad Institute
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
- * Created by jrobinso on 4/7/14.
- */
-
-
-var igv = (function (igv) {
-
-
-    igv.BWTotalSummary = function (byteBuffer) {
-
-        if (byteBuffer) {
-
-            this.basesCovered = byteBuffer.getLong();
-            this.minVal = byteBuffer.getDouble();
-            this.maxVal = byteBuffer.getDouble();
-            this.sumData = byteBuffer.getDouble();
-            this.sumSquares = byteBuffer.getDouble();
-
-            computeStats.call(this);
-        }
-        else {
-            this.basesCovered = 0;
-            this.minVal = 0;
-            this.maxVal = 0;
-            this.sumData = 0;
-            this.sumSquares = 0;
-            this.mean = 0;
-            this.stddev = 0;
-        }
-    }
-
-
-    function computeStats() {
-        var n = this.basesCovered;
-        if (n > 0) {
-            this.mean = this.sumData / n;
-            this.stddev = Math.sqrt(this.sumSquares / (n - 1));
-
-            var min = this.minVal < 0 ? this.mean - 2 * this.stddev : 0,
-                max = this.maxVal > 0 ? this.mean + 2 * this.stddev : 0;
-
-            this.defaultRange = {
-                min: 0,
-                max: this.mean + 3 * this.stddev
-            }
-        }
-    }
-
-    igv.BWTotalSummary.prototype.updateStats = function (stats) {
-
-        this.basesCovered += stats.count;
-        this.sumData += status.sumData;
-        this.sumSquares += sumSquares;
-        this.minVal = MIN(_minVal, min);
-        this.maxVal = MAX(_maxVal, max);
-
-        computeStats.call(this);
-
-    }
-
-
-    return igv;
-
-})(igv || {});
 
 /*
  * The MIT License (MIT)
@@ -17556,7 +19895,7 @@ var igv = (function (igv) {
     igv.BinaryParser.prototype.available = function() {
         return this.length - this.position;
     }
-
+    
     igv.BinaryParser.prototype.remLength = function () {
         return this.length - this.position;
     }
@@ -17834,7 +20173,6 @@ var igv = (function (igv) {
         });
 
 
-
     };
 
     function initialize(options) {
@@ -17903,7 +20241,7 @@ var igv = (function (igv) {
 
         if (_.size(genomicStateList) > 1 || 'all' === (_.first(genomicStateList)).locusSearchString.toLowerCase()) {
 
-            if(this.$cursorTrackingGuide.is(":visible")) {
+            if (this.$cursorTrackingGuide.is(":visible")) {
                 this.$cursorTrackingGuideToggle.click();
             }
 
@@ -17918,7 +20256,7 @@ var igv = (function (igv) {
 
         if (_.size(genomicStateList) > 1 || 'all' === (_.first(genomicStateList)).locusSearchString.toLowerCase()) {
 
-            if(this.centerGuide.$container.is(":visible")) {
+            if (this.centerGuide.$container.is(":visible")) {
                 this.centerGuide.$centerGuideToggle.click();
             }
 
@@ -17937,7 +20275,7 @@ var igv = (function (igv) {
         _.each(configList, function (config) {
             var track = self.loadTrack(config);
             if (track) {
-                loadedTracks.push( track );
+                loadedTracks.push(track);
             }
         });
 
@@ -17971,7 +20309,7 @@ var igv = (function (igv) {
             }
         }
 
-        newTrack = igv.createTrackWithConfiguration(config);
+        newTrack = igv.createTrack(config);
 
         if (undefined === newTrack) {
             igv.presentAlert("Unknown file type: " + config.url);
@@ -18172,11 +20510,11 @@ var igv = (function (igv) {
 
         if (true === resizeWillExceedChromosomeLength(this.trackViews)) {
 
-            viewport = _.first( (_.first(this.trackViews)).viewports );
+            viewport = _.first((_.first(this.trackViews)).viewports);
             this.parseSearchInput(viewport.genomicState.chromosome.name);
         } else {
 
-            _.each(_.union([this.ideoPanel, this.karyoPanel, this.centerGuide], this.trackViews), function(renderable){
+            _.each(_.union([this.ideoPanel, this.karyoPanel, this.centerGuide], this.trackViews), function (renderable) {
                 if (renderable) {
                     renderable.resize();
                 }
@@ -18220,7 +20558,7 @@ var igv = (function (igv) {
 
     igv.Browser.prototype.repaint = function () {
 
-        _.each(_.union([this.ideoPanel, this.karyoPanel, this.centerGuide], this.trackViews), function(renderable){
+        _.each(_.union([this.ideoPanel, this.karyoPanel, this.centerGuide], this.trackViews), function (renderable) {
             if (renderable) {
                 renderable.repaint();
             }
@@ -18235,7 +20573,7 @@ var igv = (function (igv) {
         }
 
         if (this.ideoPanel) {
-            igv.IdeoPanel.repaintPanel( this.ideoPanel.panelWithLocusIndex(locusIndex) );
+            igv.IdeoPanel.repaintPanel(this.ideoPanel.panelWithLocusIndex(locusIndex));
         }
 
         _.each(igv.Viewport.viewportsWithLocusIndex(locusIndex), function (viewport) {
@@ -18250,13 +20588,13 @@ var igv = (function (igv) {
 
         this.windowSizePanel.updateWithGenomicState(_.first(this.genomicStateList));
 
-        _.each([this.ideoPanel, this.karyoPanel, this.centerGuide], function(renderable){
+        _.each([this.ideoPanel, this.karyoPanel, this.centerGuide], function (renderable) {
             if (renderable) {
                 renderable.repaint();
             }
         });
 
-        _.each(this.trackViews, function(trackView){
+        _.each(this.trackViews, function (trackView) {
             trackView.update();
         });
 
@@ -18267,11 +20605,11 @@ var igv = (function (igv) {
         igv.browser.updateLocusSearchWithGenomicState(_.first(this.genomicStateList));
 
         if (0 === locusIndex) {
-            this.windowSizePanel.updateWithGenomicState(this.genomicStateList[ locusIndex ]);
+            this.windowSizePanel.updateWithGenomicState(this.genomicStateList[locusIndex]);
         }
 
         if (this.ideoPanel) {
-            igv.IdeoPanel.repaintPanel( this.ideoPanel.panelWithLocusIndex(locusIndex) );
+            igv.IdeoPanel.repaintPanel(this.ideoPanel.panelWithLocusIndex(locusIndex));
         }
 
         if (this.karyoPanel) {
@@ -18293,7 +20631,7 @@ var igv = (function (igv) {
         var anyTrackViewIsLoading;
 
         anyTrackViewIsLoading = false;
-        _.each(this.trackViews, function(t) {
+        _.each(this.trackViews, function (t) {
             if (false === anyTrackViewIsLoading) {
                 anyTrackViewIsLoading = t.isLoading();
             }
@@ -18317,16 +20655,18 @@ var igv = (function (igv) {
             if ('all' === genomicState.locusSearchString.toLowerCase()) {
 
                 this.$searchInput.val(genomicState.locusSearchString);
+                this.chromosomeSelectWidget.$select.val('all');
             } else {
 
                 referenceFrame = genomicState.referenceFrame;
+                this.chromosomeSelectWidget.$select.val(referenceFrame.chrName);
 
                 if (this.$searchInput) {
 
-                    end = referenceFrame.start + referenceFrame.bpPerPixel * (self.viewportContainerWidth()/genomicState.locusCount);
+                    end = referenceFrame.start + referenceFrame.bpPerPixel * (self.viewportContainerWidth() / genomicState.locusCount);
 
                     if (this.genome) {
-                        chromosome = this.genome.getChromosome( referenceFrame.chrName );
+                        chromosome = this.genome.getChromosome(referenceFrame.chrName);
                         if (chromosome) {
                             end = Math.min(end, chromosome.bpLength);
                         }
@@ -18360,11 +20700,11 @@ var igv = (function (igv) {
         $track.append($viewportContainer);
 
         rect =
-            {
-                position: $viewportContainer.position(),
-                width: $viewportContainer.width(),
-                height: $viewportContainer.height()
-            };
+        {
+            position: $viewportContainer.position(),
+            width: $viewportContainer.width(),
+            height: $viewportContainer.height()
+        };
 
         // rect.position = $viewportContainer.position();
         // rect.width = $viewportContainer.width();
@@ -18383,7 +20723,7 @@ var igv = (function (igv) {
      * Return the visible width of a track.  All tracks should have the same width.
      */
     igv.Browser.prototype.viewportContainerWidth = function () {
-        return (this.trackViews && this.trackViews.length > 0) ? this.trackViews[ 0 ].$viewportContainer.width() : this.syntheticViewportContainerWidth();
+        return (this.trackViews && this.trackViews.length > 0) ? this.trackViews[0].$viewportContainer.width() : this.syntheticViewportContainerWidth();
     };
 
     igv.Browser.prototype.minimumBasesExtent = function () {
@@ -18410,7 +20750,7 @@ var igv = (function (igv) {
 
         genomicState = _.first(this.genomicStateList);
         genomicState.chromosome = this.genome.getChromosome(chrName);
-        viewportWidth = igv.browser.viewportContainerWidth()/genomicState.locusCount;
+        viewportWidth = igv.browser.viewportContainerWidth() / genomicState.locusCount;
 
         referenceFrame = genomicState.referenceFrame;
         referenceFrame.chrName = genomicState.chromosome.name;
@@ -18420,7 +20760,7 @@ var igv = (function (igv) {
             width = Math.round(viewportWidth * referenceFrame.bpPerPixel / 2);
             start = Math.max(0, start - width);
         } else {
-            referenceFrame.bpPerPixel = (end - start)/viewportWidth;
+            referenceFrame.bpPerPixel = (end - start) / viewportWidth;
         }
 
         if (!genomicState.chromosome) {
@@ -18463,37 +20803,37 @@ var igv = (function (igv) {
             return;
         }
 
-        _.each(_.range(_.size(this.genomicStateList)), function(locusIndex){
+        _.each(_.range(_.size(this.genomicStateList)), function (locusIndex) {
             zoomInWithLocusIndex(self, locusIndex);
         });
 
         function zoomInWithLocusIndex(browser, locusIndex) {
 
-            var genomicState = browser.genomicStateList[ locusIndex ],
+            var genomicState = browser.genomicStateList[locusIndex],
                 referenceFrame = genomicState.referenceFrame,
-                viewportWidth = Math.floor(browser.viewportContainerWidth()/genomicState.locusCount),
+                viewportWidth = Math.floor(browser.viewportContainerWidth() / genomicState.locusCount),
                 centerBP,
                 mbe,
                 be;
 
             // Have we reached the zoom-in threshold yet? If so, bail.
             mbe = browser.minimumBasesExtent();
-            be = basesExtent(viewportWidth, referenceFrame.bpPerPixel/2.0);
+            be = basesExtent(viewportWidth, referenceFrame.bpPerPixel / 2.0);
             if (mbe > be) {
                 return;
             }
 
             // window center (base-pair units)
-            centerBP = referenceFrame.start + referenceFrame.bpPerPixel * (viewportWidth/2);
+            centerBP = referenceFrame.start + referenceFrame.bpPerPixel * (viewportWidth / 2);
 
             // derive scaled (zoomed in) start location (base-pair units) by multiplying half-width by halve'd bases-per-pixel
             // which results in base-pair units
-            referenceFrame.start = centerBP - (viewportWidth/2) * (referenceFrame.bpPerPixel/2.0);
+            referenceFrame.start = centerBP - (viewportWidth / 2) * (referenceFrame.bpPerPixel / 2.0);
 
             // halve the bases-per-pixel
             referenceFrame.bpPerPixel /= 2.0;
 
-            browser.updateWithLocusIndex( locusIndex );
+            browser.updateWithLocusIndex(locusIndex);
 
             function basesExtent(width, bpp) {
                 return Math.floor(width * bpp);
@@ -18511,15 +20851,15 @@ var igv = (function (igv) {
             return;
         }
 
-        _.each(_.range(_.size(this.genomicStateList)), function(locusIndex){
+        _.each(_.range(_.size(this.genomicStateList)), function (locusIndex) {
             zoomOutWithLocusIndex(self, locusIndex);
         });
 
         function zoomOutWithLocusIndex(browser, locusIndex) {
 
-            var genomicState = igv.browser.genomicStateList[ locusIndex ],
+            var genomicState = igv.browser.genomicStateList[locusIndex],
                 referenceFrame = genomicState.referenceFrame,
-                viewportWidth = Math.floor( browser.viewportContainerWidth()/genomicState.locusCount ),
+                viewportWidth = Math.floor(browser.viewportContainerWidth() / genomicState.locusCount),
                 chromosome,
                 newScale,
                 maxScale,
@@ -18540,10 +20880,10 @@ var igv = (function (igv) {
                 newScale = maxScale;
             }
 
-            centerBP = referenceFrame.start + referenceFrame.bpPerPixel * viewportWidth/2;
+            centerBP = referenceFrame.start + referenceFrame.bpPerPixel * viewportWidth / 2;
             widthBP = newScale * viewportWidth;
 
-            referenceFrame.start = Math.round(centerBP - widthBP/2);
+            referenceFrame.start = Math.round(centerBP - widthBP / 2);
 
             if (referenceFrame.start < 0) {
                 referenceFrame.start = 0;
@@ -18553,12 +20893,12 @@ var igv = (function (igv) {
 
             referenceFrame.bpPerPixel = newScale;
 
-            browser.updateWithLocusIndex( locusIndex );
+            browser.updateWithLocusIndex(locusIndex);
 
         }
     };
 
-    igv.Browser.prototype.selectMultiLocusPanelWithGenomicState = function(genomicState) {
+    igv.Browser.prototype.selectMultiLocusPanelWithGenomicState = function (genomicState) {
 
         this.multiLocusPanelLayoutWithTruthFunction(function (candidate) {
             return _.isEqual(candidate, genomicState);
@@ -18566,7 +20906,7 @@ var igv = (function (igv) {
 
     };
 
-    igv.Browser.prototype.closeMultiLocusPanelWithGenomicState = function(genomicState) {
+    igv.Browser.prototype.closeMultiLocusPanelWithGenomicState = function (genomicState) {
 
         this.multiLocusPanelLayoutWithTruthFunction(function (candidate) {
             return !_.isEqual(candidate, genomicState);
@@ -18586,14 +20926,14 @@ var igv = (function (igv) {
 
         this.emptyViewportContainers();
 
-        filtered = _.filter(_.clone(this.genomicStateList), function(gs) {
+        filtered = _.filter(_.clone(this.genomicStateList), function (gs) {
             return filterFunction(gs);
         });
 
-        this.genomicStateList = _.map(filtered, function(f, i, list){
+        this.genomicStateList = _.map(filtered, function (f, i, list) {
             f.locusIndex = i;
             f.locusCount = _.size(list);
-            f.referenceFrame.bpPerPixel = (f.end - f.start) / (self.viewportContainerWidth()/f.locusCount);
+            f.referenceFrame.bpPerPixel = (f.end - f.start) / (self.viewportContainerWidth() / f.locusCount);
             return f;
         });
 
@@ -18619,12 +20959,12 @@ var igv = (function (igv) {
         $('.igv-viewport-div').remove();
         $('.igv-ruler-sweeper-div').remove();
 
-        _.each(this.trackViews, function(trackView){
+        _.each(this.trackViews, function (trackView) {
             trackView.viewports = [];
             trackView.scrollbar = undefined;
 
             _.each(_.keys(trackView.track.rulerSweepers), function (key) {
-                trackView.track.rulerSweepers[ key ] = undefined;
+                trackView.track.rulerSweepers[key] = undefined;
             });
 
             trackView.track.rulerSweepers = undefined;
@@ -18634,9 +20974,9 @@ var igv = (function (igv) {
 
     igv.Browser.prototype.buildViewportsWithGenomicStateList = function (genomicStateList) {
 
-        _.each(this.trackViews, function(trackView){
+        _.each(this.trackViews, function (trackView) {
 
-            _.each(genomicStateList, function(genomicState, i) {
+            _.each(genomicStateList, function (genomicState, i) {
 
                 trackView.viewports.push(new igv.Viewport(trackView, trackView.$viewportContainer, i));
 
@@ -18651,12 +20991,13 @@ var igv = (function (igv) {
 
     };
 
-    igv.Browser.prototype.parseSearchInput = function(string) {
+    igv.Browser.prototype.parseSearchInput = function (string) {
 
         var self = this,
             loci = string.split(' ');
 
-        this.getGenomicStateList(loci, this.viewportContainerWidth(), function (genomicStateList) {
+        this.getGenomicStateList(loci, this.viewportContainerWidth())
+            .then(function (genomicStateList) {
 
             var found,
                 errorString,
@@ -18669,7 +21010,7 @@ var igv = (function (igv) {
                     genomicState.locusIndex = index;
                     genomicState.locusCount = _.size(genomicStateList);
 
-                    genomicState.referenceFrame = new igv.ReferenceFrame(genomicState.chromosome.name, genomicState.start, (genomicState.end - genomicState.start) / (self.viewportContainerWidth()/genomicState.locusCount));
+                    genomicState.referenceFrame = new igv.ReferenceFrame(genomicState.chromosome.name, genomicState.start, (genomicState.end - genomicState.start) / (self.viewportContainerWidth() / genomicState.locusCount));
                     genomicState.initialReferenceFrame = JSON.parse(JSON.stringify(genomicState.referenceFrame));
                 });
 
@@ -18735,11 +21076,11 @@ var igv = (function (igv) {
             featureDBGenomicStates,
             survivors,
             paths,
-        promises;
+            promises;
 
         chrStartEndLoci = [];
 
-        _.each(loci, function(locus) {
+        loci.forEach(function (locus) {
 
             locusGenomicState = {};
             if (igv.Browser.isLocusChrNameStartEnd(locus, self.genome, locusGenomicState)) {
@@ -18756,20 +21097,20 @@ var igv = (function (igv) {
         geneNameLoci = _.difference(loci, chrStartEndLoci);
 
         // parse gene names
-        if (_.size(geneNameLoci) > 0) {
+        if (geneNameLoci.length > 0) {
 
             survivors = [];
             featureDBGenomicStates = [];
-            _.each(geneNameLoci, function(locus){
+            geneNameLoci.forEach(function (locus) {
                 var result,
                     genomicState;
 
-                result = self.featureDB[ locus.toUpperCase() ];
+                result = self.featureDB[locus.toUpperCase()];
                 if (result) {
                     genomicState = createFeatureDBGenomicState(result);
                     if (genomicState) {
                         genomicState.locusSearchString = locus;
-                        featureDBGenomicStates.push( genomicState );
+                        featureDBGenomicStates.push(genomicState);
                     } else {
                         survivors.push(locus);
                     }
@@ -18778,9 +21119,9 @@ var igv = (function (igv) {
                 }
             });
 
-            if (_.size(survivors) > 0) {
+            if (survivors.length > 0) {
 
-                promises = _.map(survivors, function(locus){
+                promises = survivors.map(function (locus) {
 
                     var path = searchConfig.url.replace("$FEATURE$", locus);
 
@@ -18791,34 +21132,30 @@ var igv = (function (igv) {
                     return igv.xhr.loadString(path);
                 });
 
-                Promise
-                    .all(promises)
+                return Promise .all(promises)
+
                     .then(function (response) {
                         var filtered,
                             geneNameGenomicStates;
 
-                        filtered = _.filter(response, function(geneNameLookupResult){
+                        filtered = _.filter(response, function (geneNameLookupResult) {
                             return geneNameLookupResult !== "";
                         });
 
-                        geneNameGenomicStates = _.filter(_.map(filtered, createGeneNameGenomicState), function(genomicState){
+                        geneNameGenomicStates = _.filter(_.map(filtered, createGeneNameGenomicState), function (genomicState) {
                             return undefined !== genomicState;
                         });
 
-                        continuation(_.union(locusGenomicStates, featureDBGenomicStates, geneNameGenomicStates));
-                        return;
+                        return _.union(locusGenomicStates, featureDBGenomicStates, geneNameGenomicStates);
                     });
 
             } else {
-                continuation(_.union(locusGenomicStates, featureDBGenomicStates));
-                return;
+                return Promise.resolve(_.union(locusGenomicStates, featureDBGenomicStates));
             }
 
         } else {
-            continuation(locusGenomicStates);
-            return;
+            return Promise.resolve(locusGenomicStates);
         }
-
 
 
         function createFeatureDBGenomicState(featureDBLookupResult) {
@@ -18839,7 +21176,7 @@ var igv = (function (igv) {
 
             geneNameLocusObject = {};
             if (igv.Browser.isLocusChrNameStartEnd(locusString, self.genome, geneNameLocusObject)) {
-                geneNameLocusObject.selection = new igv.GtexSelection({ gene: featureDBLookupResult.name });
+                geneNameLocusObject.selection = new igv.GtexSelection({gene: featureDBLookupResult.name});
                 return geneNameLocusObject;
             } else {
                 return undefined;
@@ -18870,9 +21207,9 @@ var igv = (function (igv) {
 
                 result = _.first(results);
 
-                chr = result[ searchConfig.chromosomeField ];
-                start = result[ searchConfig.startField ] - searchConfig.coords;
-                end = result[ searchConfig.endField ];
+                chr = result[searchConfig.chromosomeField];
+                start = result[searchConfig.startField] - searchConfig.coords;
+                end = result[searchConfig.endField];
 
                 if (undefined === end) {
                     end = start + 1;
@@ -18891,7 +21228,7 @@ var igv = (function (igv) {
                     type = result["featureType"] || result["type"];
 
                     geneNameLocusObject.locusSearchString = _.first(geneNameLookupResponse.split('\t'));
-                    geneNameLocusObject.selection = new igv.GtexSelection('gtex' === type || 'snp' === type ? { snp: result.gene } : { gene: result.gene });
+                    geneNameLocusObject.selection = new igv.GtexSelection('gtex' === type || 'snp' === type ? {snp: result.gene} : {gene: result.gene});
                     return geneNameLocusObject;
                 } else {
                     return undefined;
@@ -18926,12 +21263,12 @@ var igv = (function (igv) {
         var scope,
             results;
 
-        if (undefined === this.eventHandlers[ eventName ]) {
+        if (undefined === this.eventHandlers[eventName]) {
             return undefined;
         }
 
         scope = thisObj || window;
-        results = _.map(this.eventHandlers[ eventName ], function(event){
+        results = _.map(this.eventHandlers[eventName], function (event) {
             return event.apply(scope, args);
         });
 
@@ -18939,12 +21276,12 @@ var igv = (function (igv) {
 
     };
 
-    igv.Browser.prototype.loadSampleInformation = function(url) {
+    igv.Browser.prototype.loadSampleInformation = function (url) {
         var name = url;
         if (url instanceof File) {
             name = url.name;
         }
-        var ext = name.substr(name.lastIndexOf('.')+1);
+        var ext = name.substr(name.lastIndexOf('.') + 1);
         if (ext === 'fam') {
             igv.sampleInformation.loadPlinkFile(url);
         }
@@ -18955,21 +21292,26 @@ var igv = (function (igv) {
         var a,
             b,
             numeric,
-            success;
+            success,
+            chr;
 
         a = locus.split(':');
-        if ( undefined === genome.getChromosome(_.first(a)) ) {
+
+        chr = a[0];
+        if(chr.toLowerCase() === 'all') chr = 'all';
+
+        if (undefined === genome.getChromosome(chr)) {
             return false;
         } else if (locusObject) {
 
             // start and end will get overridden if explicit start AND end exits
-            locusObject.chromosome = genome.getChromosome(_.first(a));
+            locusObject.chromosome = genome.getChromosome(chr);
             locusObject.start = 0;
             locusObject.end = locusObject.chromosome.bpLength;
         }
 
         // if just a chromosome name we are done
-        if (1 === _.size(a)) {
+        if (1 === a.length) {
             return true;
         } else {
 
@@ -18978,23 +21320,30 @@ var igv = (function (igv) {
                 return false;
             } else if (1 === _.size(b)) {
 
-                numeric = _.first(b).replace(/\,/g,'');
+                numeric = _.first(b).replace(/\,/g, '');
                 success = !isNaN(numeric);
                 if (true === success && locusObject) {
                     locusObject.start = parseInt(numeric, 10);
+                    locusObject.start -= 1;
+
                     locusObject.end = undefined;
                 }
 
             } else if (2 === _.size(b)) {
 
                 success = true;
-                _.each(b, function(bb, index) {
+                _.each(b, function (bb, index) {
 
                     if (true === success) {
-                        numeric = bb.replace(/\,/g,'');
+                        numeric = bb.replace(/\,/g, '');
                         success = !isNaN(numeric);
                         if (true === success && locusObject) {
-                            locusObject[ 0 === index ? 'start' : 'end' ] = parseInt(numeric, 10);
+                            if (0 === index) {
+                                locusObject.start = parseInt(numeric, 10) - 1;
+                            } else {
+                                locusObject.end = parseInt(numeric, 10);
+                            }
+
                         }
                     }
                 });
@@ -19019,7 +21368,7 @@ var igv = (function (igv) {
 
         if (undefined === ee) {
 
-            ss -= igv.browser.minimumBasesExtent()/2;
+            ss -= igv.browser.minimumBasesExtent() / 2;
             ee = ss + igv.browser.minimumBasesExtent();
 
             if (ee > chromosome.bpLength) {
@@ -19032,15 +21381,15 @@ var igv = (function (igv) {
 
         } else if (ee - ss < igv.browser.minimumBasesExtent()) {
 
-            center = (ee + ss)/2;
-            if (center - igv.browser.minimumBasesExtent()/2 < 0) {
+            center = (ee + ss) / 2;
+            if (center - igv.browser.minimumBasesExtent() / 2 < 0) {
                 ss = 0;
                 ee = ss + igv.browser.minimumBasesExtent();
-            } else if (center + igv.browser.minimumBasesExtent()/2 > chromosome.bpLength) {
+            } else if (center + igv.browser.minimumBasesExtent() / 2 > chromosome.bpLength) {
                 ee = chromosome.bpLength;
                 ss = ee - igv.browser.minimumBasesExtent();
             } else {
-                ss = center - igv.browser.minimumBasesExtent()/2;
+                ss = center - igv.browser.minimumBasesExtent() / 2;
                 ee = ss + igv.browser.minimumBasesExtent();
             }
         }
@@ -19084,7 +21433,7 @@ var igv = (function (igv) {
                 source = tokens[2].trim();
 
                 results.push({
-                    gene: tokens[ 0 ],
+                    gene: tokens[0],
                     chromosome: igv.browser.genome.getChromosomeName(locusTokens[0].trim()),
                     start: parseInt(rangeTokens[0].replace(/,/g, '')),
                     end: parseInt(rangeTokens[1].replace(/,/g, '')),
@@ -19140,11 +21489,11 @@ var igv = (function (igv) {
             mouseDownX = lastMouseX = coords.x;
 
             // viewport object we are panning
-            viewport = igv.Viewport.viewportWithID( $viewport.data('viewport') );
+            viewport = igv.Viewport.viewportWithID($viewport.data('viewport'));
             referenceFrame = viewport.genomicState.referenceFrame;
 
             // list of all viewports in the locus 'column' containing the panning viewport
-            viewports = igv.Viewport.viewportsWithLocusIndex( $viewport.data('locusindex') );
+            viewports = igv.Viewport.viewportsWithLocusIndex($viewport.data('locusindex'));
 
         });
 
@@ -19247,12 +21596,6 @@ var igv = (function (igv) {
     }
 
 
-
-
-
-
-
-
     ////////////////////////////////// legacy ///////////////////////////////////////////
 
     /**
@@ -19281,7 +21624,7 @@ var igv = (function (igv) {
 
         if (igv.Browser.isLocusChrNameStartEnd(feature, this.genome, undefined)) {
 
-            var success =  igv.gotoLocusFeature(feature, this.genome, this);
+            var success = igv.gotoLocusFeature(feature, this.genome, this);
 
             if ((force || true === success) && callback) {
                 callback();
@@ -19378,7 +21721,7 @@ var igv = (function (igv) {
                 }
             }
 
-            obj = { start: start, end: end };
+            obj = {start: start, end: end};
             igv.Browser.validateLocusExtent(chr, obj);
 
             start = obj.start;
@@ -19428,7 +21771,7 @@ var igv = (function (igv) {
 
     function handleSearchResult(name, chr, start, end, type) {
 
-        igv.browser.selection = new igv.GtexSelection('gtex' === type || 'snp' === type ? { snp: name } : { gene: name });
+        igv.browser.selection = new igv.GtexSelection('gtex' === type || 'snp' === type ? {snp: name} : {gene: name});
 
         if (end === undefined) {
             end = start + 1;
@@ -19491,26 +21834,46 @@ var igv = (function (igv) {
  */
 var igv = (function (igv) {
 
-    /**
-     * @param config      dataSource configuration
-     * @param tableFormat table formatting object (see for example EncodeTableFormat)
-     */
-    igv.EncodeDataSource = function (config, tableFormat) {
+    igv.EncodeDataSource = function (config, columnFormat) {
         this.config = config;
-        this.tableFormat = tableFormat;
+        this.columnFormat = columnFormat;
     };
 
-    igv.EncodeDataSource.prototype.retrieveData = function (continuation) {
+    igv.EncodeDataSource.prototype.retrieveData = function () {
 
         var self = this,
             fileFormat,
-            assembly,
-            query;
+            assembly;
 
+        fileFormat = 'bigWig';
         assembly = this.config.genomeID;
-        fileFormat = "bigWig";
 
-        query = "https://www.encodeproject.org/search/?" +
+        return igv.xhr
+            .loadJson(urlString(assembly, fileFormat), {})
+            .then(function(json){
+                return parseJSONData(json, assembly, fileFormat);
+            })
+            .then(function (data) {
+                data.sort(encodeSort);
+                return Promise.resolve(data);
+            })
+            .catch(function (e) {
+                var str;
+                str = e.toString() + ' unable to access Encode Project with assembly ' + self.config.genomeID;
+                igv.presentAlert(str);
+                continuation(undefined);
+
+            });
+    };
+
+    function urlString (assembly, fileFormat) {
+
+        var str;
+
+        // TODO - Test Error Handling with this URL.
+        // str = "https://www.encodeproject.org/search/?type=experiment&assembly=/work/ea14/juicer/references/genome_collection/Hs2-HiC.chrom.sizes&files.file_format=bigWig&format=json&field=lab.title&field=biosample_term_name&field=assay_term_name&field=target.label&field=files.file_format&field=files.output_type&field=files.href&field=files.replicate.technical_replicate_number&field=files.replicate.biological_replicate_number&field=files.assembly&limit=all";
+
+        str = "https://www.encodeproject.org/search/?" +
             "type=experiment&" +
             "assembly=" + assembly + "&" +
             "files.file_format=" + fileFormat + "&" +
@@ -19527,121 +21890,142 @@ var igv = (function (igv) {
             "field=files.assembly&" +
             "limit=all";
 
+        return str;
+    }
 
-        igv.xhr
-            .loadJson(query, {})
-            .then(function (json) {
+    function parseJSONData(json, assembly, fileFormat) {
+        var rows;
 
-                var rows,
-                    obj;
+        rows = [];
+        _.each(json["@graph"], function (record) {
 
-                rows = [];
-                _.each(json["@graph"], function (record) {
+            var cellType,
+                target,
+                filtered,
+                mapped;
 
-                    var cellType,
-                        target,
-                        filtered,
-                        mapped;
+            cellType = record["biosample_term_name"] || '';
 
-                    cellType = record["biosample_term_name"] || '';
+            target = record.target ? record.target.label : '';
 
-                    target = record.target ? record.target.label : '';
+            filtered = _.filter(record.files, function (file) {
+                return fileFormat === file.file_format && assembly === file.assembly;
+            });
 
-                    filtered = _.filter(record.files, function (file) {
-                        return fileFormat === file.file_format && assembly === file.assembly;
-                    });
+            mapped = _.map(filtered, function (file) {
 
-                    mapped = _.map(filtered, function (file) {
+                var bioRep = file.replicate ? file.replicate.bioligcal_replicate_number : undefined,
+                    techRep = file.replicate ? file.replicate.technical_replicate_number : undefined,
+                    name = cellType + " " + target;
 
-                        var bioRep = file.replicate ? file.replicate.bioligcal_replicate_number : undefined,
-                            techRep = file.replicate ? file.replicate.technical_replicate_number : undefined,
-                            name = cellType + " " + target;
+                if (bioRep) {
+                    name += " " + bioRep;
+                }
 
-                        if (bioRep) {
-                            name += " " + bioRep;
-                        }
+                if (techRep) {
+                    name += (bioRep ? ":" : "0:") + techRep;
+                }
 
-                        if (techRep) {
-                            name += (bioRep ? ":" : "0:") + techRep;
-                        }
-
-                        return {
-                            "Assembly": file.assembly,
-                            "ExperimentID": record['@id'],
-                            "Cell Type": cellType,
-                            "Assay Type": record.assay_term_name,
-                            "Target": target,
-                            "Lab": record.lab ? record.lab.title : "",
-                            "Format": file.file_format,
-                            "Output Type": file.output_type,
-                            "url": "https://www.encodeproject.org" + file.href,
-                            "Bio Rep": bioRep,
-                            "Tech Rep": techRep,
-                            "Name": name
-                        };
-
-                    });
-
-                    Array.prototype.push.apply(rows, mapped);
-
-                });
-
-                rows.sort(function (a, b) {
-                    var a1 = a["Assembly"],
-                        a2 = b["Assembly"],
-                        ct1 = a["Cell Type"],
-                        ct2 = b["Cell Type"],
-                        t1 = a["Target"],
-                        t2 = b["Target"];
-
-                    if (a1 === a2) {
-                        if (ct1 === ct2) {
-                            if (t1 === t2) {
-                                return 0;
-                            }
-                            else if (t1 < t2) {
-                                return -1;
-                            }
-                            else {
-                                return 1;
-                            }
-                        }
-                        else if (ct1 < ct2) {
-                            return -1;
-                        }
-                        else {
-                            return 1;
-                        }
-                    }
-                    else {
-                        if (a1 < a2) {
-                            return -1;
-                        }
-                        else {
-                            return 1;
-                        }
-                    }
-                });
-
-                obj = {
-                    columns: [ 'Assembly', 'Cell Type', 'Target', 'Assay Type', 'Output Type', 'Lab' ],
-                    rows: rows
+                return {
+                    "Assembly": file.assembly,
+                    "ExperimentID": record['@id'],
+                    "Cell Type": cellType,
+                    "Assay Type": record.assay_term_name,
+                    "Target": target,
+                    "Lab": record.lab ? record.lab.title : "",
+                    "Format": file.file_format,
+                    "Output Type": file.output_type,
+                    "url": "https://www.encodeproject.org" + file.href,
+                    "Bio Rep": bioRep,
+                    "Tech Rep": techRep,
+                    "Name": name
                 };
-
-                ingestData.call(self, obj, function () {
-                    continuation();
-                });
-
 
             });
 
+            Array.prototype.push.apply(rows, mapped);
+
+        });
+
+        return _.map(rows, function (row) {
+            return _.mapObject(row, function (val) {
+                return (undefined === val || '' === val) ? '-' : val;
+            });
+        });
+
+    }
+
+    function encodeSort(a, b) {
+        var aa1,
+            aa2,
+            cc1,
+            cc2,
+            tt1,
+            tt2;
+
+        aa1 = a['Assembly' ]; aa2 = b['Assembly' ];
+        cc1 = a['Cell Type']; cc2 = b['Cell Type'];
+        tt1 = a['Target'   ]; tt2 = b['Target'   ];
+
+        if (aa1 === aa2) {
+            if (cc1 === cc2) {
+                if (tt1 === tt2) {
+                    return 0;
+                } else if (tt1 < tt2) {
+                    return -1;
+                } else {
+                    return 1;
+                }
+            } else if (cc1 < cc2) {
+                return -1;
+            } else {
+                return 1;
+            }
+        } else {
+            if (aa1 < aa2) {
+                return -1;
+            } else {
+                return 1;
+            }
+        }
+    }
+
+    igv.EncodeDataSource.prototype.tableData = function (data) {
+        var self = this,
+            mapped;
+
+        mapped = _.map(data, function (row) {
+
+            // Isolate the subset of the data for display in the table
+            return _.values(_.pick(row, _.map(self.columnFormat, function (column) {
+                return _.first(_.keys(column));
+            })));
+        });
+
+        return mapped;
     };
 
-    igv.EncodeDataSource.prototype.dataAtRowIndex = function (index) {
+    igv.EncodeDataSource.prototype.tableColumns = function () {
+
+        var columns;
+
+        columns = _.map(this.columnFormat, function (obj) {
+            var key,
+                val;
+
+            key = _.first(_.keys(obj));
+            val = _.first(_.values(obj));
+            return { title: key, width: val }
+        });
+
+        return columns;
+    };
+
+    igv.EncodeDataSource.prototype.dataAtRowIndex = function (data, index) {
         var row,
             obj;
 
-        row =  this.jSON.rows[ index ];
+        row =  data[ index ];
 
         obj =
             {
@@ -19649,6 +22033,8 @@ var igv = (function (igv) {
                 color: encodeAntibodyColor(row[ 'Target' ]),
                 name: row['Name']
             };
+
+        return obj;
 
         function encodeAntibodyColor (antibody) {
 
@@ -19677,177 +22063,9 @@ var igv = (function (igv) {
             return colors[ key ];
 
         }
-
-        return obj;
-    };
-
-    igv.EncodeDataSource.prototype.tableData = function () {
-        return this.tableFormat.tableData(this.jSON);
-    };
-
-    igv.EncodeDataSource.prototype.tableColumns = function () {
-        return this.tableFormat.tableColumns(this.jSON);
-    };
-
-    function ingestData(data, continuation) {
-
-        if (data instanceof File) {
-            getFile.call(this, data, continuation);
-        } else if (data instanceof Object) {
-            getJSON.call(this, data, continuation);
-        }
-
-        function getJSON(json, continuation) {
-
-            var self = this;
-
-            this.jSON = json;
-
-            json.rows.forEach(function(row, i){
-
-                Object.keys(row).forEach(function(key){
-                    var item = row[ key ];
-                    self.jSON.rows[ i ][ key ] = (undefined === item || "" === item) ? "-" : item;
-                });
-
-            });
-
-            continuation();
-
-        }
-
-        function getFile(file, continuation) {
-
-            var self = this;
-
-            this.jSON = {};
-            igv.xhr.loadString(file).then(function (data) {
-
-                var lines = data.splitLines(),
-                    item;
-
-                // Raw data items order:
-                // path | cell | dataType | antibody | view | replicate | type | lab | hub
-                //
-                // Reorder to match desired order. Discard hub item.
-                //
-                self.jSON.columns = lines[0].split("\t");
-                self.jSON.columns.pop();
-                item = self.jSON.columns.shift();
-                self.jSON.columns.push(item);
-
-                self.jSON.rows = [];
-
-                lines.slice(1, lines.length - 1).forEach(function (line) {
-
-                    var tokens,
-                        row;
-
-                    tokens = line.split("\t");
-                    tokens.pop();
-                    item = tokens.shift();
-                    tokens.push(item);
-
-                    row = {};
-                    tokens.forEach(function (t, i, ts) {
-                        var key = self.jSON.columns[ i ];
-                        row[ key ] = (undefined === t || "" === t) ? "-" : t;
-                    });
-
-                    self.jSON.rows.push(row);
-
-                });
-
-                continuation();
-            });
-
-        }
-
-    }
-
-    return igv;
-
-})(igv || {});
-
-/*
- * The MIT License (MIT)
- *
- * Copyright (c) 2016-2017 The Regents of the University of California
- * Author: Jim Robinson
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-var igv = (function (igv) {
-
-    /**
-     * @param config tableFormat configuration
-     */
-    igv.EncodeTableFormat = function (config) {
-        this.config = config;
-    };
-
-    /**
-     * @param jSON data object passed from EncodeDataSource instance
-     */
-    igv.EncodeTableFormat.prototype.tableData = function (jSON) {
-
-        var result;
-
-        result = _.map(jSON.rows, function (row, index) {
-
-            var rr;
-
-            rr = _.map(jSON.columns, function (key) {
-                return row[key];
-            });
-
-            // rr.unshift(index);
-
-            return rr;
-
-        });
-
-        return result;
-    };
-
-    /**
-     * @param jSON data object passed from EncodeDataSource instance
-     */
-    igv.EncodeTableFormat.prototype.tableColumns = function (jSON) {
-
-        var self = this,
-            columns;
-
-        columns = _.map(jSON.columns, function (heading) {
-            return {title: heading, width: self.config.columnWidths[heading]}
-        });
-
-        // columns.unshift({ title:'index', width:'10%' });
-
-        return columns;
-
     };
 
     return igv;
-
 
 })(igv || {});
 
@@ -20054,47 +22272,43 @@ var igv = (function (igv) {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
+
+        return igv.xhr.load(self.file, igv.buildOptions(self.config)).then(parseFasta)
+
+        function parseFasta(data) {
+
             self.chromosomeNames = [];
             self.chromosomes = {};
             self.sequences = {};
 
-            igv.xhr.load(self.file, igv.buildOptions(self.config))
-                .then(function (data) {
-
-                    var lines = data.splitLines(),
-                        len = lines.length,
-                        lineNo = 0,
-                        nextLine,
-                        currentSeq = "",
-                        currentChr,
-                        order = 0;
+            var lines = data.splitLines(),
+                len = lines.length,
+                lineNo = 0,
+                nextLine,
+                currentSeq = "",
+                currentChr,
+                order = 0;
 
 
-                    while (lineNo < len) {
-                        nextLine = lines[lineNo++].trim();
-                        if (nextLine.startsWith("#") || nextLine.length === 0) {
-                            continue;
-                        }
-                        else if (nextLine.startsWith(">")) {
-                            if (currentSeq) {
-                                self.chromosomeNames.push(currentChr);
-                                self.sequences[currentChr] = currentSeq;
-                                self.chromosomes[currentChr] = new igv.Chromosome(currentChr, order++, currentSeq.length);
-                            }
-                            currentChr = nextLine.substr(1).split("\\s+")[0];
-                            currentSeq = "";
-                        }
-                        else {
-                            currentSeq += nextLine;
-                        }
+            while (lineNo < len) {
+                nextLine = lines[lineNo++].trim();
+                if (nextLine.startsWith("#") || nextLine.length === 0) {
+                    continue;
+                }
+                else if (nextLine.startsWith(">")) {
+                    if (currentSeq) {
+                        self.chromosomeNames.push(currentChr);
+                        self.sequences[currentChr] = currentSeq;
+                        self.chromosomes[currentChr] = new igv.Chromosome(currentChr, order++, currentSeq.length);
                     }
-
-                    fulfill();
-
-                })
-                .catch(reject);
-        });
+                    currentChr = nextLine.substr(1).split("\\s+")[0];
+                    currentSeq = "";
+                }
+                else {
+                    currentSeq += nextLine;
+                }
+            }
+        }
     }
 
     igv.FastaSequence.prototype.readSequence = function (chr, qstart, qend) {
@@ -20419,7 +22633,7 @@ var igv = (function (igv) {
     };
 
     igv.AneuTrack.prototype.getSummary = function (chr, bpStart, bpEnd, continuation) {
-
+       
             filtersummary = function (redlinedata) {
                 var summarydata = [],
                     i,
@@ -20597,7 +22811,7 @@ var igv = (function (igv) {
         ctx = options.context;
         pixelWidth = options.pixelWidth;
         pixelHeight = options.pixelHeight;
-//
+//	
         var max = 4;
         var min = 0;
 
@@ -20981,37 +23195,41 @@ var igv = (function (igv) {
     igv.CustomServiceReader.prototype.readFeatures = function (chr, start, end) {
 
 
-        var self = this;
+        var self = this,
+            url = self.config.url,
+            body = self.config.body;
 
-        return new Promise(function (fulfill, reject) {
+        if (chr.toLowerCase() !== "all") {
 
-            var url = self.config.url,
-                body = self.config.body;
+            url = url
+                .replace("$CHR", chr)
+                .replace("$START", start)
+                .replace("$END", end);
 
-            if(body !== undefined && chr.toLowerCase() !== "all") {
-                self.config.body = self.config.body.replace("$CHR", chr);
+            if (body !== undefined) {
+                self.config.body =
+                    self.config.body
+                        .replace("$CHR", chr)
+                        .replace("$START", start)
+                        .replace("$END", end);
+            }
+        }
+
+        return igv.xhr.load(url, self.config).then(function (data) {
+
+            if (data) {
+
+                var results = (typeof self.config.parser === "function") ? self.config.parser(data) : data;
+
+                return results;
+
+            }
+            else {
+                return null;
             }
 
-            igv.xhr.load(url, self.config).then(function (data) {
-
-                if (data) {
-
-                    var results = (typeof self.config.parser === "function") ? self.config.parser(data) : data;
-
-                    fulfill(results);
-
-                }
-                else {
-                    fulfill(null);
-                }
-
-            }).catch(function (error) {
-                reject(error);
-            });
-
-        });
+        })
     }
-
 
 
     return igv;
@@ -21260,83 +23478,50 @@ var igv = (function (igv) {
      */
     igv.FeatureFileReader.prototype.readFeatures = function (chr, start, end) {
 
-        var self = this;
-
-        return new Promise(function (fullfill, reject) {
-
-            if (self.index) {
-                self
-                    .loadFeaturesWithIndex(chr, start, end)
-                    .then(packFeatures)
-                    .catch(reject);
-            } else {
-                self
-                    .loadFeaturesNoIndex()
-                    .then(packFeatures)
-                    .catch(reject);
-            }
-
-            function packFeatures(features) {
-                // TODO pack
-                fullfill(features);
-            }
-
-        });
+        if (this.index) {
+            return this.loadFeaturesWithIndex(chr, start, end);
+        } else {
+            return this.loadFeaturesNoIndex()
+        }
     };
 
     igv.FeatureFileReader.prototype.readHeader = function () {
 
         var self = this;
 
-        return new Promise(function (fullfill, reject) {
 
-            if (self.header) {
-                fullfill(self.header);
-            } else {
-                self
-                    .getIndex()
-                    .then(function (index) {
+        if (self.header) {
+            return Promise.resolve(self.header);
+        } else {
+            return self.getIndex()
+                .then(function (index) {
 
-                        var options,
-                            success;
+                    var options,
+                        success;
 
-                        if (index) {
+                    if (index) {
 
-                            // Load the file header (not HTTP header) for an indexed file.
-                            // TODO -- note this will fail if the file header is > 65kb in size
-                            options = igv.buildOptions(self.config, {bgz: index.tabix, range: {start: 0, size: 65000}});
+                        // Load the file header (not HTTP header) for an indexed file.
+                        // TODO -- note this will fail if the file header is > 65kb in size
+                        options = igv.buildOptions(self.config, {bgz: index.tabix, range: {start: 0, size: 65000}});
 
-                            success = function (data) {
+                        return igv.xhr.loadString(self.config.url, options)
+                            .then(function (data) {
                                 self.header = self.parser.parseHeader(data);
-                                fullfill(self.header);
-                            };
+                                return self.header
+                            });
 
-                            igv.xhr
-                                .loadString(self.config.url, options)
-                                .then(success)
-                                .catch(function (error) {
-                                    reject(error);
-                                });
-
-                        } else {
-                            // If this is a non-indexed file we will load all features in advance
-                            self
-                                .loadFeaturesNoIndex()
-                                .then(function (features) {
-                                    var header = self.header || {};
-                                    header.features = features;
-                                    fullfill(header);
-                                })
-                                .catch(function (error) {
-                                    reject(error);
-                                });
-                        }
-                    })
-                    .catch(function (error) {
-                        reject(error);
-                    });
-            }
-        });
+                    } else {
+                        // If this is a non-indexed file we will load all features in advance
+                        return self.loadFeaturesNoIndex()
+                            .then(function (features) {
+                                var header = self.header || {};
+                                header.features = features;
+                                return header;
+                            })
+                    }
+                })
+        }
 
     };
 
@@ -21387,24 +23572,17 @@ var igv = (function (igv) {
 
         var self = this;
 
-        return new Promise(function (fullfill, reject) {
+        var options = igv.buildOptions(self.config);    // Add oauth token, if any
 
-            var options = igv.buildOptions(self.config);    // Add oauth token, if any
-
-            function parseData(data) {
+        return igv.xhr.loadString(self.config.url, options)
+            .then(function (data) {
                 self.header = self.parser.parseHeader(data);
                 if (self.header instanceof String && self.header.startsWith("##gff-version 3")) {
                     self.format = 'gff3';
                 }
-                fullfill(self.parser.parseFeatures(data));   // <= PARSING DONE HERE
-            }
+                return self.parser.parseFeatures(data);   // <= PARSING DONE HERE
+            })
 
-            igv.xhr
-                .loadString(self.config.url, options)
-                .then(parseData)
-                .catch(reject);
-
-        });
     };
 
     igv.FeatureFileReader.prototype.loadFeaturesWithIndex = function (chr, start, end) {
@@ -21412,115 +23590,109 @@ var igv = (function (igv) {
         //console.log("Using index");
         var self = this;
 
-        return new Promise(function (fullfill, reject) {
 
-            var blocks,
-                tabix = self.index && self.index.tabix,
-                refId = tabix ? self.index.sequenceIndexMap[chr] : chr,
-                promises = [];
+        var blocks,
+            tabix = self.index && self.index.tabix,
+            refId = tabix ? self.index.sequenceIndexMap[chr] : chr,
+            promises = [];
 
-            blocks = self.index.blocksForRange(refId, start, end);
+        blocks = self.index.blocksForRange(refId, start, end);
 
-            if (!blocks || blocks.length === 0) {
-                fullfill(null);       // TODO -- is this correct?  Should it return an empty array?
-            } else {
+        if (!blocks || blocks.length === 0) {
+            return Promise.resolve([]);
+        } else {
 
-                blocks.forEach(function (block) {
+            blocks.forEach(function (block) {
 
-                    promises.push(new Promise(function (fullfill, reject) {
+                promises.push(new Promise(function (fullfill, reject) {
 
-                        var startPos = block.minv.block,
-                            startOffset = block.minv.offset,
-                            endPos,
-                            options,
-                            success;
+                    var startPos = block.minv.block,
+                        startOffset = block.minv.offset,
+                        endPos,
+                        options,
+                        success;
 
-                        endPos = endPos = block.maxv.block + MAX_GZIP_BLOCK_SIZE;
+                    endPos = endPos = block.maxv.block + MAX_GZIP_BLOCK_SIZE;
 
-                        options = igv.buildOptions(self.config, {
-                            range: {
-                                start: startPos,
-                                size: endPos - startPos + 1
-                            }
-                        });
+                    options = igv.buildOptions(self.config, {
+                        range: {
+                            start: startPos,
+                            size: endPos - startPos + 1
+                        }
+                    });
 
-                        success = function (data) {
+                    success = function (data) {
 
-                            var inflated,
-                                slicedData,
-                                slicedFeatures,
-                                filteredFeatures,
-                                f,
-                                i;
+                        var inflated,
+                            slicedData,
+                            slicedFeatures,
+                            filteredFeatures,
+                            f,
+                            i;
 
-                            if (self.index.tabix) {
-
-                                inflated = igv.xhr.arrayBufferToString(igv.unbgzf(data));
-                                // need to decompress data
-                            } else {
-                                inflated = data;
-                            }
-
-                            slicedData = startOffset ? inflated.slice(startOffset) : inflated;
-                            slicedFeatures = self.parser.parseFeatures(slicedData);
-
-                            // Filter features not in requested range.  Pity to waste these, but they weren't requested
-                            // We use an old-fashioned for loop to take advantage of known sort order (can break)
-                            filteredFeatures = [];
-                            for(i=0; i<slicedFeatures.length; i++) {
-                                f = slicedFeatures[i];
-                                if(f.start > end) break;
-                                if(f.end >= start && f.start <= end) {
-                                    filteredFeatures.push(f);
-                                }
-                            }
-
-                            fullfill(filteredFeatures);
-                        };
-
-
-                        // Async load
                         if (self.index.tabix) {
-                            igv.xhr
-                                .loadArrayBuffer(self.config.url, options)
-                                .then(success)
-                                .catch(reject);
+                            inflated = new Uint8Array(igv.unbgzf(data));
                         } else {
-                            igv.xhr
-                                .loadString(self.config.url, options)
-                                .then(success)
-                                .catch(reject);
+                            inflated = data;
                         }
 
-                    }))
-                });
+                        slicedData = startOffset ? inflated.slice(startOffset) : inflated;
+                        slicedFeatures = self.parser.parseFeatures(slicedData);
 
-                Promise
-                    .all(promises)
-                    .then(function (featureArrays) {
-
-                        var i,
-                            allFeatures;
-
-                        if (featureArrays.length === 1) {
-                            allFeatures = featureArrays[0];
-                        } else {
-                            allFeatures = featureArrays[0];
-
-                            for (i = 1; i < featureArrays.length; i++) {
-                                allFeatures = allFeatures.concat(featureArrays[i]);
+                        // Filter features not in requested range.  Pity to waste these, but they weren't requested
+                        // We use an old-fashioned for loop to take advantage of known sort order (can break)
+                        filteredFeatures = [];
+                        for (i = 0; i < slicedFeatures.length; i++) {
+                            f = slicedFeatures[i];
+                            if (f.start > end) break;
+                            if (f.end >= start && f.start <= end) {
+                                filteredFeatures.push(f);
                             }
-
-                            allFeatures.sort(function (a, b) {
-                                return a.start - b.start;
-                            });
                         }
 
-                        fullfill(allFeatures)
-                    })
-                    .catch(reject);
-            }
-        });
+                        fullfill(filteredFeatures);
+                    };
+
+
+                    // Async load
+                    if (self.index.tabix) {
+                        igv.xhr
+                            .loadArrayBuffer(self.config.url, options)
+                            .then(success)
+                            .catch(reject);
+                    } else {
+                        igv.xhr
+                            .loadString(self.config.url, options)
+                            .then(success)
+                            .catch(reject);
+                    }
+
+                }))
+            });
+
+            return Promise.all(promises)
+                .then(function (featureArrays) {
+
+                    var i,
+                        allFeatures;
+
+                    if (featureArrays.length === 1) {
+                        allFeatures = featureArrays[0];
+                    } else {
+                        allFeatures = featureArrays[0];
+
+                        for (i = 1; i < featureArrays.length; i++) {
+                            allFeatures = allFeatures.concat(featureArrays[i]);
+                        }
+
+                        allFeatures.sort(function (a, b) {
+                            return a.start - b.start;
+                        });
+                    }
+
+                    return allFeatures;
+                })
+        }
 
     };
 
@@ -21530,35 +23702,31 @@ var igv = (function (igv) {
         if (self.index !== undefined || self.config.indexed === false) {
             return Promise.resolve(self.index);
         }
-        return new Promise(function (fullfill, reject) {
 
-            if (self.isIndexable()) {
-                self
-                    .loadIndex()
-                    .then(function (indexOrUndefined) {
-                        if (indexOrUndefined) {
-                            self.index = indexOrUndefined;
-                            self.indexed = true;
-                        } else {
-                            self.indexed = false;
-                        }
-                        fullfill(self.index);
-                    })
-                    .catch(function (error) {
+        if (self.isIndexable()) {
+            return self.loadIndex()
+                .then(function (indexOrUndefined) {
+                    if (indexOrUndefined) {
+                        self.index = indexOrUndefined;
+                        self.indexed = true;
+                    } else {
                         self.indexed = false;
-                        if (error.message === '404' && self.config.indexURL === undefined) {
-                            // This is an expected condition -- ignore
-                            fullfill(undefined);
-                        } else {
-                            reject(error);
-                        }
-                    });
-            } else {
-                self.indexed = false;
-                fullfill(undefined);
-            }
-
-        });
+                    }
+                    return self.index;
+                })
+                .catch(function (error) {
+                    self.indexed = false;
+                    if (error.message === '404' && self.config.indexURL === undefined) {
+                        // This is an expected condition -- ignore
+                        return undefined;
+                    } else {
+                        throw error;
+                    }
+                });
+        } else {
+            self.indexed = false;
+            return Promise.resolve(undefined);
+        }
     };
 
     return igv;
@@ -21696,16 +23864,16 @@ var igv = (function (igv) {
 
     };
 
+
     igv.FeatureParser.prototype.parseHeader = function (data) {
 
-        var lines = data.splitLines(),
-            len = lines.length,
-            line,
-            i,
-            header;
+        var line,
+            header,
+            dataWrapper;
 
-        for (i = 0; i < len; i++) {
-            line = lines[i];
+        dataWrapper = getDataWrapper(data);
+
+        while (line = dataWrapper.nextLine()) {
             if (line.startsWith("track") || line.startsWith("#") || line.startsWith("browser")) {
                 if (line.startsWith("track")) {
                     header = parseTrackLine(line);
@@ -21727,10 +23895,9 @@ var igv = (function (igv) {
 
         if (!data) return null;
 
-        var wig,
+        var dataWrapper,
+            wig,
             feature,
-            lines = data.splitLines(),
-            len = lines.length,
             tokens,
             allFeatures = [],
             line,
@@ -21741,9 +23908,12 @@ var igv = (function (igv) {
             format = this.format,
             delimiter = this.delimiter || "\t";
 
+        dataWrapper = getDataWrapper(data);
+        i = 0;
 
-        for (i = this.skipRows; i < len; i++) {
-            line = lines[i];
+        while (line = dataWrapper.nextLine()) {
+            if (i < this.skipRows) continue;
+
             if (line.startsWith("track") || line.startsWith("#") || line.startsWith("browser")) {
                 continue;
             }
@@ -21756,7 +23926,7 @@ var igv = (function (igv) {
                 continue;
             }
 
-            tokens = lines[i].split(delimiter);
+            tokens = line.split(delimiter);
             if (tokens.length < 1) {
                 continue;
             }
@@ -21776,6 +23946,7 @@ var igv = (function (igv) {
                 }
                 cnt++;
             }
+            i++;
         }
 
         return allFeatures;
@@ -21936,7 +24107,7 @@ var igv = (function (igv) {
 
         var shift = this.shift === undefined ? 0 : 1;
 
-        if(tokens.length < 9 + shift) return undefined;
+        if (tokens.length < 9 + shift) return undefined;
 
         var feature = {
                 name: tokens[0 + shift],
@@ -21966,6 +24137,7 @@ var igv = (function (igv) {
         return feature;
 
     }
+
     /**
      * Decode a UCSC "genePredExt" record.  refGene files are in this format.
      *
@@ -21977,7 +24149,7 @@ var igv = (function (igv) {
 
         var shift = this.shift === undefined ? 0 : 1;
 
-        if(tokens.length < 11 + shift) return undefined;
+        if (tokens.length < 11 + shift) return undefined;
 
         var feature = {
                 name: tokens[11 + shift],
@@ -22018,7 +24190,7 @@ var igv = (function (igv) {
 
         var shift = this.shift === undefined ? 0 : 1;
 
-        if(tokens.length < 10 + shift) return undefined;
+        if (tokens.length < 10 + shift) return undefined;
 
         var feature = {
                 name: tokens[0 + shift],
@@ -22388,6 +24560,55 @@ var igv = (function (igv) {
 
     }
 
+    function getDataWrapper(data) {
+
+        if (typeof(data) == 'string' || data instanceof String) {
+            return new StringDataWrapper(data);
+        } else {
+            return new ByteArrayDataWrapper(data);
+        }
+    }
+
+
+
+    // Data might be a string, or an UInt8Array
+    var StringDataWrapper = function (string) {
+        this.data = string;
+        this.ptr = 0;
+    }
+
+    StringDataWrapper.prototype.nextLine = function () {
+        //return this.split(/\r\n|\n|\r/gm);
+        var start = this.ptr,
+            idx = this.data.indexOf('\n', start);
+        this.ptr = idx + 1;
+        return idx < 0 || idx === start ? undefined : this.data.substring(start, idx);
+    }
+
+    var ByteArrayDataWrapper = function (array) {
+        this.data = array;
+        this.length = this.data.length;
+        this.ptr = 0;
+    }
+
+    ByteArrayDataWrapper.prototype.nextLine = function () {
+
+        var c, result;
+        result = "";
+
+        if (this.ptr >= this.length) return undefined;
+
+        for (var i = this.ptr; i < this.length; i++) {
+            c = String.fromCharCode(this.data[i]);
+            if (c === '\r') continue;
+            if (c === '\n') break;
+            result = result + c;
+        }
+
+        this.ptr = i + 1;
+        return result;
+    }
+
 
     return igv;
 })
@@ -22449,7 +24670,7 @@ var igv = (function (igv) {
             this.reader = new igv.BigQueryFeatureReader(config);
         } else if (config.sourceType === 'ucscservice') {
             this.reader = new igv.UCSCServiceReader(config.source);
-        } else if (config.source !== undefined) {
+        } else if (config.sourceType === 'custom' || config.source !== undefined) {    // Second test for backward compatibility
             this.reader = new igv.CustomServiceReader(config.source);
         }
         else {
@@ -22465,18 +24686,24 @@ var igv = (function (igv) {
         var self = this,
             maxRows = this.config.maxRows || 500;
 
-        return new Promise(function (fulfill, reject) {
 
-            if (self.header) {
-                fulfill(self.header);
-            } else {
-                if (typeof self.reader.readHeader === "function") {
+        if (self.header) {
+            return Promise.resolve(self.header);
+        } else {
+            if (typeof self.reader.readHeader === "function") {
 
-                    self.reader.readHeader().then(function (header) {
+                return self.reader.readHeader()
+
+                    .then(function (header) {
+
                         // Non-indexed readers will return features as a side effect.  This is an important,
                         // if unfortunate, performance hack
                         if (header) {
+
+                            self.header = header;
+
                             var features = header.features;
+
                             if (features) {
 
                                 if ("gtf" === self.config.format || "gff3" === self.config.format || "gff" === self.config.format) {
@@ -22484,7 +24711,6 @@ var igv = (function (igv) {
                                 }
 
                                 // Assign overlapping features to rows
-
                                 packFeatures(features, maxRows);
                                 self.featureCache = new igv.FeatureCache(features);
 
@@ -22499,27 +24725,25 @@ var igv = (function (igv) {
                             self.config.format = header.format;
                         }
 
-                        fulfill(header);
-                    }).catch(reject);
-                }
-                else {
-                    fulfill(null);
-                }
+                        return header;
+                    })
             }
-        });
+            else {
+                self.header = {};
+                return Promise.resolve(self.header);
+            }
+        }
+
     };
 
     function addFeaturesToDB(featureList) {
-        var echo = [];
+
         featureList.forEach(function (feature) {
             if (feature.name) {
                 igv.browser.featureDB[feature.name.toUpperCase()] = feature;
             }
         });
-        // _.each(igv.browser.featureDB, function(item){
-        //     console.log('name ' + item.name);
-        // });
-        // console.log('yo');
+
     }
 
 
@@ -22537,27 +24761,29 @@ var igv = (function (igv) {
     igv.FeatureSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
 
         var self = this;
-        return new Promise(function (fulfill, reject) {
 
-            var genomicInterval,
-                featureCache,
-                maxRows,
-                str;
 
-            genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
-            featureCache = self.featureCache;
-            maxRows = self.config.maxRows || 500;
-            str = chr.toLowerCase();
+        var genomicInterval,
+            featureCache,
+            maxRows,
+            str;
 
-            if ("all" === str) {
-                if (self.reader.supportsWholeGenome) {
-                    if (featureCache && featureCache.range === undefined) {
-                        fulfill(getWGFeatures(featureCache.allFeatures()));
-                    }
-                    else {
-                        self.reader
-                            .readFeatures(chr)
-                            .then(function (featureList) {
+        genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
+        featureCache = self.featureCache;
+        maxRows = self.config.maxRows || 500;
+        str = chr.toLowerCase();
+
+        if ("all" === str) {
+
+            if (self.reader.supportsWholeGenome) {
+                if (featureCache && featureCache.range === undefined) {
+                    return Promise.resolve(getWGFeatures(featureCache.allFeatures()));
+                }
+                else {
+                    return self.reader.readFeatures(chr)
+
+                        .then(function (featureList) {
+
                             if (featureList && typeof featureList.forEach === 'function') {  // Have result AND its an array type
                                 if ("gtf" === self.config.format || "gff3" === self.config.format || "gff" === self.config.format) {
                                     featureList = (new igv.GFFHelper(self.config.format)).combineFeatures(featureList);
@@ -22567,28 +24793,29 @@ var igv = (function (igv) {
                                 // Assign overlapping features to rows
                                 packFeatures(featureList, maxRows);
                             }
-                            fulfill(getWGFeatures(self.featureCache.allFeatures()));
+                            return (getWGFeatures(self.featureCache.allFeatures()));
                         });
-                    }
-                } else {
-                    fulfill(null);
                 }
+            } else {
+                return Promise.resolve(null);
+            }
+        }
+
+        else if (featureCache && (featureCache.range === undefined || featureCache.range.containsRange(genomicInterval))) {
+            return Promise.resolve(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
+        }
+        else {
+            // TODO -- reuse cached features that overelap new region
+
+            if (self.sourceType === 'file' && (self.visibilityWindow === undefined || self.visibilityWindow <= 0)) {
+                // Expand genomic interval to grab entire chromosome
+                genomicInterval.start = 0;
+                var chromosome = igv.browser ? igv.browser.genome.getChromosome(chr) : undefined;
+                genomicInterval.end = (chromosome === undefined ? Number.MAX_VALUE : chromosome.bpLength);
             }
 
-            else if (featureCache && (featureCache.range === undefined || featureCache.range.containsRange(genomicInterval))) {
-                fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
-            }
-            else {
-                // TODO -- reuse cached features that overelap new region
-
-                if (self.sourceType === 'file' && (self.visibilityWindow === undefined || self.visibilityWindow <= 0)) {
-                    // Expand genomic interval to grab entire chromosome
-                    genomicInterval.start = 0;
-                    var chromosome = igv.browser ? igv.browser.genome.getChromosome(chr) : undefined;
-                    genomicInterval.end = (chromosome === undefined ? Number.MAX_VALUE : chromosome.bpLength);
-                }
-
-                self.reader.readFeatures(chr, genomicInterval.start, genomicInterval.end).then(
+            return self.reader.readFeatures(chr, genomicInterval.start, genomicInterval.end)
+                .then(
                     function (featureList) {
 
                         if (featureList && typeof featureList.forEach === 'function') {  // Have result AND its an array type
@@ -22613,15 +24840,15 @@ var igv = (function (igv) {
                             }
 
                             // Finally pass features for query interval to continuation
-                            fulfill(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
+                            return self.featureCache.queryFeatures(chr, bpStart, bpEnd);
                         }
                         else {
-                            fulfill(null);
+                            return null;
                         }
 
-                    }).catch(reject);
-            }
-        });
+                    })
+        }
+
     };
 
 
@@ -22692,37 +24919,35 @@ var igv = (function (igv) {
     }
 
 
+    // TODO -- filter by pixel size
     function getWGFeatures(features) {
 
-        var wgFeatures;
+        var wgFeatures,
+            wgChromosomeNames,
+            genome;
 
-        wgFeatures = _.map(features, function(f) {
+        genome = igv.browser.genome;
 
-            var wg;
+        wgChromosomeNames = new Set(genome.wgChromosomeNames);
 
-            wg = (JSON.parse(JSON.stringify(f)));
-            wg.start = igv.browser.genome.getGenomeCoordinate(f.chr, f.start);
-            wg.end = igv.browser.genome.getGenomeCoordinate(f.chr, f.end);
+        wgFeatures = [];
 
-            return wg;
+        features.forEach(function (f) {
 
+            var wg,
+                queryChr;
+
+            queryChr = genome.getChromosomeName(f.chr);
+            if (wgChromosomeNames.has(queryChr)) {
+
+                wg = Object.assign({}, f);
+                wg.start = igv.browser.genome.getGenomeCoordinate(f.chr, f.start);
+                wg.end = igv.browser.genome.getGenomeCoordinate(f.chr, f.end);
+
+                wgFeatures.push(wg);
+            }
         });
 
-        // features.forEach(function (f) {
-        //     var wgStart,
-        //         wgEnd,
-        //         wgFeature;
-        //
-        //     wgStart = igv.browser.genome.getGenomeCoordinate(f.chr, f.start);
-        //     wgEnd = igv.browser.genome.getGenomeCoordinate(f.chr, f.end);
-        //
-        //     wgFeature = (JSON.parse(JSON.stringify(f)));
-        //
-        //     wgFeature.start = wgStart;
-        //     wgFeature.end = wgEnd;
-        //
-        //     wgFeatures.push(wgFeature);
-        // });
 
         return wgFeatures;
     }
@@ -22760,6 +24985,14 @@ var igv = (function (igv) {
 
     igv.FeatureTrack = function (config) {
 
+        if(config.height === undefined) {
+            config.height = 50;
+        }
+        // Set maxRows -- protects against pathological feature packing cases (# of rows of overlapping feaures)
+        if (config.maxRows === undefined) {
+            config.maxRows = 500;
+        }
+
         igv.configTrack(this, config);
 
         this.displayMode = config.displayMode || "COLLAPSED";    // COLLAPSED | EXPANDED | SQUISHED
@@ -22771,10 +25004,7 @@ var igv = (function (igv) {
 
         this.featureHeight = config.featureHeight || 14;
 
-        // Set maxRows -- protects against pathological feature packing cases (# of rows of overlapping feaures)
-        if (config.maxRows === undefined) {
-            config.maxRows = 500;
-        }
+
         this.maxRows = config.maxRows;
 
         if (config.url &&
@@ -22818,44 +25048,39 @@ var igv = (function (igv) {
     };
 
     igv.FeatureTrack.prototype.getFileHeader = function () {
+
         var self = this;
-        return new Promise(function (fulfill, reject) {
-            if (typeof self.featureSource.getFileHeader === "function") {
-                self.featureSource
-                    .getFileHeader()
-                    .then(function (header) {
 
-                        if (header) {
-                            // Header (from track line).  Set properties,unless set in the config (config takes precedence)
-                            if (header.name && !self.config.name) {
-                                self.name = header.name;
-                            }
-                            if (header.color && !self.config.color) {
-                                self.color = "rgb(" + header.color + ")";
-                            }
+        if (typeof self.featureSource.getFileHeader === "function") {
+
+            return self.featureSource.getFileHeader()
+
+                .then(function (header) {
+
+                    if (header) {
+                        // Header (from track line).  Set properties,unless set in the config (config takes precedence)
+                        if (header.name && !self.config.name) {
+                            self.name = header.name;
                         }
-                        fulfill(header);
+                        if (header.color && !self.config.color) {
+                            self.color = "rgb(" + header.color + ")";
+                        }
+                    }
+                    return header;
 
-                    })
-                    .catch(function (error) {
-                        reject(error);
-                    });
-            }
-            else {
-                fulfill(null);
-            }
-        });
+                })
+        }
+        else {
+            return null;
+        }
+
+
     };
 
     igv.FeatureTrack.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
 
-        var self = this;
+        return this.featureSource.getFeatures(chr, bpStart, bpEnd, bpPerPixel);
 
-        return new Promise(function (fulfill, reject) {
-
-            self.featureSource.getFeatures(chr, bpStart, bpEnd, bpPerPixel).then(fulfill).catch(reject);
-
-        });
     };
 
 
@@ -22968,7 +25193,7 @@ var igv = (function (igv) {
             featureList = this.featureSource.featureCache.queryFeatures(referenceFrame.chrName, ss, ee);
 
             if ('COLLAPSED' !== this.displayMode) {
-                row = 'SQUISHED' === this.displayMode ? Math.floor((yOffset - 2)/this.expandedCallHeight) : Math.floor((yOffset - 5)/this.squishedCallHeight);
+                row = 'SQUISHED' === this.displayMode ? Math.floor((yOffset - 2) / this.expandedCallHeight) : Math.floor((yOffset - 5) / this.squishedCallHeight);
             }
 
             if (featureList && featureList.length > 0) {
@@ -23041,10 +25266,10 @@ var igv = (function (igv) {
             mapped;
 
         if (this.render === renderSnp) {
-            var colorByItems = _.map(["function", "class"], function(colorScheme, index) {
+            var colorByItems = (["function", "class"]).map( function (colorScheme, index) {
                 return {
                     object: $(colorSchemeMarkup(colorScheme, index, self.colorBy)),
-                    click: function() {
+                    click: function () {
                         popover.hide();
                         self.colorBy = colorScheme;
                         self.trackView.update();
@@ -23052,11 +25277,9 @@ var igv = (function (igv) {
                 }
             });
             menuItems = menuItems.concat(colorByItems);
-        } else {
-            menuItems.push(igv.colorPickerMenuItem(popover, this.trackView));
         }
 
-        mapped = _.map(["COLLAPSED", "SQUISHED", "EXPANDED"], function (displayMode, index) {
+        mapped = (["COLLAPSED", "SQUISHED", "EXPANDED"]).map(function (displayMode, index) {
             return {
                 object: $(markupStringified(displayMode, index, self.displayMode)),
                 click: function () {
@@ -23075,11 +25298,11 @@ var igv = (function (igv) {
                 chosen;
 
             lut =
-                {
-                    "COLLAPSED": "Collapse",
-                    "SQUISHED": "Squish",
-                    "EXPANDED": "Expand"
-                };
+            {
+                "COLLAPSED": "Collapse",
+                "SQUISHED": "Squish",
+                "EXPANDED": "Expand"
+            };
 
             chosen = (0 === index) ? '<div class="igv-track-menu-border-top">' : '<div>';
             if (displayMode === selfDisplayMode) {
@@ -23104,20 +25327,20 @@ var igv = (function (igv) {
     };
 
 
-    igv.FeatureTrack.prototype.popupMenuItemList = function(config) {
+    igv.FeatureTrack.prototype.popupMenuItemList = function (config) {
         if (this.render === renderSnp) {
 
             var menuItems = [], self = this;
 
             menuItems.push({
                 name: 'Color by function',
-                click: function() {
+                click: function () {
                     setColorBy('function');
                 }
             });
             menuItems.push({
                 name: 'Color by class',
-                click: function() {
+                click: function () {
                     setColorBy('class');
                 }
             });
@@ -23132,7 +25355,7 @@ var igv = (function (igv) {
         }
     };
 
-    igv.FeatureTrack.prototype.description = function() {
+    igv.FeatureTrack.prototype.description = function () {
 
         var desc;
 
@@ -23503,7 +25726,7 @@ var igv = (function (igv) {
             colorArrLength = this.snpColors.length,
             colorPriority;
 
-        switch(this.colorBy) {
+        switch (this.colorBy) {
             case 'function':
                 colorPriority = colorByFunc(snp.func);
                 break;
@@ -23527,7 +25750,7 @@ var igv = (function (igv) {
             // locusSet = new Set(['near-gene-3', 'near-gene-5']);
             // intronSet = new Set(['intron']);
 
-            priorities = funcArray.map(function(func) {
+            priorities = funcArray.map(function (func) {
                 if (codingNonSynonSet.has(func) || spliceSiteSet.has(func)) {
                     return colorArrLength - 1;
                 } else if (codingSynonSet.has(func)) {
@@ -23539,8 +25762,8 @@ var igv = (function (igv) {
                 }
             });
 
-            return priorities.reduce(function(a,b) {
-                return Math.max(a,b);
+            return priorities.reduce(function (a, b) {
+                return Math.max(a, b);
             });
         }
 
@@ -23557,20 +25780,20 @@ var igv = (function (igv) {
         }
     }
 
-    igv.FeatureTrack.prototype.popupMenuItemList = function(config) {
+    igv.FeatureTrack.prototype.popupMenuItemList = function (config) {
         if (this.render === renderSnp) {
 
             var menuItems = [], self = this;
 
             menuItems.push({
                 name: 'Color by function',
-                click: function() {
+                click: function () {
                     setColorBy('function');
                 }
             });
             menuItems.push({
                 name: 'Color by class',
-                click: function() {
+                click: function () {
                     setColorBy('class');
                 }
             });
@@ -24073,6 +26296,137 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+/**
+ * Created by turner on 2/11/14.
+ */
+var igv = (function (igv) {
+
+    igv.MergedTrack = function (config) {
+
+        var self = this;
+
+        if (!config.tracks) {
+            console.log("Error: not tracks defined for merged track. " + config);
+            return;
+        }
+
+        if(config.height === undefined) {
+            config.height = 50;
+        }
+
+        igv.configTrack(this, config);
+
+        this.tracks = [];
+        config.tracks.forEach(function (tconf) {
+
+            if(!tconf.type) igv.inferTrackTypes(tconf);
+
+            var t = igv.createTrack(tconf);
+
+            if (t) {
+                t.autoscale = false;     // Scaling done from merged track
+                self.tracks.push(t);
+            }
+            else {
+                console.log("Could not create track " + tconf);
+            }
+        });
+
+    }
+
+    igv.MergedTrack.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
+
+        var promises = this.tracks.map(function (t) {
+            return t.getFeatures(chr, bpStart, bpEnd, bpPerPixel);
+        })
+        return Promise.all(promises);
+
+    }
+
+
+    igv.MergedTrack.prototype.draw = function (options) {
+
+        var i, len, mergedFeatures, trackOptions, dataRange;
+
+        mergedFeatures = options.features;    // Array of feature arrays, 1 for each track
+
+        dataRange = autoscale(options.genomicState.chromosome.name, mergedFeatures);
+
+        for (i = 0, len = this.tracks.length; i < len; i++) {
+
+            trackOptions = Object.assign({}, options);
+            trackOptions.features = mergedFeatures[i];
+            this.tracks[i].dataRange = dataRange;
+            this.tracks[i].draw(trackOptions);
+        }
+
+    }
+
+    function autoscale(chr, featureArrays) {
+
+
+        var min = 0,
+            max = -Number.MAX_VALUE,
+            allValues;
+
+        // if (chr === 'all') {
+        //     allValues = [];
+        //     featureArrays.forEach(function (features) {
+        //         features.forEach(function (f) {
+        //             if (!Number.isNaN(f.value)) {
+        //                 allValues.push(f.value);
+        //             }
+        //         });
+        //     });
+        //
+        //     min = Math.min(0, igv.Math.percentile(allValues, .1));
+        //     max = igv.Math.percentile(allValues, 99.9);
+        //
+        // }
+        // else {
+            featureArrays.forEach(function (features) {
+                features.forEach(function (f) {
+                    if (!Number.isNaN(f.value)) {
+                        min = Math.min(min, f.value);
+                        max = Math.max(max, f.value);
+                    }
+                });
+            });
+      //  }
+
+        return {min: min, max: max};
+    }
+
+    return igv;
+
+})(igv || {});
+
+/*
+ * The MIT License (MIT)
+ *
  * Copyright (c) 2014 Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24287,22 +26641,28 @@ var igv = (function (igv) {
     igv.SegTrack.prototype.getFeatures = function (chr, bpStart, bpEnd) {
 
         var self = this;
-        return new Promise(function (fulfill, reject) {
-            // If no samples are defined, optionally query feature source.  This step was added to support the TCGA BigQuery
-            if (self.sampleCount === 0 && (typeof self.featureSource.reader.allSamples == "function")) {
-                self.featureSource.reader.allSamples().then(function (samples) {
+
+
+        // If no samples are defined, optionally query feature source.  This step was added to support the TCGA BigQuery
+        if (self.sampleCount === 0 && (typeof self.featureSource.reader.allSamples == "function")) {
+
+            return self.featureSource.reader.allSamples()
+
+                .then(function (samples) {
+
                     samples.forEach(function (sample) {
                         self.samples[sample] = self.sampleCount;
                         self.sampleNames.push(sample);
                         self.sampleCount++;
                     })
-                    self.featureSource.getFeatures(chr, bpStart, bpEnd).then(fulfill).catch(reject);
-                }).catch(reject);
-            }
-            else {
-                self.featureSource.getFeatures(chr, bpStart, bpEnd).then(fulfill).catch(reject);
-            }
-        });
+
+                    return self.featureSource.getFeatures(chr, bpStart, bpEnd);
+                });
+        }
+        else {
+            return self.featureSource.getFeatures(chr, bpStart, bpEnd);
+        }
+
     };
 
     igv.SegTrack.prototype.draw = function (options) {
@@ -24424,64 +26784,63 @@ var igv = (function (igv) {
         var self = this,
             d2 = (direction === "ASC" ? 1 : -1);
 
-        this.featureSource.getFeatures(chr, bpStart, bpEnd).then(function (featureList) {
+        this.featureSource.getFeatures(chr, bpStart, bpEnd)
+            .then(function (featureList) {
 
-            var segment,
-                min,
-                max,
-                f,
-                i,
-                s,
-                sampleNames,
-                scores = {},
-                bpLength = bpEnd - bpStart + 1;
+                var segment,
+                    min,
+                    max,
+                    f,
+                    i,
+                    s,
+                    sampleNames,
+                    scores = {},
+                    bpLength = bpEnd - bpStart + 1;
 
-            // Compute weighted average score for each sample
-            for (i = 0; i < featureList.length; i++) {
+                // Compute weighted average score for each sample
+                for (i = 0; i < featureList.length; i++) {
 
-                segment = featureList[i];
+                    segment = featureList[i];
 
-                if (segment.end < bpStart) continue;
-                if (segment.start > bpEnd) break;
+                    if (segment.end < bpStart) continue;
+                    if (segment.start > bpEnd) break;
 
-                min = Math.max(bpStart, segment.start);
-                max = Math.min(bpEnd, segment.end);
-                f = (max - min) / bpLength;
+                    min = Math.max(bpStart, segment.start);
+                    max = Math.min(bpEnd, segment.end);
+                    f = (max - min) / bpLength;
 
-                s = scores[segment.sample];
-                if (!s) s = 0;
-                scores[segment.sample] = s + f * segment.value;
+                    s = scores[segment.sample];
+                    if (!s) s = 0;
+                    scores[segment.sample] = s + f * segment.value;
 
-            }
+                }
 
-            // Now sort sample names by score
-            sampleNames = Object.keys(self.samples);
-            sampleNames.sort(function (a, b) {
+                // Now sort sample names by score
+                sampleNames = Object.keys(self.samples);
+                sampleNames.sort(function (a, b) {
 
-                var s1 = scores[a];
-                var s2 = scores[b];
-                if (!s1) s1 = Number.MAX_VALUE;
-                if (!s2) s2 = Number.MAX_VALUE;
+                    var s1 = scores[a];
+                    var s2 = scores[b];
+                    if (!s1) s1 = Number.MAX_VALUE;
+                    if (!s2) s2 = Number.MAX_VALUE;
 
-                if (s1 == s2) return 0;
-                else if (s1 > s2) return d2;
-                else return d2 * -1;
+                    if (s1 == s2) return 0;
+                    else if (s1 > s2) return d2;
+                    else return d2 * -1;
 
-            });
+                });
 
-            // Finally update sample hash
-            for (i = 0; i < sampleNames.length; i++) {
-                self.samples[sampleNames[i]] = i;
-            }
-            self.sampleNames = sampleNames;
+                // Finally update sample hash
+                for (i = 0; i < sampleNames.length; i++) {
+                    self.samples[sampleNames[i]] = i;
+                }
+                self.sampleNames = sampleNames;
 
-            self.trackView.update();
-            // self.trackView.$viewport.scrollTop(0);
+                self.trackView.update();
+                // self.trackView.$viewport.scrollTop(0);
 
 
-        }).catch(function(error) {
-            console.log(error);
-        });
+            })
     };
 
     /**
@@ -24557,7 +26916,7 @@ var igv = (function (igv) {
 
         };
 
-        return [{ name: undefined, object: $e, click: clickHandler, init: undefined }];
+        return [{name: undefined, object: $e, click: clickHandler, init: undefined}];
 
     };
 
@@ -24767,20 +27126,44 @@ var igv = (function (igv) {
         var self = this,
             url = this.config.url + '&table=' + this.config.tableName + '&chr=' + chr + '&start=' + start + '&end=' + end;
 
-        return new Promise(function (fulfill, reject) {
-            igv.xhr.loadJson(url, self.config)
-                .then(function (data) {
-                    if (data) {
-                        fulfill(data);
-                    } else {
-                        fulfill(null);
-                    }
-                })
-                .catch(function (error) {
-                    reject(error);
-                });
-        });
+        return igv.xhr.loadJson(url, self.config)
+            .then(function (data) {
+                if (data) {
+                    data.forEach(function (sample) {
+                        if (sample.hasOwnProperty('exonStarts') && sample.hasOwnProperty('exonEnds') && sample.hasOwnProperty('exonCount')
+                            && sample.hasOwnProperty('cdsStart') && sample.hasOwnProperty('cdsEnd')) {
+
+                            addExons(sample);
+                        }
+                    });
+                    return data;
+                } else {
+                    return null;
+                }
+            })
     };
+
+    function addExons(sample) {
+        var exonCount, exonStarts, exonEnds, exons, eStart, eEnd;
+        exonCount = sample['exonCount'];
+        exonStarts = sample['exonStarts'].split(',');
+        exonEnds = sample['exonEnds'].split(',');
+        exons = [];
+
+        for (var i = 0; i < exonCount; i++) {
+            eStart = parseInt(exonStarts[i]);
+            eEnd = parseInt(exonEnds[i]);
+            var exon = {start: eStart, end: eEnd};
+
+            if (sample.cdsStart > eEnd || sample.cdsEnd < sample.cdsStart) exon.utr = true;   // Entire exon is UTR
+            if (sample.cdsStart >= eStart && sample.cdsStart <= eEnd) exon.cdStart = sample.cdsStart;
+            if (sample.cdsEnd >= eStart && sample.cdsEnd <= eEnd) exon.cdEnd = sample.cdsEnd;
+
+            exons.push(exon);
+        }
+
+        sample.exons = exons;
+    }
 
 
     return igv;
@@ -24821,7 +27204,12 @@ var igv = (function (igv) {
         this.config = config;
         this.url = config.url;
 
-        if (config.color === undefined) config.color = "rgb(150,150,150)";   // Hack -- should set a default color per track type
+        if (config.color === undefined) {
+            config.color = "rgb(150,150,150)";
+        }
+        if(config.height === undefined) {
+            config.height = 50;
+        }
 
         igv.configTrack(this, config);
 
@@ -24833,34 +27221,30 @@ var igv = (function (igv) {
             this.featureSource = new igv.FeatureSource(config);
         }
 
+        //this.autoscale = config.autoscale;
         // Min and max values.  No defaults for these, if they aren't set track will autoscale.
-        this.autoscale = config.autoscale;
-
-        if(config.max) {
+        if (config.max !== undefined) {
             this.dataRange = {
                 min: config.min || 0,
                 max: config.max
             }
-        };
+        } else {
+            this.autoscale = true;
+        }
+        this.windowFunction = config.windowFunction || "mean";
 
         this.paintAxis = igv.paintAxis;
 
     };
 
     igv.WIGTrack.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
-
-        var self = this;
-        return new Promise(function (fulfill, reject) {
-            self.featureSource.getFeatures(chr, bpStart, bpEnd, bpPerPixel).then(fulfill).catch(reject);
-        });
+        return this.featureSource.getFeatures(chr, bpStart, bpEnd, bpPerPixel, this.windowFunction);
     };
 
     igv.WIGTrack.prototype.menuItemList = function (popover) {
 
         var self = this,
             menuItems = [];
-
-        menuItems.push(igv.colorPickerMenuItem(popover, this.trackView));
 
         menuItems.push(igv.dataRangeMenuItem(popover, this.trackView));
 
@@ -24902,28 +27286,29 @@ var igv = (function (igv) {
     igv.WIGTrack.prototype.getFileHeader = function () {
 
         var self = this;
-        return new Promise(function (fulfill, reject) {
-            if (typeof self.featureSource.getFileHeader === "function") {
 
-                self.featureSource.getFileHeader().then(function (header) {
+        if (typeof self.featureSource.getFileHeader === "function") {
 
-                    if (header) {
-                        // Header (from track line).  Set properties,unless set in the config (config takes precedence)
-                        if (header.name && !self.config.name) {
-                            self.name = header.name;
-                        }
-                        if (header.color && !self.config.color) {
-                            self.color = "rgb(" + header.color + ")";
-                        }
+            return self.featureSource.getFileHeader()
+                .then(function (header) {
+
+                if (header) {
+                    // Header (from track line).  Set properties,unless set in the config (config takes precedence)
+                    if (header.name && !self.config.name) {
+                        self.name = header.name;
                     }
-                    fulfill(header);
+                    if (header.color && !self.config.color) {
+                        self.color = "rgb(" + header.color + ")";
+                    }
+                }
+                return header;
 
-                }).catch(reject);
-            }
-            else {
-                fulfill(null);
-            }
-        });
+            })
+        }
+        else {
+            return Promise.resolve(null);
+        }
+
     };
 
     igv.WIGTrack.prototype.draw = function (options) {
@@ -24943,12 +27328,12 @@ var igv = (function (igv) {
 
 
         if (features && features.length > 0) {
-            if(self.autoscale === undefined && self.dataRange === undefined && (typeof self.featureSource.getDefaultRange === "function")) {
-                defaultRange = self.featureSource.getDefaultRange();
-                if(!isNaN(defaultRange.min) && !isNaN(defaultRange.max)) {
-                    self.dataRange = defaultRange;
-                }
-            }
+            // if (self.autoscale === undefined && self.dataRange === undefined && (typeof self.featureSource.getDefaultRange === "function")) {
+            //     defaultRange = self.featureSource.getDefaultRange();
+            //     if (!isNaN(defaultRange.min) && !isNaN(defaultRange.max)) {
+            //         self.dataRange = defaultRange;
+            //     }
+            // }
             if (self.autoscale || self.dataRange === undefined) {
                 var s = autoscale(features);
                 featureValueMinimum = self.config.min || s.min;      // If min is explicitly set use it
@@ -24969,7 +27354,7 @@ var igv = (function (igv) {
 
             // Max can be less than min if config.min is set but max left to autoscale.   If that's the case there is
             // nothing to paint.
-            if(featureValueMaximum > featureValueMinimum) {
+            if (featureValueMaximum > featureValueMinimum) {
                 featureValueRange = featureValueMaximum - featureValueMinimum;
                 features.forEach(renderFeature);
             }
@@ -25030,14 +27415,13 @@ var igv = (function (igv) {
             max = -Number.MAX_VALUE;
 
         features.forEach(function (f) {
-            if(!Number.isNaN(f.value)) {
+            if (!Number.isNaN(f.value)) {
                 min = Math.min(min, f.value);
                 max = Math.max(max, f.value);
             }
         });
 
         return {min: min, max: max};
-
     }
 
     function signsDiffer(a, b) {
@@ -26443,6 +28827,48 @@ var igv = (function (igv) {
 
 var igv = (function (igv) {
 
+
+    igv.loadGenome = function (reference) {
+
+        var cytobandUrl = reference.cytobandURL,
+            cytobands,
+            aliasURL = reference.aliasURL,
+            chrNames,
+            chromosomes = {},
+            sequence;
+
+        sequence = new igv.FastaSequence(reference);
+
+        return sequence.init().then(function () {
+
+            var order = 0;
+
+            chrNames = sequence.chromosomeNames;
+            chromosomes = sequence.chromosomes;
+
+        }).then(function (ignore) {
+            if (cytobandUrl) {
+                return loadCytobands(cytobandUrl, sequence.config);
+            } else {
+                return undefined
+            }
+        }).then(function (c) {
+
+            cytobands = c;
+
+            if (aliasURL) {
+                return loadAliases(aliasURL, sequence.config);
+            }
+            else {
+                return undefined;
+            }
+        }).then(function (aliases) {
+            return new igv.Genome(sequence, cytobands, aliases);
+
+        })
+    }
+
+
     igv.Genome = function (sequence, ideograms, aliases) {
 
         this.sequence = sequence;
@@ -26465,7 +28891,7 @@ var igv = (function (igv) {
             var alias = name.startsWith("chr") ? name.substring(3) : "chr" + name;
             chrAliasTable[alias] = name;
             if (name === "chrM") chrAliasTable["MT"] = "chrM";
-            if (name === "MT") chrAliasTable["chrmM"] = "MT";
+            if (name === "MT") chrAliasTable["chrM"] = "MT";
         });
 
         // Custom mappings
@@ -26532,9 +28958,14 @@ var igv = (function (igv) {
 
     /**
      * Return the genome coordinate in kb for the give chromosome and position.
+     * NOTE: This might return undefined if the chr is filtered from whole genome view.
      */
     igv.Genome.prototype.getGenomeCoordinate = function (chr, bp) {
-        return this.getCumulativeOffset(chr) + Math.floor(bp / 1000);
+
+        var offset = this.getCumulativeOffset(chr);
+        if (offset === undefined) return undefined;
+
+        return offset + bp;
     }
 
     /**
@@ -26546,16 +28977,18 @@ var igv = (function (igv) {
             lastChr,
             lastCoord,
             i,
-            name;
+            name,
+            cumulativeOffset;
 
         if (this.cumulativeOffsets === undefined) computeCumulativeOffsets.call(this);
 
         // Use a for loop, not a forEach, so we can break (return)
-        for (i = 0; i < this.chromosomeNames.length; i++) {
-            name = this.chromosomeNames[i];
-            var cumulativeOffset = self.cumulativeOffsets[name];
+        for (i = 0; i < this.wgChromosomeNames.length; i++) {
+            name = this.wgChromosomeNames[i];
+            cumulativeOffset = self.cumulativeOffsets[name];
+
             if (cumulativeOffset > genomeCoordinate) {
-                var position = Math.floor((genomeCoordinate - lastCoord) / 1000);
+                var position = genomeCoordinate - lastCoord;
                 return {chr: lastChr, position: position};
             }
             lastChr = name;
@@ -26570,29 +29003,38 @@ var igv = (function (igv) {
 
     /**
      * Return the offset in genome coordinates (kb) of the start of the given chromosome
+     * NOTE:  This might return undefined if the chromosome is filtered from whole genome view.
      */
     igv.Genome.prototype.getCumulativeOffset = function (chr) {
 
         var self = this,
             queryChr = this.getChromosomeName(chr);
+
         if (this.cumulativeOffsets === undefined) {
             computeCumulativeOffsets.call(this);
         }
         return this.cumulativeOffsets[queryChr];
+
+        function computeCumulativeOffsets() {
+            var cumulativeOffsets = {},
+                offset = 0;
+
+            self.wgChromosomeNames.forEach(function (name) {
+                cumulativeOffsets[name] = Math.floor(offset);
+                var chromosome = self.getChromosome(name);
+                offset += chromosome.bpLength;
+            });
+            self.cumulativeOffsets = cumulativeOffsets;
+        }
     }
 
-    function computeCumulativeOffsets() {
-        var self = this,
-            cumulativeOffsets = {},
-            offset = 0;
-
-        self.chromosomeNames.forEach(function (name) {
-            cumulativeOffsets[name] = Math.floor(offset);
-            var chromosome = self.getChromosome(name);
-            offset += (chromosome.bpLength / 1000);   // Genome coordinates are in KB.  Beware 32-bit max value limit
-        });
-        self.cumulativeOffsets = cumulativeOffsets;
-
+    /**
+     * Return the genome length in kb
+     */
+    igv.Genome.prototype.getGenomeLength = function () {
+        var lastChr, offset;
+        lastChr = _.last(this.wgChromosomeNames);
+        return this.getCumulativeOffset(lastChr) + this.getChromosome(lastChr).bpLength;
     }
 
     igv.Chromosome = function (name, order, bpLength) {
@@ -26637,165 +29079,142 @@ var igv = (function (igv) {
             this.end >= range.end;
     }
 
-    igv.loadGenome = function (reference) {
+    function loadCytobands(cytobandUrl, config) {
 
-        return new Promise(function (fulfill, reject) {
-
-            var cytobandUrl = reference.cytobandURL,
-                cytobands,
-                aliasURL = reference.aliasURL,
-                aliases,
-                chrNames,
-                chromosome,
-                chromosomes = {},
-                sequence,
-                l,
-                avgL;
-
-            sequence = new igv.FastaSequence(reference);
-
-            sequence.init().then(function () {
-
-                var order = 0;
-
-                chrNames = sequence.chromosomeNames;
-                chromosomes = sequence.chromosomes;
-
-                if (cytobandUrl) {
-                    loadCytobands(cytobandUrl, sequence.config, function (result) {
-                        cytobands = result;
-                        checkReady();
-                    });
-                }
-
-                if (aliasURL) {
-                    loadAliases(aliasURL, sequence.config, function (result) {
-                        aliases = result;
-                        checkReady();
-                    });
-                }
-
-
-                checkReady();
-
-            }).catch(function (err) {
-                reject(err);
-            });
-
-            function checkReady() {
-
-                var isReady = (cytobandUrl === undefined || cytobands !== undefined) &&
-                    (aliasURL === undefined || aliases !== undefined);
-                if (isReady) {
-                    fulfill(new igv.Genome(sequence, cytobands, aliases));
-                }
-            }
-
-        });
-    }
-
-    function loadCytobands(cytobandUrl, config, continuation) {
-
-        igv.xhr.loadString(cytobandUrl, igv.buildOptions(config))
+        return igv.xhr.loadString(cytobandUrl, igv.buildOptions(config))
             .then(function (data) {
 
-            var bands = [],
-                lastChr,
-                n = 0,
-                c = 1,
-                lines = data.splitLines(),
-                len = lines.length,
-                cytobands = {};
+                var bands = [],
+                    lastChr,
+                    n = 0,
+                    c = 1,
+                    lines = data.splitLines(),
+                    len = lines.length,
+                    cytobands = {};
 
-            for (var i = 0; i < len; i++) {
-                var tokens = lines[i].split("\t");
-                var chr = tokens[0];
-                if (!lastChr) lastChr = chr;
-
-                if (chr != lastChr) {
-
-                    cytobands[lastChr] = bands;
-                    bands = [];
-                    lastChr = chr;
-                    n = 0;
-                    c++;
-                }
-
-                if (tokens.length == 5) {
-                    //10	0	3000000	p15.3	gneg
+                for (var i = 0; i < len; i++) {
+                    var tokens = lines[i].split("\t");
                     var chr = tokens[0];
-                    var start = parseInt(tokens[1]);
-                    var end = parseInt(tokens[2]);
-                    var name = tokens[3];
-                    var stain = tokens[4];
-                    bands[n++] = new igv.Cytoband(start, end, name, stain);
-                }
-            }
+                    if (!lastChr) lastChr = chr;
 
-            continuation(cytobands);
-        });
+                    if (chr != lastChr) {
+
+                        cytobands[lastChr] = bands;
+                        bands = [];
+                        lastChr = chr;
+                        n = 0;
+                        c++;
+                    }
+
+                    if (tokens.length == 5) {
+                        //10	0	3000000	p15.3	gneg
+                        var chr = tokens[0];
+                        var start = parseInt(tokens[1]);
+                        var end = parseInt(tokens[2]);
+                        var name = tokens[3];
+                        var stain = tokens[4];
+                        bands[n++] = new igv.Cytoband(start, end, name, stain);
+                    }
+                }
+
+                return cytobands;
+            });
     }
 
-    function loadAliases(aliasURL, config, continuation) {
+    function loadAliases(aliasURL, config) {
 
         igv.xhr.loadString(aliasURL, igv.buildOptions(config))
 
             .then(function (data) {
 
-            var lines = data.splitLines(),
-                aliases = [];
+                var lines = data.splitLines(),
+                    aliases = [];
 
-            lines.forEach(function (line) {
-                if (!line.startsWith("#") & line.length > 0) aliases.push(line.split("\t"));
+                lines.forEach(function (line) {
+                    if (!line.startsWith("#") & line.length > 0) aliases.push(line.split("\t"));
+                });
+
+                return aliases;
             });
-
-            continuation(aliases);
-        });
 
     }
 
-    // this.sequence = sequence;
-    // this.chromosomeNames = sequence.chromosomeNames;
-    // this.chromosomes = sequence.chromosomes;  // An object (functions as a dictionary)
-    // this.ideograms = ideograms;
-    // this.wgChromosomeNames = wgChromosomeNames;
 
     function constructWG(genome) {
 
-        var l, avgL;
+        var l, lengths, mean, threshold;
 
-        // Construct the whole-genome "chromosome"
-        l = 0;
-        _.each(genome.chromosomes, function (chromosome) {
-            l += Math.floor((chromosome.bpLength / 1000));  // wg length is in kb.  bp would overflow maximum number limit
-        });
 
-        // Now trim chromosomes.  If ideograms are defined use those, otherwise trim chromosomes < 1/10 average length
+        // Now trim chromosomes.  If ideograms are defined use those, otherwise trim chromosomes < 1/50 average length
         genome.wgChromosomeNames = [];
 
         if (genome.ideograms) {
-            _.each(genome.chromosomeNames, function (chrName) {
+            genome.chromosomeNames.forEach(function (chrName) {
                 var ideo = genome.ideograms[chrName];
-                if(ideo && ideo.length > 0) {
+                if (ideo && ideo.length > 0) {
                     genome.wgChromosomeNames.push(chrName);
                 }
             });
         }
         else {
-            avgL = (l / genome.chromosomeNames.length) * 200;   // i.e.  (divided by 5) times 1000 bp/kbp  TODO USE MEDIAN
-            l = 0;
-            _.each(genome.chromosomeNames, function (chrName) {
-                var chromosome = genome.chromosomes[chrName];
-                if (chromosome.bpLength > avgL) {
-                    genome.wgChromosomeNames.push(chrName);
-                }
+
+            lengths = Object.keys(genome.chromosomes).map(function (key) {
+                return genome.chromosomes[key].bpLength;
+            });
+
+            mean = igv.Math.mean(lengths);
+            threshold = mean / 50;
+
+            genome.wgChromosomeNames = genome.chromosomeNames.filter(function (key) {
+                return genome.chromosomes[key].bpLength > threshold;
             });
         }
+
+        l = 0;
+        genome.wgChromosomeNames.forEach(function (key) {
+            l += genome.chromosomes[key].bpLength;
+        });
 
         genome.chromosomes["all"] = {
             name: "all",
             bpLength: l
         };
+
+    }
+
+    // Static definition of known genome identifiers
+    igv.Genome.KnownGenomes = {
+        "hg18": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg18/hg18.fasta",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg18/cytoBand.txt.gz"
+        },
+        "GRCh38": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg38/cytoBandIdeo.txt"
+        },
+        "hg38": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg38/cytoBandIdeo.txt"
+        },
+        "hg19": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/hg19.fasta",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/cytoBand.txt"
+        },
+        "GRCh37": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/hg19.fasta",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/cytoBand.txt"
+        },
+
+        "mm10": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa",
+            indexURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa.fai",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/annotations/mm10/cytoBandIdeo.txt.gz"
+        },
+        "GRCm38": {
+            fastaURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa",
+            indexURL: "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa.fai",
+            cytobandURL: "https://s3.amazonaws.com/igv.broadinstitute.org/annotations/mm10/cytoBandIdeo.txt.gz"
+        }
     }
 
     return igv;
@@ -26851,6 +29270,7 @@ var igv = (function (igv) {
         this.height = config.height || 100;
         this.autoHeight = false;
         this.disableButtons = config.disableButtons;
+        this.visibilityWindow = config.visibilityWindow;
 
         this.featureSource = new igv.FeatureSource(config);
 
@@ -27532,8 +29952,8 @@ var igv = (function (igv) {
 
             var self=this,
                 queryChr = chr.startsWith("chr") ? chr.substr(3) : chr,
-                queryStart = bpStart,
-                queryEnd = bpEnd,
+                queryStart = Math.floor(bpStart),
+                queryEnd = Math.ceil(bpEnd),
                 queryURL = this.url + "?chromosome=" + queryChr + "&start=" + queryStart + "&end=" + queryEnd +
                     "&tissueName=" + this.tissueName;
 
@@ -28075,7 +30495,7 @@ var igv = (function (igv) {
     function jsonToVariantsV2(json, config) {
 
         var variants = [];
-
+        
         json.variants.forEach(function (record) {
 
             var variant = {};
@@ -28880,7 +31300,7 @@ var igv = (function (igv) {
             canvasWidth = panel.$canvas.width();
             canvasHeight = panel.$canvas.height();
             panel.ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-
+            
             if(referenceFrame.chrName.toLowerCase() === "all") {
                 return;
             }
@@ -29391,6 +31811,149 @@ var igv = (function (igv) {
  */
 var igv = (function (igv) {
 
+    igv.createColorSwatchSelector = function ($genericContainer, colorHandler) {
+
+        var rgbs,
+            s;
+
+        s = 1;
+        rgbs = [];
+        for(var v = 1; v >= 0.5; v -= .1) {
+            for (var r, h = 0; h < 1; h += 1/28) {
+                r = "rgb(" + hsvToRgb(h, s, v).join(",") + ")";
+                rgbs.push(r);
+            }
+        }
+
+        rgbs.forEach(function (rgb) {
+            var $swatch;
+
+            $swatch = igv.colorSwatch(rgb);
+            $genericContainer.append($swatch);
+
+            $swatch.click(function () {
+                colorHandler(rgb);
+            });
+
+        });
+
+    };
+
+    igv.colorSwatch = function (rgbString) {
+        var $swatch,
+            $fa;
+
+        $swatch = $('<div>', { class: 'igv-color-swatch' });
+
+        $fa = $('<i>', { class: 'fa fa-square fa-lg', 'aria-hidden': 'true' });
+        $swatch.append($fa);
+
+        $fa.css({color: rgbString});
+
+        return $swatch;
+    };
+
+    function rgbToHex(rgb) {
+        rgb = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i);
+        return (rgb && rgb.length === 4) ? "#" +
+            ("0" + parseInt(rgb[1], 10).toString(16)).slice(-2) +
+            ("0" + parseInt(rgb[2], 10).toString(16)).slice(-2) +
+            ("0" + parseInt(rgb[3], 10).toString(16)).slice(-2) : '';
+    }
+
+    function hexToRgb(hex) {
+        var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return "rgb(" +
+            parseInt(result[1], 16) + ", " +
+            parseInt(result[2], 16) + ", " +
+            parseInt(result[3], 16) + ")";
+    }
+
+    /**
+     * Converts an HSV color value to RGB. Conversion formula
+     * adapted from http://en.wikipedia.org/wiki/HSV_color_space.
+     * Assumes h, s, and v are contained in the set [0, 1] and
+     * returns r, g, and b in the set [0, 255].
+     *
+     * Credit: https://gist.githubusercontent.com/mjackson/5311256
+     *
+     * @param   Number  h       The hue
+     * @param   Number  s       The saturation
+     * @param   Number  v       The value
+     * @return  Array           The RGB representation
+     */
+    function hsvToRgb(h, s, v) {
+        var r, g, b;
+
+        var i = Math.floor(h * 6);
+        var f = h * 6 - i;
+        var p = v * (1 - s);
+        var q = v * (1 - f * s);
+        var t = v * (1 - (1 - f) * s);
+
+        switch (i % 6) {
+            case 0:
+                r = v, g = t, b = p;
+                break;
+            case 1:
+                r = q, g = v, b = p;
+                break;
+            case 2:
+                r = p, g = v, b = t;
+                break;
+            case 3:
+                r = p, g = q, b = v;
+                break;
+            case 4:
+                r = t, g = p, b = v;
+                break;
+            case 5:
+                r = v, g = p, b = q;
+                break;
+        }
+
+        return [Math.floor(r * 255), Math.floor(g * 255), Math.floor(b * 255)];
+    }
+
+    /**
+     * Converts an HSL color value to RGB. Conversion formula
+     * adapted from http://en.wikipedia.org/wiki/HSL_color_space.
+     * Assumes h, s, and l are contained in the set [0, 1] and
+     * returns r, g, and b in the set [0, 255].
+     *
+     * Credit: https://gist.githubusercontent.com/mjackson/5311256
+     *
+     * @param   Number  h       The hue
+     * @param   Number  s       The saturation
+     * @param   Number  l       The lightness
+     * @return  Array           The RGB representation
+     */
+    function hslToRgb(h, s, l) {
+        var r, g, b;
+
+        if (s === 0) {
+            r = g = b = l; // achromatic
+        } else {
+            function hue2rgb(p, q, t) {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1 / 6) return p + (q - p) * 6 * t;
+                if (t < 1 / 2) return q;
+                if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                return p;
+            }
+
+            var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            var p = 2 * l - q;
+
+            r = hue2rgb(p, q, h + 1 / 3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1 / 3);
+        }
+
+        return [r * 255, g * 255, b * 255];
+    }
+
     igv.hex2Color = function (hex) {
 
         var cooked = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -29748,7 +32311,10 @@ var igv = (function (igv) {
             igv.removeBrowser();
         }
 
+        if (undefined === config) config = {};
+
         setDefaults(config);
+
 
         // Set track order explicitly. Otherwise they will be ordered randomly as each completes its async load
         setTrackOrder(config);
@@ -29779,10 +32345,6 @@ var igv = (function (igv) {
         // Popover object -- singleton shared by all components
         igv.popover = new igv.Popover($content);
 
-        // ColorPicker object -- singleton shared by all components
-        igv.colorPicker = new igv.ColorPicker(browser.$root, config.palette);
-        igv.colorPicker.hide();
-
         // alert object -- singleton shared by all components
         igv.alert = new igv.AlertDialog(browser.$root, "igv-alert");
         igv.alert.hide();
@@ -29799,31 +32361,58 @@ var igv = (function (igv) {
             $header.append($('<div class="igv-logo-nonav">'));
         }
 
-        if(config.apiKey) igv.setApiKey(config.apiKey);
-        if(config.oauthToken) igv.setOauthToken(config.oauthToken);
+        if (config.apiKey) igv.setApiKey(config.apiKey);
+        if (config.oauthToken) igv.setOauthToken(config.oauthToken);
 
-        // Deal with legacy genome definition options
-        setReferenceConfiguration(config);
 
-        igv.loadGenome(config.reference).then(function (genome) {
+        var width;
 
-            var width;
+        // Potentially load a session file
+        loadSessionFile()
 
-            igv.browser.genome = genome;
-            igv.browser.genome.id = config.reference.genomeId;
+            .then(function (session) {
 
-            width = igv.browser.viewportContainerWidth();
-            igv.browser.getGenomicStateList(lociWithConfiguration(config), width, function (genomicStateList) {
+                if (session) {
+                    config = Object.assign(config, session);
+                }
 
-                var errorString,
-                    found,
-                    gs;
+                // Deal with legacy genome definition options
+                setReferenceConfiguration(config);
 
-                if (_.size(genomicStateList) > 0) {
+                // Query parameter locus has precendence
+                var initialLocus = extractLocus();
+                if(initialLocus) config.locus = initialLocus;
 
-                    igv.browser.genomicStateList = _.map(genomicStateList, function (genomicState, index) {
+                return config;
+            })
+
+            .then(function (config) {
+
+                return igv.loadGenome(config.reference);
+
+            })
+
+            .then(function (genome) {
+
+                igv.browser.genome = genome;
+                igv.browser.genome.id = config.reference.genomeId;
+
+                igv.browser.chromosomeSelectWidget.update(igv.browser.genome);
+
+                width = igv.browser.viewportContainerWidth();
+
+                return igv.browser.getGenomicStateList(getInitialLocus(config), width)
+            })
+
+            .then(function (genomicStateList) {
+
+                var errorString;
+
+                if (genomicStateList.length > 0) {
+
+                    igv.browser.genomicStateList = genomicStateList.map(function (genomicState, index) {
                         genomicState.locusIndex = index;
-                        genomicState.locusCount = _.size(genomicStateList);
+                        genomicState.locusCount = genomicStateList.length;
                         genomicState.referenceFrame = new igv.ReferenceFrame(genomicState.chromosome.name, genomicState.start, (genomicState.end - genomicState.start) / (width / genomicState.locusCount));
                         genomicState.initialReferenceFrame = new igv.ReferenceFrame(genomicState.chromosome.name, genomicState.start, (genomicState.end - genomicState.start) / (width / genomicState.locusCount));
                         return genomicState;
@@ -29859,54 +32448,30 @@ var igv = (function (igv) {
 
                     if (config.tracks) {
                         igv.browser.loadTracksWithConfigList(config.tracks);
-
-                        igv.browser.windowSizePanel.updateWithGenomicState(_.first(igv.browser.genomicStateList));
                     }
 
+                    igv.browser.windowSizePanel.updateWithGenomicState(_.first(igv.browser.genomicStateList));
+
                 } else {
-                    errorString = 'Unrecognized locus ' + lociWithConfiguration(config);
+                    errorString = 'Unrecognized locus ' + config.locus;
                     igv.presentAlert(errorString);
                 }
 
+            })
+            .catch(function (error) {
+                igv.presentAlert(error);
+                console.log(error);
             });
-
-            function lociWithConfiguration(configuration) {
-
-                var loci = [];
-
-                if (configuration.locus) {
-
-                    if (Array.isArray(configuration.locus)) {
-                        _.each(configuration.locus, function (l) {
-                            loci.push(l);
-                        });
-
-                    } else {
-                        loci.push(configuration.locus);
-                    }
-                }
-
-                if (0 === _.size(loci)) {
-                    loci.push(_.first(igv.browser.genome.chromosomeNames));
-                }
-
-                return loci;
-            }
-
-        }).catch(function (error) {
-            igv.presentAlert(error);
-            console.log(error);
-        });
 
         return browser;
 
     };
 
-    igv.setApiKey = function(key) {
+    igv.setApiKey = function (key) {
         oauth.google.apiKey = key;
     }
 
-    igv.setOauthToken = function(token) {
+    igv.setOauthToken = function (token) {
         oauth.google.access_token = token;
     }
 
@@ -29954,33 +32519,10 @@ var igv = (function (igv) {
          */
         function expandGenome(genomeId) {
 
-            var reference = {id: genomeId};
+            var reference = igv.Genome.KnownGenomes[genomeId];
 
-            switch (genomeId) {
+            if (!reference)igv.presentAlert("Uknown genome id: " + genomeId);
 
-                case "hg18":
-                    reference.fastaURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg18/hg18.fasta";
-                    reference.cytobandURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg18/cytoBand.txt.gz";
-                    break;
-                case "GRCh38":
-                case "hg38":
-                    reference.fastaURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg38/hg38.fa";
-                    reference.cytobandURL = "https://s3.amazonaws.com/igv.broadinstitute.org/annotations/hg38/cytoBandIdeo.txt";
-                    break;
-                case "hg19":
-                case "GRCh37":
-                    reference.fastaURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/hg19.fasta";
-                    reference.cytobandURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/hg19/cytoBand.txt";
-                    break;
-                case "mm10":
-                case "GRCm38":
-                    reference.fastaURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa";
-                    reference.indexURL = "https://s3.amazonaws.com/igv.broadinstitute.org/genomes/seq/mm10/mm10.fa.fai";
-                    reference.cytobandURL = "https://s3.amazonaws.com/igv.broadinstitute.org/annotations/mm10/cytoBandIdeo.txt.gz";
-                    break;
-                default:
-                    igv.presentAlert("Uknown genome id: " + genomeId);
-            }
             return reference;
         }
 
@@ -30028,39 +32570,41 @@ var igv = (function (igv) {
                 browser.trackFileLoad.$presentationButton.hide();
             }
 
+            // chromosome select widget
+            browser.chromosomeSelectWidget = new igv.ChromosomeSelectWidget(browser, $navigation);
+            if (true === config.showChromosomeWidget) {
+                browser.chromosomeSelectWidget.$container.show();
+            } else {
+                browser.chromosomeSelectWidget.$container.hide();
+            }
+
             // search container
             $searchContainer = $('<div class="igv-search-container">');
+            $navigation.append($searchContainer);
 
             browser.$searchInput = $('<input type="text" placeholder="Locus Search">');
+            $searchContainer.append(browser.$searchInput);
 
             browser.$searchInput.change(function (e) {
-                var value;
-
-                value = $(e.target).val();
-                browser.parseSearchInput(value);
+                browser.parseSearchInput($(this).val());
             });
 
             $faSearch = $('<i class="fa fa-search">');
+            $searchContainer.append($faSearch);
 
             $faSearch.click(function () {
                 browser.parseSearchInput(browser.$searchInput.val());
             });
 
-            $searchContainer.append(browser.$searchInput);
-            $searchContainer.append($faSearch);
 
             // search results presented in table
             browser.$searchResults = $('<div class="igv-search-results">');
-            browser.$searchResultsTable = $('<table>');
-
-            browser.$searchResults.append(browser.$searchResultsTable.get(0));
-
             $searchContainer.append(browser.$searchResults.get(0));
 
+            browser.$searchResultsTable = $('<table>');
+            browser.$searchResults.append(browser.$searchResultsTable.get(0));
+
             browser.$searchResults.hide();
-
-            $navigation.append($searchContainer);
-
 
             // window size panel
             browser.windowSizePanel = new igv.WindowSizePanel($navigation);
@@ -30199,18 +32743,96 @@ var igv = (function (igv) {
         }
 
         if (config.showSequence) {
-            config.tracks.push({type: "sequence", order: -9999});
+            config.tracks.push({type: "sequence", order: -Number.MAX_VALUE});
         }
 
     }
 
     igv.removeBrowser = function () {
         igv.browser.$root.remove();
-        $(".igv-grid-container-colorpicker").remove();
         $(".igv-grid-container-dialog").remove();
         // $(".igv-grid-container-dialog").remove();
+    };
+
+
+    function getInitialLocus(config) {
+
+        var loci = [];
+
+        if (config.locus) {
+            if (Array.isArray(config.locus)) {
+                loci = config.locus;
+
+            } else {
+                loci.push(config.locus);
+            }
+        }
+        else {
+            if (igv.browser.genome.hasOwnProperty("all")) {
+                loci.push("all");
+            }
+            else {
+                loci.push(igv.browser.genome.chromosomeNames[0]);
+            }
+        }
+
+        return loci;
     }
 
+
+    function extractQuery(uri) {
+        var i1, i2, i, j, s, query, tokens;
+
+        query = {};
+        i1 = uri.indexOf("?");
+        i2 = uri.lastIndexOf("#");
+
+        if (i1 >= 0) {
+            if (i2 < 0) i2 = uri.length;
+
+            for (i = i1 + 1; i < i2;) {
+
+                j = uri.indexOf("&", i);
+                if (j < 0) j = i2;
+
+                s = uri.substring(i, j);
+                tokens = s.split("=", 2);
+                if (tokens.length === 2) {
+                    query[tokens[0]] = tokens[1];
+                }
+
+                i = j + 1;
+            }
+        }
+        return query;
+    }
+
+    function loadSessionFile() {
+
+        var query = extractQuery(window.location.href);
+
+        if (query.hasOwnProperty("igvSessionXML")) {
+
+            var igvSession = decodeURIComponent(query["igvSessionXML"]);
+
+            return igv.xhr.loadString(igvSession)
+                .then(function (string) {
+                    return new igv.XMLSession(string);
+                })
+
+        }
+        else {
+            return Promise.resolve(undefined);
+        }
+    }
+
+    function extractLocus() {
+
+        var query = extractQuery(window.location.href),
+            loc = query["locus"];
+
+        return loc ? decodeURIComponent(loc) : undefined;
+    }
 
     return igv;
 })
@@ -30516,29 +33138,198 @@ if (!Array.isArray) {
  */
 var igv = (function (igv) {
 
-    igv.rectWithCenterAndSize = function (center, size) {
-        var halfSize = igv.sizeMake(size.width/2.0, size.height/2.0);
+    igv.Math = {
 
-        return igv.rectMake(center.x - halfSize.width, center.y - halfSize.height, size.width, size.height);
+        mean: function (array) {
+
+            var t = 0, n = 0,
+                i;
+            for (i = 0; i < array.length; i++) {
+                if (!isNaN(array[i])) {
+                    t += array[i];
+                    n++;
+                }
+            }
+            return n > 0 ? t / n : 0;
+        },
+
+        meanAndStdev: function (array) {
+
+            var v, t = 0, t2 = 0, n = 0, i;
+
+            for (i = 0; i < array.length; i++) {
+
+                v = array[i];
+
+                if (!isNaN(v)) {
+                    t += v;
+                    t2 += v*v;
+                    n++;
+                }
+            }
+
+            return n > 0 ? {mean: t / n, stdev: Math.sqrt(t2 - t*t / n)} : {mean: 0, stdev: 0};
+        },
+
+        // Fast percentile function
+        percentile: function (array, p) {
+
+            if (array.length === 0) return undefined;
+
+            var k = Math.floor(array.length * ((100 - p) / 100));
+            if (k === 0) {
+                array.sort(function (a, b) {
+                    return b - a
+                });
+                return array[k];
+            }
+
+            return selectElement(array, k);
+
+        }
     };
 
-    igv.rectMake = function(x, y, width, height) {
-        var rect = { origin:{}, size:{} };
 
-        rect.origin.x = x;
-        rect.origin.y = y;
+    function selectElement(array, k) {
 
-        rect.size.width = width;
-        rect.size.height = height;
+        // Credit Steve Hanov http://stevehanov.ca/blog/index.php?id=122
+        var heap = new BinaryHeap(),
+            i;
 
-        return rect;
-    };
+        for (i = 0; i < array.length; i++) {
 
-    igv.sizeMake = function(width, height) {
-        return { width:width, height:height };
+            var item = array[i];
+
+            // If we have not yet found k items, or the current item is larger than
+            // the smallest item on the heap, add current item
+            if (heap.content.length < k || item > heap.content[0]) {
+                // If the heap is full, remove the smallest element on the heap.
+                if (heap.content.length === k) {
+                    var r = heap.pop();
+                }
+                heap.push(item)
+            }
+        }
+
+        return heap.content[0];
+    }
+
+
+
+    function BinaryHeap() {
+        this.content = [];
+    }
+
+    BinaryHeap.prototype = {
+        push: function (element) {
+            // Add the new element to the end of the array.
+            this.content.push(element);
+            // Allow it to bubble up.
+            this.bubbleUp(this.content.length - 1);
+        },
+
+        pop: function () {
+            // Store the first element so we can return it later.
+            var result = this.content[0];
+            // Get the element at the end of the array.
+            var end = this.content.pop();
+            // If there are any elements left, put the end element at the
+            // start, and let it sink down.
+            if (this.content.length > 0) {
+                this.content[0] = end;
+                this.sinkDown(0);
+            }
+            return result;
+        },
+
+        remove: function (node) {
+            var length = this.content.length;
+            // To remove a value, we must search through the array to find
+            // it.
+            for (var i = 0; i < length; i++) {
+                if (this.content[i] != node) continue;
+                // When it is found, the process seen in 'pop' is repeated
+                // to fill up the hole.
+                var end = this.content.pop();
+                // If the element we popped was the one we needed to remove,
+                // we're done.
+                if (i == length - 1) break;
+                // Otherwise, we replace the removed element with the popped
+                // one, and allow it to float up or sink down as appropriate.
+                this.content[i] = end;
+                this.bubbleUp(i);
+                this.sinkDown(i);
+                break;
+            }
+        },
+
+        size: function () {
+            return this.content.length;
+        },
+
+        bubbleUp: function (n) {
+            // Fetch the element that has to be moved.
+            var element = this.content[n], score = element;
+            // When at 0, an element can not go up any further.
+            while (n > 0) {
+                // Compute the parent element's index, and fetch it.
+                var parentN = Math.floor((n + 1) / 2) - 1,
+                    parent = this.content[parentN];
+                // If the parent has a lesser score, things are in order and we
+                // are done.
+                if (score >= parent)
+                    break;
+
+                // Otherwise, swap the parent with the current element and
+                // continue.
+                this.content[parentN] = element;
+                this.content[n] = parent;
+                n = parentN;
+            }
+        },
+
+        sinkDown: function (n) {
+            // Look up the target element and its score.
+            var length = this.content.length,
+                element = this.content[n],
+                elemScore = element;
+
+            while (true) {
+                // Compute the indices of the child elements.
+                var child2N = (n + 1) * 2, child1N = child2N - 1;
+                // This is used to store the new position of the element,
+                // if any.
+                var swap = null;
+                // If the first child exists (is inside the array)...
+                if (child1N < length) {
+                    // Look it up and compute its score.
+                    var child1 = this.content[child1N],
+                        child1Score = child1;
+                    // If the score is less than our element's, we need to swap.
+                    if (child1Score < elemScore)
+                        swap = child1N;
+                }
+                // Do the same checks for the other child.
+                if (child2N < length) {
+                    var child2 = this.content[child2N],
+                        child2Score = child2;
+                    if (child2Score < (swap == null ? elemScore : child1Score))
+                        swap = child2N;
+                }
+
+                // No need to swap further, we are done.
+                if (swap == null) break;
+
+                // Otherwise, swap and continue.
+                this.content[n] = this.content[swap];
+                this.content[swap] = element;
+                n = swap;
+            }
+        }
     };
 
     return igv;
+
 })(igv || {});
 
 /*
@@ -30569,6 +33360,45 @@ var igv = (function (igv) {
 var igv = (function (igv) {
 
     var self = this;
+
+    igv.genericContainer = function ($parent, config, closeHandler) {
+
+        var $generic_container,
+            $header,
+            $fa;
+
+        $generic_container = $('<div>', { class:'igv-generic-container' });
+        $parent.append($generic_container);
+
+        // width
+        if (config && config.width) {
+            $generic_container.width(config.width);
+        }
+
+        // height
+        if (config && config.height) {
+            $generic_container.height(config.height);
+        }
+
+        // height
+        if (config && config.classes) {
+            $generic_container.addClass( config.classes.join(' ') );
+        }
+
+        // header
+        $header = $('<div>');
+        $generic_container.append($header);
+
+        // close button
+        $fa = $("<i>", { class:'fa fa-times' });
+        $header.append($fa);
+
+        $fa.on('click', function (e) {
+            closeHandler();
+        });
+
+        return $generic_container;
+    };
 
     igv.makeDraggable = function ($target, $handle) {
         $handle.on('mousedown', function (event) {
@@ -31338,71 +34168,28 @@ var igv = (function (igv) {
 
         return new Promise(function (fullfill, reject) {
 
-            igv.xhr.load(url, options).then(
-                function (result) {
+            igv.xhr
+                .load(url, options)
+                .then(function (result) {
                     if (result) {
                         fullfill(JSON.parse(result));
                     }
                     else {
                         fullfill(result);
                     }
-                }).catch(reject);
+                })
+                .catch(reject);
         })
     };
 
     igv.xhr.loadString = function (path, options) {
         if (path instanceof File) {
-            return loadFileHelper(path, options);
+            return loadStringFromFile(path, options);
         } else {
-            return loadURLHelper(path, options);
+            return loadStringFromUrl(path, options);
         }
     };
 
-    igv.xhr.arrayBufferToString = function (arraybuffer, compression) {
-
-        var plain, inflate;
-
-        if (compression === GZIP) {
-            inflate = new Zlib.Gunzip(new Uint8Array(arraybuffer));
-            plain = inflate.decompress();
-        }
-        else if (compression === BGZF) {
-            plain = new Uint8Array(igv.unbgzf(arraybuffer));
-        }
-        else {
-            plain = new Uint8Array(arraybuffer);
-        }
-
-        var result = "";
-        for (var i = 0, len = plain.length; i < len; i++) {
-            result = result + String.fromCharCode(plain[i]);
-        }
-        return result;
-    };
-
-    /**
-     * Crude test for google urls.  For optimization, nothing bad happens if this is wrong
-     */
-    function isGoogleURL(url) {
-        return url.includes("googleapis");
-    }
-
-    function arrayBufferToBits(arraybuffer, compression) {
-
-        var plain,
-            inflate;
-
-        if (compression === GZIP) {
-            inflate = new Zlib.Gunzip(new Uint8Array(arraybuffer));
-            plain = inflate.decompress();
-        } else if (compression === BGZF) {
-            plain = new Uint8Array(igv.unbgzf(arraybuffer));
-        } else {
-            plain = new Uint8Array(arraybuffer);
-        }
-
-        return plain;
-    }
 
     function loadFileSlice(localfile, options) {
 
@@ -31451,7 +34238,7 @@ var igv = (function (igv) {
 
     }
 
-    function loadFileHelper(localfile, options) {
+    function loadStringFromFile(localfile, options) {
 
         return new Promise(function (fullfill, reject) {
 
@@ -31470,7 +34257,7 @@ var igv = (function (igv) {
                     compression = NONE;
                 }
 
-                result = igv.xhr.arrayBufferToString(fileReader.result, compression);
+                result = arrayBufferToString(fileReader.result, compression);
 
                 fullfill(result);
 
@@ -31487,7 +34274,7 @@ var igv = (function (igv) {
 
     }
 
-    function loadURLHelper(url, options) {
+    function loadStringFromUrl(url, options) {
 
         var compression,
             fn,
@@ -31513,20 +34300,11 @@ var igv = (function (igv) {
             return igv.xhr.load(url, options);
         } else {
             options.responseType = "arraybuffer";
-
-            return new Promise(function (fullfill, reject) {
-
-                igv.xhr
-                    .load(url, options)
-                    .then(
-                        function (data) {
-                            var result = igv.xhr.arrayBufferToString(data, compression);
-                            fullfill(result);
-                        })
-                    .catch(reject)
-            })
+            return igv.xhr.load(url, options)
+                .then(function (data) {
+                    return arrayBufferToString(data, compression);
+                })
         }
-
     }
 
     function isCrossDomain(url) {
@@ -31575,6 +34353,36 @@ var igv = (function (igv) {
         else {
             return url;
         }
+    }
+
+
+    function arrayBufferToString(arraybuffer, compression) {
+
+        var plain, inflate;
+
+        if (compression === GZIP) {
+            inflate = new Zlib.Gunzip(new Uint8Array(arraybuffer));
+            plain = inflate.decompress();
+        }
+        else if (compression === BGZF) {
+            plain = new Uint8Array(igv.unbgzf(arraybuffer));
+        }
+        else {
+            plain = new Uint8Array(arraybuffer);
+        }
+
+        var result = "";
+        for (var i = 0, len = plain.length; i < len; i++) {
+            result = result + String.fromCharCode(plain[i]);
+        }
+        return result;
+    };
+
+    /**
+     * Crude test for google urls.  For optimization, nothing bad happens if this is wrong
+     */
+    function isGoogleURL(url) {
+        return url.includes("googleapis");
     }
 
 // Increments an anonymous usage count.  Count is anonymous, needed for our continued funding.  Please don't delete
@@ -33034,17 +35842,19 @@ var igv = (function (igv) {
             $div,
             $e;
 
-        nameLast = _.last(igv.browser.genome.chromosomeNames);
+        nameLast = _.last(igv.browser.genome.wgChromosomeNames);
+
         chrLast = igv.browser.genome.getChromosome(nameLast);
+
         extent = Math.floor(chrLast.bpLength/1000) + igv.browser.genome.getCumulativeOffset(nameLast);
 
         viewportWidth = this.$viewport.width();
         scraps = 0;
-        _.each(igv.browser.genome.chromosomeNames, function (name) {
+        _.each(igv.browser.genome.wgChromosomeNames, function (name) {
             var w,
                 percentage;
 
-            percentage = (igv.browser.genome.getChromosome(name).bpLength/1000)/extent;
+            percentage = (igv.browser.genome.getChromosome(name).bpLength)/extent;
             if (percentage * viewportWidth < 1.0) {
                 scraps += percentage;
             } else {
@@ -33266,7 +36076,9 @@ var igv = (function (igv) {
             1e1
         ].reverse();
 
-    tickKeys = _.map(tickNumbers, function (number) { return number.toString() });
+    tickKeys = _.map(tickNumbers, function (number) {
+        return number.toString()
+    });
     tickDivisors = createTickDivisiors();
     tickUnits = createTickUnits();
     tickValues = createTickValues();
@@ -33293,7 +36105,7 @@ var igv = (function (igv) {
             this.rulerSweepers = {};
         }
 
-        this.rulerSweepers[ genomicState.locusIndex.toString() ] = new igv.RulerSweeper(viewport, $viewport, $viewportContent, genomicState);
+        this.rulerSweepers[genomicState.locusIndex.toString()] = new igv.RulerSweeper(viewport, $viewport, $viewportContent, genomicState);
     };
 
     igv.RulerTrack.prototype.locusLabelWithViewport = function (viewport) {
@@ -33342,7 +36154,7 @@ var igv = (function (igv) {
             bp;
 
 
-        rulerSweeper = this.rulerSweepers[ options.genomicState.locusIndex.toString() ];
+        rulerSweeper = this.rulerSweepers[options.genomicState.locusIndex.toString()];
 
         if ('all' === options.referenceFrame.chrName.toLowerCase()) {
 
@@ -33359,7 +36171,7 @@ var igv = (function (igv) {
 
             index = 0;
             for (var i = 0; i < _.size(tickKeys); i++) {
-                tickSeparationPixel = options.referenceFrame.toPixels( tickValues[ tickKeys[ i ] ] );
+                tickSeparationPixel = options.referenceFrame.toPixels(tickValues[tickKeys[i]]);
                 if (tickSeparationPixel > TickSeparationThreshold) {
                     index = i;
                     break;
@@ -33370,20 +36182,20 @@ var igv = (function (igv) {
             tickHeight = 6;
             bp = options.bpStart + options.referenceFrame.toBP(options.pixelWidth);
             bp = Math.min(options.genomicState.chromosome.bpLength, bp);
-            maximumLabelWidthPixel = options.context.measureText( tickLabelString(bp, index) ).width;
+            maximumLabelWidthPixel = options.context.measureText(tickLabelString(bp, index)).width;
             // console.log('width metric ' + Math.round(maximumLabelWidthPixel) + ' width ' + Math.round(tickSeparationPixel));
-            for (pixel = 0, toggle = 0, tickLabelNumber = options.bpStart; pixel < options.pixelWidth; pixel += tickSeparationPixel, toggle++, tickLabelNumber += tickValues[ tickKeys[ index ] ]) {
+            for (pixel = 0, toggle = 0, tickLabelNumber = options.bpStart; pixel < options.pixelWidth; pixel += tickSeparationPixel, toggle++, tickLabelNumber += tickValues[tickKeys[index]]) {
 
                 if (0 === toggle % 2 || maximumLabelWidthPixel < tickSeparationPixel) {
 
                     tickLabelText = tickLabelString(tickLabelNumber, index);
 
-                    center = { x:Math.round(pixel), y:self.height - (tickHeight / 0.75) };
-                    size = { width:options.context.measureText(tickLabelText).width, height:2 };
+                    center = {x: Math.round(pixel), y: self.height - (tickHeight / 0.75)};
+                    size = {width: options.context.measureText(tickLabelText).width, height: 2};
 
-                    rect = igv.rectWithCenterAndSize(center, size);
+                    rect = rectWithCenterAndSize(center, size);
 
-                    igv.graphics.fillText(options.context, tickLabelText, Math.round(pixel - rect.size.width/2), self.height - (tickHeight / 0.75));
+                    igv.graphics.fillText(options.context, tickLabelText, Math.round(pixel - rect.size.width / 2), self.height - (tickHeight / 0.75));
                 }
 
                 igv.graphics.strokeLine(options.context, Math.round(pixel), this.height - tickHeight, Math.round(pixel), this.height - shim);
@@ -33401,8 +36213,8 @@ var igv = (function (igv) {
             string,
             number;
 
-        tickUnit = tickUnits[ tickKeys[ index ] ];
-        tickDivisor = tickDivisors[ tickKeys[ index ] ];
+        tickUnit = tickUnits[tickKeys[index]];
+        tickDivisor = tickDivisors[tickKeys[index]];
 
         number = Math.round(tickLabelNumber / tickDivisor);
         string = igv.numberFormatter(number) + tickUnit;
@@ -33410,58 +36222,58 @@ var igv = (function (igv) {
         return string;
     }
 
-    function createTickDivisiors () {
+    function createTickDivisiors() {
         var tickDivisiors = {};
-        tickDivisiors[ 1e8.toString() ] = 1e6;
-        tickDivisiors[ 5e7.toString() ] = 1e6;
-        tickDivisiors[ 1e7.toString() ] = 1e6;
-        tickDivisiors[ 5e6.toString() ] = 1e6;
-        tickDivisiors[ 1e6.toString() ] = 1e6;
+        tickDivisiors[1e8.toString()] = 1e6;
+        tickDivisiors[5e7.toString()] = 1e6;
+        tickDivisiors[1e7.toString()] = 1e6;
+        tickDivisiors[5e6.toString()] = 1e6;
+        tickDivisiors[1e6.toString()] = 1e6;
 
-        tickDivisiors[ 5e5.toString() ] = 1e3;
-        tickDivisiors[ 1e5.toString() ] = 1e3;
-        tickDivisiors[ 5e4.toString() ] = 1e3;
-        tickDivisiors[ 1e4.toString() ] = 1e3;
-        tickDivisiors[ 5e3.toString() ] = 1e3;
-        tickDivisiors[ 1e3.toString() ] = 1e3;
+        tickDivisiors[5e5.toString()] = 1e3;
+        tickDivisiors[1e5.toString()] = 1e3;
+        tickDivisiors[5e4.toString()] = 1e3;
+        tickDivisiors[1e4.toString()] = 1e3;
+        tickDivisiors[5e3.toString()] = 1e3;
+        tickDivisiors[1e3.toString()] = 1e3;
 
-        tickDivisiors[ 5e2.toString() ] = 1;
-        tickDivisiors[ 1e2.toString() ] = 1;
-        tickDivisiors[ 5e1.toString() ] = 1;
-        tickDivisiors[ 1e1.toString() ] = 1;
+        tickDivisiors[5e2.toString()] = 1;
+        tickDivisiors[1e2.toString()] = 1;
+        tickDivisiors[5e1.toString()] = 1;
+        tickDivisiors[1e1.toString()] = 1;
 
         return tickDivisiors;
     }
 
-    function createTickValues  () {
+    function createTickValues() {
         var tickValues = {};
 
         _.each(tickNumbers, function (number) {
-            tickValues[ number.toString() ] = number;
+            tickValues[number.toString()] = number;
         });
 
         return tickValues;
     }
 
-    function createTickUnits () {
+    function createTickUnits() {
         var tickUnits = {};
-        tickUnits[ 1e8.toString() ] = 'mb';
-        tickUnits[ 5e7.toString() ] = 'mb';
-        tickUnits[ 1e7.toString() ] = 'mb';
-        tickUnits[ 5e6.toString() ] = 'mb';
-        tickUnits[ 1e6.toString() ] = 'mb';
+        tickUnits[1e8.toString()] = 'mb';
+        tickUnits[5e7.toString()] = 'mb';
+        tickUnits[1e7.toString()] = 'mb';
+        tickUnits[5e6.toString()] = 'mb';
+        tickUnits[1e6.toString()] = 'mb';
 
-        tickUnits[ 5e5.toString() ] = 'kb';
-        tickUnits[ 1e5.toString() ] = 'kb';
-        tickUnits[ 5e4.toString() ] = 'kb';
-        tickUnits[ 1e4.toString() ] = 'kb';
-        tickUnits[ 5e3.toString() ] = 'kb';
-        tickUnits[ 1e3.toString() ] = 'kb';
+        tickUnits[5e5.toString()] = 'kb';
+        tickUnits[1e5.toString()] = 'kb';
+        tickUnits[5e4.toString()] = 'kb';
+        tickUnits[1e4.toString()] = 'kb';
+        tickUnits[5e3.toString()] = 'kb';
+        tickUnits[1e3.toString()] = 'kb';
 
-        tickUnits[ 5e2.toString() ] = 'b';
-        tickUnits[ 1e2.toString() ] = 'b';
-        tickUnits[ 5e1.toString() ] = 'b';
-        tickUnits[ 1e1.toString() ] = 'b';
+        tickUnits[5e2.toString()] = 'b';
+        tickUnits[1e2.toString()] = 'b';
+        tickUnits[5e1.toString()] = 'b';
+        tickUnits[1e1.toString()] = 'b';
 
         return tickUnits;
     }
@@ -33469,6 +36281,29 @@ var igv = (function (igv) {
     function updateLocusLabelWithGenomicState($label, state) {
         $label.text(state.locusSearchString);
     }
+
+    function rectWithCenterAndSize(center, size) {
+        var halfSize = sizeMake(size.width / 2.0, size.height / 2.0);
+        return rectMake(center.x - halfSize.width, center.y - halfSize.height, size.width, size.height);
+    };
+
+    function rectMake(x, y, width, height) {
+        var rect = {origin: {}, size: {}};
+
+        rect.origin.x = x;
+        rect.origin.y = y;
+
+        rect.size.width = width;
+        rect.size.height = height;
+
+        return rect;
+    };
+
+
+    function sizeMake(width, height) {
+        return {width: width, height: height};
+    };
+
 
     return igv;
 })(igv || {});
@@ -33616,11 +36451,140 @@ var igv = (function (igv) {
         this.name = "";
         this.id = "sequence";
         this.sequenceType = config.sequenceType || "dna";             //   dna | rna | prot
-        this.height = 15;
-        this.disableButtons = true;
-        this.order = config.order || 9999;
-        this.ignoreTrackMenu = true;
+        this.height = 25;
+        this.disableButtons = false;
+        this.order = config.order || -Number.MAX_VALUE;
+        this.ignoreTrackMenu = false;
         this.supportsWholeGenome = false;
+
+        this.removable = false;
+        this.reversed = false;
+        this.frameTranslate = false;
+        this.complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A'};
+        this.translationDict = {
+            'TTT': 'F',
+            'TTC': 'F',
+            'TTA': 'L',
+            'TTG': 'L',
+            'CTT': 'L',
+            'CTC': 'L',
+            'CTA': 'L',
+            'CTG': 'L',
+            'ATT': 'I',
+            'ATC': 'I',
+            'ATA': 'I',
+            'ATG': 'M',
+            'GTT': 'V',
+            'GTC': 'V',
+            'GTA': 'V',
+            'GTG': 'V',
+            'TCT': 'S',
+            'TCC': 'S',
+            'TCA': 'S',
+            'TCG': 'S',
+            'CCT': 'P',
+            'CCC': 'P',
+            'CCA': 'P',
+            'CCG': 'P',
+            'ACT': 'T',
+            'ACC': 'T',
+            'ACA': 'T',
+            'ACG': 'T',
+            'GCT': 'A',
+            'GCC': 'A',
+            'GCA': 'A',
+            'GCG': 'A',
+            'TAT': 'Y',
+            'TAC': 'Y',
+            'TAA': 'STOP',
+            'TAG': 'STOP',
+            'CAT': 'H',
+            'CAC': 'H',
+            'CAA': 'Q',
+            'CAG': 'Q',
+            'AAT': 'N',
+            'AAC': 'N',
+            'AAA': 'K',
+            'AAG': 'K',
+            'GAT': 'D',
+            'GAC': 'D',
+            'GAA': 'E',
+            'GAG': 'E',
+            'TGT': 'C',
+            'TGC': 'C',
+            'TGA': 'STOP',
+            'TGG': 'W',
+            'CGT': 'R',
+            'CGC': 'R',
+            'CGA': 'R',
+            'CGG': 'R',
+            'AGT': 'S',
+            'AGC': 'S',
+            'AGA': 'R',
+            'AGG': 'R',
+            'GGT': 'G',
+            'GGC': 'G',
+            'GGA': 'G',
+            'GGG': 'G'
+        };
+    };
+
+    igv.SequenceTrack.prototype.menuItemList = function(popover) {
+        var self = this;
+
+        return [
+            {
+                name: self.reversed ? "Forward" : "Reverse",
+                click: function () {
+                    self.reversed = !self.reversed;
+                    popover.hide();
+                    igv.browser.update();
+                }
+            },
+            {
+                name: self.frameTranslate ? "Close Translation" : "Three-frame Translate",
+                click: function(){
+                    self.frameTranslate = !self.frameTranslate;
+                    popover.hide();
+
+                    if (self.frameTranslate) {
+                        self.trackView.viewports[0].canvas.height = 115;
+                        self.trackView.setTrackHeight(115);
+                    } else {
+                        self.trackView.viewports[0].canvas.height = 25;
+                        self.trackView.setTrackHeight(25);
+                    }
+
+                }
+            }
+        ];
+    };
+
+    igv.SequenceTrack.prototype.translateSequence = function(seq) {
+        var threeFrame = [[],[],[]];
+        var self = this;
+
+        [0,1,2].forEach(function(fNum){
+            var idx = fNum;
+            var obj, st;
+
+            while ((seq.length - idx) >= 3) {
+                obj = {};
+                st = seq.slice(idx, idx + 3);
+
+                if (self.reversed) {
+                    st = st.split('').reverse().join('');
+                }
+
+                obj.codons = st;
+                obj.aminoA = self.translationDict[st];
+                threeFrame[fNum].push(obj);
+                obj = null;
+                idx += 3;
+            }
+        });
+
+        return threeFrame;
     };
 
     igv.SequenceTrack.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
@@ -33634,7 +36598,6 @@ var igv = (function (igv) {
         });
     };
 
-
     igv.SequenceTrack.prototype.draw = function (options) {
 
         var self = this,
@@ -33644,20 +36607,25 @@ var igv = (function (igv) {
             bpStart = options.bpStart,
             pixelWidth = options.pixelWidth,
             bpEnd = bpStart + pixelWidth * bpPerPixel + 1,
-            len, w, y, pos, offset, b, p0, p1, pc, c;
+            len, w, y, pos, offset, b, p0, p1, pc, c, h;
+        var transSeq, aaS;
 
         if (sequence) {
 
             len = sequence.length;
             w = 1 / bpPerPixel;
 
-            y = this.height / 2;
+            h = 15; //Separate sequence height from view height.
             for (pos = bpStart; pos <= bpEnd; pos++) {
 
                 offset = pos - bpStart;
                 if (offset < len) {
-//                            var b = sequence.charAt(offset);
                     b = sequence[offset];
+
+                   if (this.reversed) {
+                        b = this.complement[b.toUpperCase()];
+                    }
+
                     p0 = Math.floor(offset * w);
                     p1 = Math.floor((offset + 1) * w);
                     pc = Math.round((p0 + p1) / 2);
@@ -33675,12 +36643,56 @@ var igv = (function (igv) {
                     if (!c) c = "gray";
 
                     if (bpPerPixel > 1 / 10) {
-                        igv.graphics.fillRect(ctx, p0, 0, p1 - p0, self.height, { fillStyle: c });
+                        igv.graphics.fillRect(ctx, p0, 5, p1 - p0, h-5, { fillStyle: c });
                     }
                     else {
-                        igv.graphics.strokeText(ctx, b, pc, 3 + y, { strokeStyle: c });
+                        igv.graphics.strokeText(ctx, b, pc - (ctx.measureText(b).width / 2), h, { strokeStyle: c });
                     }
                 }
+            }
+            if (this.frameTranslate) {
+
+                if (this.reversed) {
+                    transSeq = sequence.split('').map(function(cv){
+                        return self.complement[cv];
+                    });
+                    transSeq = transSeq.join('');
+                } else {
+                    transSeq = sequence;
+                }
+
+                y = h;
+                this.translateSequence(transSeq).forEach(function(arr, i){
+                    var fNum = i;
+                    var h = 25;
+                    y = (i === 0) ? y + 10 : y + 30; //Little less room at first.
+                    arr.forEach(function(cv, idx){
+                        var xSeed = (idx + fNum) + (2 * idx);
+                        if (idx % 2 === 0) {
+                            c = 'rgb(160,160,160)';
+                        } else {
+                            c = 'rgb(224,224,224)';
+                        }
+                        p0 = Math.floor(xSeed * w);
+                        p1 = Math.floor((xSeed + 3) * w);
+                        pc = Math.round((p0+p1)/2);
+                        if (cv.aminoA.indexOf('STOP') > -1 ) {
+                            c = 'rgb(255, 0, 0)';
+                            aaS = 'STOP'; //Color blind accessible
+                        } else {
+                            aaS = cv.aminoA;
+                        }
+                        if (cv.aminoA === 'M'){
+                            c = 'rgb(0, 153, 0)';
+                            aaS = 'START'; //Color blind accessible
+                        }
+                        igv.graphics.fillRect(ctx, p0, y, p1 - p0, h, {fillStyle: c});
+                        if (bpPerPixel <= 1 / 10) {
+                            igv.graphics.strokeText(ctx, aaS, pc - (ctx.measureText(aaS).width / 2), y + 15); //centers text in rect
+                        }
+
+                    });
+                });
             }
         }
 
@@ -33692,6 +36704,195 @@ var igv = (function (igv) {
 
 
 
+
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+
+/**
+ * Minimal support for the legacy IGV desktop session format.
+ */
+
+var igv = (function (igv) {
+/*
+    var stringAttributes = ["name"],
+        colorAttributes = ["color", "altColor"],
+        intAttributes = ["height", "featureVisibilityWindow"],
+        booleanAttributes = ["autoScale"];*/
+
+    igv.XMLSession = function (xmlString) {
+
+        var self = this, parser, xmlDoc, elements;
+
+        parser = new DOMParser();
+        xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+        processRootNode();
+
+        elements = xmlDoc.getElementsByTagName("Resource");
+
+        self.tracks = [];
+
+        var resourceMap = {};
+        Array.from(elements).forEach(function (res, idx) {
+            var res = {
+                url: res.getAttribute("path"),
+                order: idx
+            };
+            self.tracks.push(res);
+            resourceMap[res.url] = res;
+        });
+
+        // Check for optional Track section
+        elements = xmlDoc.getElementsByTagName("Track");
+        if (elements && elements.length > 0) {
+
+            // Track order is defined by elements, reset
+            self.tracks = [];
+
+            Array.from(elements).forEach(function (track) {
+
+                var id, res, claszz, subtracks, mergedTrack;
+
+                subtracks = track.getElementsByTagName("Track");
+
+                if (subtracks && subtracks.length > 0) {
+
+                    mergedTrack = {
+                        type: 'merged',
+                        tracks: []
+                    };
+                    extractTrackAttributes(track, mergedTrack);
+
+                    self.tracks.push(mergedTrack);
+
+                    Array.from(subtracks).forEach(function (t) {
+
+                        t.processed = true;
+
+                        var id, res;
+
+                        id = t.getAttribute("id");
+                        res = resourceMap[id];
+
+                        if (res) {
+                            mergedTrack.tracks.push(res);
+                            extractTrackAttributes(t, res);
+                            res.autoscale = false;
+                            mergedTrack.height = res.height;      //
+                        }
+                    })
+                }
+                else if (!track.processed) {
+                    id = track.getAttribute("id");
+                    res = resourceMap[id];
+                    if (res) {
+                        self.tracks.push(res);
+                        extractTrackAttributes(track, res);
+                    }
+
+                }
+            })
+        }
+
+        function extractTrackAttributes(track, config) {
+
+            var color, height, autoScale, altColor, dataRange, dataRangeCltn, windowFunction, visWindow;
+
+            config.name = track.getAttribute("name");
+            color = track.getAttribute("color");
+            if (color) {
+                config.color = "rgb(" + color + ")";
+            }
+            altColor = track.getAttribute("altColor");
+            if (color) {
+                config.altColor = "rgb(" + altColor + ")";
+            }
+            height = track.getAttribute("height");
+            if (height) {
+                config.height = parseInt(height);
+            }
+            autoScale = track.getAttribute("autoScale");
+            if (autoScale) {
+                config.autoScale = (autoScale === "true");
+            }
+            windowFunction = track.getAttribute("windowFunction");
+            if (windowFunction) {
+                config.windowFunction = windowFunction;
+            }
+            visWindow = track.getAttribute("visibilityWindow") || track.getAttribute("featureVisibilityWindow");
+            if (visWindow) {
+                config.visibilityWindow = visWindow;
+            }
+
+            dataRangeCltn = track.getElementsByTagName("DataRange");
+            if (dataRangeCltn.length > 0) {
+                dataRange = dataRangeCltn.item(0);
+                if (!autoScale) {
+                    config.min = parseInt(dataRange.getAttribute("minimum"));
+                    config.max = parseInt(dataRange.getAttribute("maximum"));
+                }
+                config.logScale = dataRange.getAttribute("type") === "LOG";
+            }
+
+        }
+
+        function processRootNode() {
+            var elements, session, genome, locus;
+
+            elements = xmlDoc.getElementsByTagName("Session");
+            if (!elements || elements.length === 0) {
+                //TODO throw error
+            }
+            session = elements.item(0);
+            genome = session.getAttribute("genome");
+            locus = session.getAttribute("locus");
+
+            if (igv.Genome.KnownGenomes.hasOwnProperty(genome)) {
+                self.reference = {
+                    id: genome
+                }
+            } else {
+                self.reference = {
+                    fastaURL: genome
+                }
+            }
+            if (locus) {
+                self.locus = locus;
+            }
+        }
+
+
+    };
+
+
+    return igv;
+
+})
+(igv || {});
 
 /*
  * Copyright - unknown
@@ -34462,15 +37663,9 @@ var igv = (function (igv) {
             return Promise.resolve(this);   // Already read
         }
 
-        return new Promise(function (fulfill, reject) {
+        return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: {start: 0, size: 64000}}))
 
-            igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: {start: 0, size: 64000}}))
-                .then(function (data) {
-
-                if (!data) {
-                    reject("no data");
-                    return;
-                }
+            .then(function (data) {
 
                 var binaryParser = new igv.BinaryParser(new DataView(data));
 
@@ -34504,56 +37699,52 @@ var igv = (function (igv) {
                 self.compressed = (self.flags & GZIP_FLAG) != 0;
 
                 // Now read index
-                igv.xhr.loadArrayBuffer(self.path,igv.buildOptions(self.config, {range: {start: self.indexPos, size: self.indexSize}}))
-                    .then(function (data) {
-
-
-                    if (!data) {
-                        reject("no data");
-                        return;
+                return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
+                    range: {
+                        start: self.indexPos,
+                        size: self.indexSize
                     }
+                }))
+            })
+            .then(function (data) {
 
-                    binaryParser = new igv.BinaryParser(new DataView(data));
+                binaryParser = new igv.BinaryParser(new DataView(data));
 
-                    self.datasetIndex = {};
-                    var nEntries = binaryParser.getInt();
-                    while (nEntries-- > 0) {
-                        var name = binaryParser.getString();
-                        var pos = binaryParser.getLong();
-                        var size = binaryParser.getInt();
-                        self.datasetIndex[name] = {position: pos, size: size};
-                    }
+                self.datasetIndex = {};
+                var nEntries = binaryParser.getInt();
+                while (nEntries-- > 0) {
+                    var name = binaryParser.getString();
+                    var pos = binaryParser.getLong();
+                    var size = binaryParser.getInt();
+                    self.datasetIndex[name] = {position: pos, size: size};
+                }
 
-                    self.groupIndex = {};
-                    nEntries = binaryParser.getInt();
-                    while (nEntries-- > 0) {
-                        name = binaryParser.getString();
-                        pos = binaryParser.getLong();
-                        size = binaryParser.getInt();
-                        self.groupIndex[name] = {position: pos, size: size};
-                    }
+                self.groupIndex = {};
+                nEntries = binaryParser.getInt();
+                while (nEntries-- > 0) {
+                    name = binaryParser.getString();
+                    pos = binaryParser.getLong();
+                    size = binaryParser.getInt();
+                    self.groupIndex[name] = {position: pos, size: size};
+                }
 
-                    fulfill(self);
+                return self;   // The header data is stored in "self"
 
-                }).catch(reject);
+            })
 
-            }).catch(reject)
-
-        });
     }
 
-    igv.TDFReader.prototype.readDataset = function (chr, windowFunction,  zoom) {
+    igv.TDFReader.prototype.readDataset = function (chr, windowFunction, zoom) {
 
-        var self = this;
+        var self = this,
+            dsName;
 
-        return new Promise(function (fulfill, reject) {
+        return self.readHeader()
 
-
-            self.readHeader().then(function (reader) {
+            .then(function (ignore) {
 
                 var wf = (self.version < 2) ? "" : "/" + windowFunction,
                     zoomString = (chr.toLowerCase() === "all" || zoom === undefined) ? "0" : zoom.toString(),
-                    dsName,
                     indexEntry;
 
                 if (windowFunction === "raw") {
@@ -34565,50 +37756,53 @@ var igv = (function (igv) {
                 indexEntry = self.datasetIndex[dsName];
 
                 if (indexEntry === undefined) {
-                    fulfill(null);
+                    return undefined;
                 }
                 else {
 
-
-                    igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: {start: indexEntry.position, size: indexEntry.size}}))
-                        .then(function (data) {
-
-                        if (!data) {
-                            reject("no data");
-                            return;
+                    return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
+                        range: {
+                            start: indexEntry.position,
+                            size: indexEntry.size
                         }
-
-                        var binaryParser = new igv.BinaryParser(new DataView(data));
-
-                        var nAttributes = binaryParser.getInt();
-                        var attributes = {};
-                        while (nAttributes-- > 0) {
-                            attributes[binaryParser.getString()] = binaryParser.getString();
-                        }
-
-                        var dataType = binaryParser.getString();
-                        var tileWidth = binaryParser.getFloat();
-
-                        var nTiles = binaryParser.getInt();
-                        var tiles = [];
-                        while (nTiles-- > 0) {
-                            tiles.push({position: binaryParser.getLong(), size: binaryParser.getInt()});
-                        }
-
-                        var dataset = {
-                            name: dsName,
-                            attributes: attributes,
-                            dataType: dataType,
-                            tileWidth: tileWidth,
-                            tiles: tiles
-                        };
-
-                        fulfill(dataset);
-
-                    }).catch(reject);
+                    }))
                 }
-            }).catch(reject);
-        });
+            })
+            .then(function (data) {
+
+                if (!data) {
+                    return undefined;
+                }
+
+                var binaryParser = new igv.BinaryParser(new DataView(data));
+
+                var nAttributes = binaryParser.getInt();
+                var attributes = {};
+                while (nAttributes-- > 0) {
+                    attributes[binaryParser.getString()] = binaryParser.getString();
+                }
+
+                var dataType = binaryParser.getString();
+                var tileWidth = binaryParser.getFloat();
+
+                var nTiles = binaryParser.getInt();
+                var tiles = [];
+                while (nTiles-- > 0) {
+                    tiles.push({position: binaryParser.getLong(), size: binaryParser.getInt()});
+                }
+
+                var dataset = {
+                    name: dsName,
+                    attributes: attributes,
+                    dataType: dataType,
+                    tileWidth: tileWidth,
+                    tiles: tiles
+                };
+
+                return dataset;
+
+            })
+
     }
 
     igv.TDFReader.prototype.readRootGroup = function () {
@@ -34620,85 +37814,78 @@ var igv = (function (igv) {
             return Promise.resolve(rootGroup);
         }
         else {
-            return new Promise(function (fulfill, reject) {
+            return self.readGroup("/").then(function (group) {
 
-                self.readGroup("/").then(function (group) {
+                var genome = igv.browser.genome,
+                    names = group["chromosomes"],
+                    maxZoomString = group["maxZoom"];
 
-                    var genome = igv.browser.genome,
-                        names = group["chromosomes"],
-                        maxZoomString = group["maxZoom"];
+                // Now parse out interesting attributes.  This is a side effect, and bad bad bad,  but the alternative is messy as well.
+                if (maxZoomString) {
+                    self.maxZoom = Number(maxZoomString);
+                }
 
-                    // Now parse out interesting attributes.  This is a side effect, and bad bad bad,  but the alternative is messy as well.
-                    if(maxZoomString) {
-                        self.maxZoom = Number(maxZoomString);
-                    }
-
-                    // Chromosome names
-                    self.chrAliasTable = {};
-                    if(names) {
-                        _.each(names.split(","), function (chr) {
-                            var canonicalName = genome.getChromosomeName(chr);
-                            self.chrAliasTable[canonicalName] = chr;
-                        })
-                    }
-
-                    fulfill(group);
-
-
-                }).catch(reject);
-            });
-
+                // Chromosome names
+                self.chrAliasTable = {};
+                if (names) {
+                    names.split(",").forEach(function (chr) {
+                        var canonicalName = genome.getChromosomeName(chr);
+                        self.chrAliasTable[canonicalName] = chr;
+                    })
+                }
+                return group;
+            })
         }
     }
 
     igv.TDFReader.prototype.readGroup = function (name) {
 
-        var self = this;
+        var self = this, group;
 
-        return new Promise(function (fulfill, reject) {
+        var group = self.groupCache[name];
+        if (group) {
+            return Promise.resolve(group);
+        }
+        else {
 
+            return self.readHeader()
+                .then(function (reader) {
 
-            self.readHeader().then(function (reader) {
+                    var indexEntry = self.groupIndex[name];
 
-                var group = self.groupCache[name],
-                    indexEntry = self.groupIndex[name];
+                    if (indexEntry === undefined) {
+                        return undefined;
+                    }
+                    else {
 
-                if (group) {
-                    fulfill(group);
-                }
-                else if (indexEntry === undefined) {
-                    return fulfill(null);
-                }
-                else {
+                        return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
+                            range: {
+                                start: indexEntry.position,
+                                size: indexEntry.size
+                            }
+                        }))
+                    }
+                })
+                .then(function (data) {
 
+                    if (!data) {
+                        return undefined;
+                    }
 
-                    igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: {start: indexEntry.position, size: indexEntry.size}}))
-                        .then(function (data) {
+                    var binaryParser = new igv.BinaryParser(new DataView(data));
 
-                        if (!data) {
-                            reject("no data");
-                            return;
-                        }
+                    var nAttributes = binaryParser.getInt();
+                    var group = {name: name};
+                    while (nAttributes-- > 0) {
+                        group[binaryParser.getString()] = binaryParser.getString();
+                    }
 
-                        var binaryParser = new igv.BinaryParser(new DataView(data));
+                    self.groupCache[name] = group;
 
-                        var nAttributes = binaryParser.getInt();
-                        var group = {name: name};
-                        while (nAttributes-- > 0) {
-                            group[binaryParser.getString()] = binaryParser.getString();
-                        }
-
-                        self.groupCache[name] = group;
-
-                        fulfill(group);
-
-                    }).catch(reject);
-                }
-            }).catch(reject);
-        });
+                    return group;
+                })
+        }
     }
-
-
 
 
     function createFixedStep(binaryParser, nTracks) {
@@ -34824,15 +38011,13 @@ var igv = (function (igv) {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
-
-            igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {range: {start: indexEntry.position, size: indexEntry.size}}))
-                .then(function (data) {
-
-                if (!data) {
-                    reject("no data");
-                    return;
-                }
+        return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
+            range: {
+                start: indexEntry.position,
+                size: indexEntry.size
+            }
+        }))
+            .then(function (data) {
 
                 if (self.compressed) {
                     var inflate = new Zlib.Inflate(new Uint8Array(data));
@@ -34846,23 +38031,19 @@ var igv = (function (igv) {
 
                 switch (type) {
                     case "fixedStep":
-                        fulfill(createFixedStep(binaryParser, nTracks));
+                        return createFixedStep(binaryParser, nTracks);
                         break;
                     case "variableStep":
-                        fulfill(createVariableStep(binaryParser, nTracks));
+                        return createVariableStep(binaryParser, nTracks);
                         break;
                     case "bed":
                     case "bedWithName":
-                        fulfill(createBed(binaryParser, nTracks, type));
+                        return createBed(binaryParser, nTracks, type);
                         break;
                     default:
-                        reject("Unknown tile type: " + type);
+                        throw "Unknown tile type: " + type;
                 }
-
-
-            }).catch(reject);
-
-        });
+            });
 
     }
 
@@ -34912,69 +38093,82 @@ var igv = (function (igv) {
 
     igv.TDFSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
 
-        var self = this;
+        var self = this,
+            featureCache = self.featureCache,
+            genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
 
-        return new Promise(function (fulfill, reject) {
+        genomicInterval.bpPerPixel = bpPerPixel;
 
-            self.reader.readRootGroup().then(function (group) {
+        if (featureCache && featureCache.range.bpPerPixel === bpPerPixel && featureCache.range.containsRange(genomicInterval)) {
+            return Promise.resolve(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
+        }
+
+        return self.reader.readRootGroup()
+
+            .then(function (group) {
 
                 var zoom = zoomLevelForScale(chr, bpPerPixel),
                     queryChr = self.reader.chrAliasTable[chr],
                     maxZoom = self.reader.maxZoom,
-                    wf,
-                    dataset;
+                    wf;
 
                 if (queryChr === undefined) queryChr = chr;
                 if (maxZoom === undefined) maxZoom = -1;
 
                 wf = zoom > maxZoom ? "raw" : self.windowFunction;
 
-                self.reader.readDataset(queryChr, wf, zoom).then(function (dataset) {
-
-                    if(dataset == null) {
-                        fulfill(null);
-                        return;
-                    }
-
-                    var tileWidth = dataset.tileWidth,
-                        startTile = Math.floor(bpStart / tileWidth),
-                        endTile = Math.floor(bpEnd / tileWidth),
-                        i,
-                        p = [],
-                        NTRACKS = 1;   // TODO read this
-
-                    for (i = startTile; i <= endTile; i++) {
-                        if(dataset.tiles[i] !== undefined) {
-                            p.push(self.reader.readTile(dataset.tiles[i], NTRACKS));
-                        }
-                    }
-
-                    Promise.all(p).then(function (tiles) {
-                        var features = [];
-                        _.each(tiles, function (tile) {
-                            switch (tile.type) {
-                                case "bed":
-                                    decodeBedTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
-                                    break;
-                                case "variableStep":
-                                    decodeVaryTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
-                                    break;
-                                case "fixedStep":
-                                    decodeFixedTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
-                                    break;
-                                default:
-                                    reject("Unknown tile type: " + tile.type);
-                                    return;
-                            }
-                        })
-                        fulfill(features);
-
-                    }).catch(reject)
-
-
-                }).catch(reject)
+                return self.reader.readDataset(queryChr, wf, zoom);
             })
-        });
+
+            .then(function (dataset) {
+
+                if (dataset == null) {
+                    return [];
+                }
+
+                var tileWidth = dataset.tileWidth,
+                    startTile = Math.floor(bpStart / tileWidth),
+                    endTile = Math.floor(bpEnd / tileWidth),
+                    i,
+                    p = [],
+                    NTRACKS = 1;   // TODO read this
+
+                for (i = startTile; i <= endTile; i++) {
+                    if (dataset.tiles[i] !== undefined) {
+                        p.push(self.reader.readTile(dataset.tiles[i], NTRACKS));
+                    }
+                }
+
+                return Promise.all(p);
+            })
+
+            .then(function (tiles) {
+
+                var features = [];
+
+                tiles.forEach( function (tile) {
+                    switch (tile.type) {
+                        case "bed":
+                            decodeBedTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
+                            break;
+                        case "variableStep":
+                            decodeVaryTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
+                            break;
+                        case "fixedStep":
+                            decodeFixedTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
+                            break;
+                        default:
+                            reject("Unknown tile type: " + tile.type);
+                            return;
+                    }
+                })
+
+                // Note -- replacing feature cache
+                self.featureCache = new igv.FeatureCache(features, genomicInterval);
+
+                return features;
+
+            })
     }
 
     function decodeBedTile(tile, chr, bpStart, bpEnd, bpPerPixel, features) {
@@ -34994,6 +38188,7 @@ var igv = (function (igv) {
             if (s > bpEnd) break;
 
             features.push({
+                chr: chr,
                 start: s,
                 end: e,
                 value: data[i]
@@ -35018,6 +38213,7 @@ var igv = (function (igv) {
             if (s > bpEnd) break;
 
             features.push({
+                chr: chr,
                 start: s,
                 end: e,
                 value: data[i]
@@ -35040,8 +38236,9 @@ var igv = (function (igv) {
             if (e < bpStart) continue;
             if (s > bpEnd) break;
 
-            if(!Number.isNaN(data[i])) {
+            if (!Number.isNaN(data[i])) {
                 features.push({
+                    chr: chr,
                     start: s,
                     end: e,
                     value: data[i]
@@ -35117,7 +38314,7 @@ var igv = (function (igv) {
 
     };
 
-    igv.createTrackWithConfiguration = function (conf) {
+    igv.createTrack = function (conf) {
 
         var type = (undefined === conf.type) ? 'unknown_type' : conf.type.toLowerCase();
 
@@ -35162,6 +38359,9 @@ var igv = (function (igv) {
             case "aneu":
                 return new igv.AneuTrack(conf);
                 break;
+
+            case "merged":
+                return new igv.MergedTrack(conf);
 
             default:
                 return undefined;
@@ -35325,7 +38525,7 @@ var igv = (function (igv) {
 
         track.removable = config.removable === undefined ? true : config.removable;      // Defaults to true
 
-        track.height = config.height || ('wig' === config.type ? 50 : 100);
+        track.height = config.height || 100;
 
         if (config.autoHeight === undefined)  config.autoHeight = config.autoheight; // Some case confusion in the initial releasae
 
@@ -35372,7 +38572,7 @@ var igv = (function (igv) {
         }
 
 
-    }
+    };
 
     igv.paintAxis = function (ctx, pixelWidth, pixelHeight) {
 
@@ -35479,53 +38679,58 @@ var igv = (function (igv) {
         var menuItems = [],
             all;
 
-        menuItems.push(igv.trackMenuItem(popover, trackView, "Set track name", function () {
-            return "Track Name"
-        }, trackView.track.name, function () {
+        if (trackView.track.config.type != 'sequence') {
 
-            var alphanumeric = parseAlphanumeric(igv.dialog.$dialogInput.val());
+            menuItems.push(igv.trackMenuItem(popover, trackView, "Set track name", function () {
+                return "Track Name"
+            }, trackView.track.name, function () {
 
-            if (undefined !== alphanumeric) {
-                igv.setTrackLabel(trackView.track, alphanumeric);
-                trackView.update();
-            }
+                var alphanumeric = parseAlphanumeric(igv.dialog.$dialogInput.val());
 
-            function parseAlphanumeric(value) {
+                if (undefined !== alphanumeric) {
+                    igv.setTrackLabel(trackView.track, alphanumeric);
+                    trackView.update();
+                }
 
-                var alphanumeric_re = /(?=.*[a-zA-Z].*)([a-zA-Z0-9 ]+)/,
-                    alphanumeric = alphanumeric_re.exec(value);
+                function parseAlphanumeric(value) {
 
-                return (null !== alphanumeric) ? alphanumeric[0] : "untitled";
-            }
+                    var alphanumeric_re = /(?=.*[a-zA-Z].*)([a-zA-Z0-9 ]+)/,
+                        alphanumeric = alphanumeric_re.exec(value);
 
-        }, undefined));
+                    return (null !== alphanumeric) ? alphanumeric[0] : "untitled";
+                }
 
-        menuItems.push(igv.trackMenuItem(popover, trackView, "Set track height", function () {
-            return "Track Height"
-        }, trackView.trackDiv.clientHeight, function () {
+            }, undefined));
 
-            var number = parseFloat(igv.dialog.$dialogInput.val(), 10);
+            menuItems.push(igv.trackMenuItem(popover, trackView, "Set track height", function () {
+                return "Track Height"
+            }, trackView.trackDiv.clientHeight, function () {
 
-            if (undefined !== number) {
+                var number = parseFloat(igv.dialog.$dialogInput.val(), 10);
+
+                if (undefined !== number) {
 // If explicitly setting the height adust min or max, if neccessary.
-                if (trackView.track.minHeight !== undefined && trackView.track.minHeight > number) {
-                    trackView.track.minHeight = number;
-                }
-                if (trackView.track.maxHeight !== undefined && trackView.track.maxHeight < number) {
-                    trackView.track.minHeight = number;
-                }
-                trackView.setTrackHeight(number);
-                trackView.track.autoHeight = false;   // Explicitly setting track height turns off autoHeight
+                    if (trackView.track.minHeight !== undefined && trackView.track.minHeight > number) {
+                        trackView.track.minHeight = number;
+                    }
+                    if (trackView.track.maxHeight !== undefined && trackView.track.maxHeight < number) {
+                        trackView.track.minHeight = number;
+                    }
+                    trackView.setTrackHeight(number);
+                    trackView.track.autoHeight = false;   // Explicitly setting track height turns off autoHeight
 
+                }
+
+            }, undefined));
+        }
+            if (igv.doProvideColoSwatchWidget(trackView.track)) {
+                menuItems.push(igv.colorPickerMenuItem(popover, trackView))
             }
 
-        }, undefined));
-
-        all = [];
-        if (trackView.track.menuItemList) {
-            all = menuItems.concat(igv.trackMenuItemListHelper(trackView.track.menuItemList(popover)));
-        }
-
+            all = [];
+            if (trackView.track.menuItemList) {
+                all = menuItems.concat(igv.trackMenuItemListHelper(trackView.track.menuItemList(popover)));
+            }
         if (trackView.track.removable !== false) {
 
             all.push(
@@ -35541,6 +38746,10 @@ var igv = (function (igv) {
         }
 
         return all;
+    };
+
+    igv.doProvideColoSwatchWidget = function (track) {
+        return (track instanceof igv.BAMTrack || track instanceof igv.FeatureTrack || track instanceof igv.VariantTrack || track instanceof igv.WIGTrack);
     };
 
     igv.trackMenuItemListHelper = function (itemList) {
@@ -35630,43 +38839,17 @@ var igv = (function (igv) {
     };
 
     igv.colorPickerMenuItem = function (popover, trackView) {
-        var $e,
-            clickHandler;
-
+        var $e;
 
         $e = $('<div>');
         $e.text('Set track color');
 
-        clickHandler = function () {
-            var defaultColor,
-                color,
-                offset,
-                colorUpdateHandler;
-
-            color = trackView.track.color;
-
-            defaultColor = trackView.track.config.color || igv.browser.constants.defaultColor;
-
-            offset =
-            {
-                left: ($(trackView.trackDiv).offset().left + $(trackView.trackDiv).width()) - igv.colorPicker.$container.width(),
-                top: $(trackView.trackDiv).offset().top
-            };
-
-            colorUpdateHandler = function (color) {
-                trackView.setColor(color)
-            };
-
-            igv.colorPicker.configure(trackView, color, defaultColor, offset, colorUpdateHandler);
-
-            igv.colorPicker.presentAtOffset(offset);
-
+        $e.click(function () {
+            trackView.$colorpicker_container.toggle();
             popover.hide();
-        };
+        });
 
-        $e.click(clickHandler);
-
-        return {object: $e, init: undefined};
+        return { object: $e };
 
     };
 
@@ -36375,12 +39558,15 @@ var igv = (function (igv) {
     igv.TrackView = function (browser, $container, track) {
 
         var self = this,
-            element;
+            element,
+            $track,
+            config;
 
         this.browser = browser;
 
-        this.trackDiv = $('<div class="igv-track-div">')[0];
-        $container.append(this.trackDiv);
+        $track = $('<div class="igv-track-div">');
+        this.trackDiv = $track.get(0);
+        $container.append($track);
 
         this.track = track;
         track.trackView = this;
@@ -36418,6 +39604,30 @@ var igv = (function (igv) {
 
         // Track order repositioning widget
         this.attachDragWidget();
+
+        if (igv.doProvideColoSwatchWidget(this.track)) {
+
+            config =
+                {
+                    // width = (29 * swatch-width) + border-width + border-width
+                    width: ((29 * 24) + 1 + 1),
+                    classes: [ 'igv-position-absolute' ]
+                };
+
+
+            this.$colorpicker_container = igv.genericContainer($track, config, function () {
+                self.$colorpicker_container.toggle();
+            });
+
+            igv.createColorSwatchSelector(this.$colorpicker_container, function (rgb) {
+                self.setColor(rgb);
+            });
+
+            // igv.makeDraggable(this.$colorpicker_container, this.$colorpicker_container);
+            this.$colorpicker_container.draggable({ handle:this.$colorpicker_container.find('div:first-child').get(0) });
+
+            this.$colorpicker_container.hide();
+        }
 
     };
 
@@ -37038,7 +40248,8 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Broad Institute
+ * Copyright (c) 2016-2017 The Regents of the University of California 
+ * Author: Jim Robinson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37059,377 +40270,47 @@ var igv = (function (igv) {
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
-/**
- * Created by turner on 4/15/15.
- */
 var igv = (function (igv) {
 
-    var columnCount = 8;
+    igv.ChromosomeSelectWidget = function (browser, $parent) {
 
-    igv.ColorPicker = function ($parent, userPalette) {
-
-        var self = this,
-            palette = userPalette || ["#666666", "#0000cc", "#009900", "#cc0000", "#ffcc00", "#9900cc", "#00ccff", "#ff6600", "#ff6600"],
-            rowCount = Math.ceil(palette.length / columnCount),
-            rowIndex;
-
-        this.rgb_re = /^\s*(0|[1-9]\d?|1\d\d?|2[0-4]\d|25[0-5])\s*,\s*(0|[1-9]\d?|1\d\d?|2[0-4]\d|25[0-5])\s*,\s*(0|[1-9]\d?|1\d\d?|2[0-4]\d|25[0-5])\s*$/;
-        this.hex_re = new RegExp('^#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})$');
-
-        this.$container = $('<div class="igv-grid-container-colorpicker">');
+        this.$container = $('<div>', { 'class': 'igv-chromosome-select-widget-container' });
         $parent.append(this.$container);
 
+        this.$select = $('<select>', { 'name': 'chromosome-select-widget' });
+        this.$container.append(this.$select);
 
-        this.$header = $('<div class="igv-grid-header">');
-        this.$headerBlurb = $('<div class="igv-grid-header-blurb">');
-
-        this.$header.append(this.$headerBlurb);
-
-        igv.attachDialogCloseHandlerWithParent(this.$header, function () {
-            self.hide();
+        this.$select.on('change', function () {
+            browser.parseSearchInput( $(this).val() );
         });
 
-        this.$container.append(this.$header);
-
-        igv.makeDraggable(this.$container, this.$header);
-
-        // color palette
-        for (rowIndex = 0; rowIndex < rowCount; rowIndex++) {
-            self.$container.append(makeRow(palette.slice(rowIndex * columnCount)));
-        }
-
-        // dividing line
-        self.$container.append($('<hr class="igv-grid-dividing-line">'));
-
-        // user colors
-        self.$container.append(rowOfUserColors());
-
-        //// dividing line
-        //self.$container.append($('<hr class="igv-grid-dividing-line">')[ 0 ]);
-
-        // initial track color
-        self.$container.append(rowOfPreviousColor());
-
-        //// dividing line
-        //self.$container.append($('<hr class="igv-grid-dividing-line">')[ 0 ]);
-
-        // initial track color
-        self.$container.append(rowOfDefaultColor());
-
-        function rowOfUserColors() {
-
-            var $rowContainer,
-                $row,
-                $column,
-                $userColorInput,
-                digit;
-
-            self.userColors = [];
-
-            // Provide 5 rows of user color pallete real estate
-            for (digit = 0; digit < 5; digit++) {
-
-                $row = rowHidden(digit);
-                self.userColors.push($row);
-                self.$container.append( $row[ 0 ] );
-
-                $row.find('.igv-col-filler-no-color').addClass("igv-grid-rect-hidden");
-            }
-
-            self.userColorsIndex = undefined;
-            self.userColorsRowIndex = 0;
-
-            $row = $('<div class="igv-grid-colorpicker">');
-
-            // color input
-            $column = $('<div class="igv-col igv-col-7-8">');
-            $userColorInput = $('<input class="igv-user-input-colorpicker" type="text" placeholder="Ex: #ff0000 or 255,0,0">');
-            $userColorInput.change(function () {
-
-                var parsed = parseColor($(this).val());
-
-                if (parsed) {
-
-                    // self.trackView.setColor( parsed );
-                    self.colorUpdateHandler(parsed);
-
-                    addUserColor(parsed);
-
-                    $(this).val("");
-                    $(this).attr("placeholder", "Ex: #ff0000 or 255,0,0");
-
-                    self.$userColorFeeback.css("background-color", "white");
-                    self.$userColorFeeback.hide();
-
-                } else {
-                    self.$userError.show();
-                }
-
-            });
-
-            $userColorInput.mousedown(function () {
-                $(this).attr("placeholder", "");
-            });
-
-            $userColorInput.keyup(function () {
-
-                var parsed;
-
-                if ("" === $(this).val()) {
-                    self.$userError.hide();
-                    $(this).attr("placeholder", "Ex: #ff0000 or 255,0,0");
-                }
-
-                parsed = parseColor($(this).val());
-
-                if (undefined !== parsed) {
-                    self.$userColorFeeback.css("background-color", parsed);
-                    self.$userColorFeeback.show();
-                } else {
-                    self.$userColorFeeback.css("background-color", "white");
-                    self.$userColorFeeback.hide();
-                }
-
-            });
-
-            $column.append($userColorInput);
-            $row.append($column);
-
-
-            // color feedback chip
-            $column = makeColumn(null);
-            self.$userColorFeeback = $column.find("div").first();
-            $row.append($column);
-            self.$userColorFeeback.hide();
-
-            $rowContainer = $('<div class="igv-grid-rect">');
-            $rowContainer.append($row);
-
-
-
-            // user feedback
-            self.$userError = $('<span>');
-            self.$userError.text("ERROR.    Ex: #ff0000 or 255,0,0");
-            self.$userError.hide();
-
-            $row = $('<div class="igv-grid-colorpicker-user-error">');
-            $row.append(self.$userError);
-            $rowContainer.append($row);
-
-            function parseColor(value) {
-
-                var rgb,
-                    hex;
-
-                rgb = self.rgb_re.exec(value);
-                if (null !== rgb) {
-
-                    return "rgb(" + rgb[0] + ")";
-                } else {
-
-                    hex = self.hex_re.exec(value);
-                    if (null !== hex) {
-
-                        return igv.hex2Color(hex[0]);
-                    }
-                }
-
-                return undefined;
-            }
-
-            function addUserColor(color) {
-
-                if (undefined === self.userColorsIndex) {
-
-                    self.userColorsIndex = 0;
-                    self.userColorsRowIndex = 0;
-                } else if (columnCount === self.userColorsRowIndex) {
-
-                    self.userColorsRowIndex = 0;
-                    self.userColorsIndex = (1 + self.userColorsIndex) % self.userColors.length;
-                }
-
-                presentUserColor(color, self.userColorsIndex, self.userColorsRowIndex);
-
-                ++(self.userColorsRowIndex);
-
-            }
-
-            function presentUserColor(color, c, r) {
-
-                var $rowContainer,
-                    $filler;
-
-                $rowContainer = self.userColors[ c ];
-                $rowContainer.removeClass("igv-grid-rect-hidden");
-                $rowContainer.addClass("igv-grid-rect");
-
-                $filler = $rowContainer.find(".igv-grid-colorpicker").find(".igv-col").find("div").eq( r );
-
-                $filler.removeClass("igv-col-filler-no-color");
-                $filler.removeClass("igv-grid-rect-hidden");
-
-                $filler.addClass("igv-col-filler");
-
-                $filler.css("background-color", color);
-
-                $filler.click(function () {
-                    // self.trackView.setColor( $(this).css("background-color") );
-                    self.colorUpdateHandler($(this).css("background-color"));
-                });
-
-            }
-
-            return $rowContainer;
-
-        }
-
-        function rowOfDefaultColor() {
-
-            var $rowContainer,
-                $row,
-                $column;
-
-            $row = $('<div class="igv-grid-colorpicker">');
-
-            // initial color tile
-            self.$defaultColor = $('<div class="igv-col-filler">');
-            self.$defaultColor.css("background-color", "#eee");
-
-            $column = $('<div class="igv-col igv-col-1-8">');
-            $column.append(self.$defaultColor);
-
-            $column.click(function () {
-                // self.trackView.setColor( $(this).find(".igv-col-filler").css("background-color") );
-                self.colorUpdateHandler( $(this).find(".igv-col-filler").css("background-color") );
-            });
-
-            $row.append($column);
-
-
-            // default color label
-            $column = $('<div class="igv-col igv-col-7-8 igv-col-label">');
-            $column.text("Default Color");
-            $row.append($column);
-
-
-            $rowContainer = $('<div class="igv-grid-rect">');
-            $rowContainer.append($row);
-
-            return $rowContainer;
-        }
-
-        function rowOfPreviousColor() {
-
-            var $rowContainer,
-                $row,
-                $column;
-
-            $row = $('<div class="igv-grid-colorpicker">');
-
-            // initial color tile
-            self.$previousColor = $('<div class="igv-col-filler">');
-            self.$previousColor.css("background-color", "#eee");
-
-            $column = $('<div class="igv-col igv-col-1-8">');
-            $column.append(self.$previousColor);
-
-            $column.click(function () {
-                // self.trackView.setColor( $(this).find(".igv-col-filler").css("background-color") );
-                self.colorUpdateHandler( $(this).find(".igv-col-filler").css("background-color") );
-            });
-
-            $row.append($column);
-
-
-            // initial color label
-            $column = $('<div class="igv-col igv-col-7-8 igv-col-label">');
-            $column.text("Previous Color");
-            $row.append($column);
-
-
-            $rowContainer = $('<div class="igv-grid-rect">');
-            $rowContainer.append($row);
-
-            return $rowContainer;
-        }
-
-        function rowHidden(rowIndex) {
-
-            var $rowContainer = $('<div class="igv-grid-rect-hidden">'),
-                $row = $('<div class="igv-grid-colorpicker">'),
-                columnIndex;
-
-            for (columnIndex = 0; columnIndex < columnCount; columnIndex++) {
-                $row.append(makeColumn(null));
-            }
-
-            $rowContainer.append($row);
-            return $rowContainer;
-        }
-
-        function makeRow(colors) {
-
-            var $rowContainer = $('<div class="igv-grid-rect">'),
-                $row = $('<div class="igv-grid-colorpicker">'),
-                i;
-
-            for (i = 0; i < Math.min(columnCount, colors.length); i++) {
-                $row.append(makeColumn(colors[i]));
-            }
-
-            $rowContainer.append($row);
-            return $rowContainer;
-        }
-
-        function makeColumn(colorOrNull) {
-
-            var $column = $('<div class="igv-col igv-col-1-8">'),
-                $filler = $('<div>');
-
-            $column.append($filler);
-
-            if (null !== colorOrNull) {
-
-                $filler.addClass("igv-col-filler");
-                $filler.css("background-color", colorOrNull);
-
-                $filler.click(function () {
-                    // self.trackView.setColor( $(this).css("background-color") );
-                    self.colorUpdateHandler( $(this).css("background-color") );
-                });
-
-            } else {
-                $filler.addClass("igv-col-filler-no-color");
-                $filler.css("background-color", "white");
-            }
-
-            return $column;
-        }
-
     };
 
-    igv.ColorPicker.prototype.configure = function (trackView, trackColor, trackDefaultColor, offset, colorUpdateHandler) {
-        this.$previousColor.css("background-color", trackColor);
-        this.$defaultColor.css("background-color", trackDefaultColor);
-        $(this.$container).offset(offset);
-        this.colorUpdateHandler = colorUpdateHandler;
-    };
+    igv.ChromosomeSelectWidget.prototype.update = function (genome) {
+        var self = this,
+            list;
 
-    igv.ColorPicker.prototype.hide = function () {
-        $(this.$container).offset({left: 0, top: 0});
-        this.$container.hide();
-    };
+        this.$select.empty();
 
-    igv.ColorPicker.prototype.presentAtOffset = function (offset) {
-        this.$container.show();
-        this.$userError.hide();
+        list = genome.chromosomeNames.slice();
+        list.unshift('all');
+        _.each(list, function (name) {
+            var $o;
+
+            $o = $('<option>', { 'value':name });
+            self.$select.append($o);
+
+            // $o.prop('selected', (1 === r));
+
+            $o.text(name);
+        });
+
     };
 
     return igv;
 
 })(igv || {});
+
 
 /*
  * The MIT License (MIT)
@@ -37469,22 +40350,21 @@ var igv = (function (igv) {
         $parent.append(this.container);
 
         this.header = $('<div class="igv-grid-header">');
-        this.headerBlurb = $('<div class="igv-grid-header-blurb">');
+        this.container.append(this.header);
 
+        this.headerBlurb = $('<div class="igv-grid-header-blurb">');
         this.header.append(this.headerBlurb);
 
         igv.attachDialogCloseHandlerWithParent(this.header, function () {
             self.hide();
         });
 
-        this.container.append(this.header);
 
         self.container.append(doLayout());
 
         self.container.append(doOKCancel());
 
-        igv.makeDraggable(this.container, this.header);
-
+        this.container.draggable({ handle:this.header.get(0) });
 
         function doOKCancel() {
 
@@ -37693,7 +40573,7 @@ var igv = (function (igv) {
 
         constructorHelper(this);
 
-        igv.makeDraggable(this.$container, $header);
+        this.$container.draggable({ handle:$header.get(0) });
 
         igv.attachDialogCloseHandlerWithParent($header, function () {
             self.hide();
@@ -37934,179 +40814,6 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2017 The Regents of the University of California
- * Author: Jim Robinson
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
-/**
- * Created by dat on 4/18/17.
- */
-
-var igv = (function (igv) {
-
-    igv.IGVModalTable = function (config) {
-
-        var self = this,
-            $modal;
-
-        this.initialized = false;
-
-        this.config = config;
-
-        $modal = config.$modal;
-
-        this.dataSource = config.dataSource;
-
-        this.$modalTable = $('<table cellpadding="0" cellspacing="0" border="0" class="display"></table>');
-
-        config.$modalBody.append(this.$modalTable);
-
-        this.$spinner = $('<div>');
-        this.$modalTable.append(this.$spinner);
-
-        this.$spinner.append($('<i class="fa fa-lg fa-spinner fa-spin"></i>'));
-        this.$spinner.hide();
-
-        $modal.on('show.bs.modal', function (e) {
-
-            if (undefined === config.browserRetrievalFunction) {
-                igv.presentAlert('ERROR: must provide browser retrieval function');
-            }
-
-        });
-
-        $modal.on('shown.bs.modal', function (e) {
-
-            if (undefined === config.browserRetrievalFunction) {
-                $modal.modal('hide');
-            } else if (true !== self.initialized) {
-                self.initialized = true;
-                self.$spinner.show();
-                self.dataSource.retrieveData(function () {
-                    self.createTableWithDataSource(self.dataSource);
-                    self.$spinner.hide();
-                });
-            }
-
-        });
-
-        config.$modalTopCloseButton.on('click', function () {
-            $('tr.selected').removeClass('selected');
-        });
-
-        config.$modalBottomCloseButton.on('click', function () {
-            $('tr.selected').removeClass('selected');
-        });
-
-        config.$modalGoButton.on('click', function () {
-
-            var dt,
-                $selectedTableRows,
-                result,
-                browser;
-
-            $selectedTableRows = self.$dataTables.$('tr.selected');
-
-            if (undefined === config.browserRetrievalFunction) {
-                igv.presentAlert('ERROR: must provide browser retrieval function');
-            } else if ($selectedTableRows.length > 0) {
-
-                $selectedTableRows.removeClass('selected');
-
-                dt = self.$modalTable.DataTable();
-                result = [];
-                $selectedTableRows.each(function() {
-                    result.push( self.dataSource.dataAtRowIndex( dt.row(this).index() ) );
-                });
-
-                browser = config.browserRetrievalFunction();
-                browser[ config.browserLoadFunction ](result);
-            }
-
-        });
-
-    };
-
-    igv.IGVModalTable.prototype.genomeID = function () {
-        return this.dataSource.config.genomeID;
-    };
-
-    igv.IGVModalTable.teardown = function () {
-
-        var list;
-
-        list =
-            [
-                this.$modalTable.find('tbody'),
-                this.config.$modal,
-                this.config.$modalTopCloseButton,
-                this.config.$modalBottomCloseButton,
-                this.config.$modalGoButton
-            ];
-
-        _.each(list, function ($e) {
-            $e.unbind();
-        });
-
-        this.config.$modalBody.empty();
-    };
-
-    /**
-     * @param dataSource source of data fed to the table (see for example EncodeDataSource)
-     */
-    igv.IGVModalTable.prototype.createTableWithDataSource = function (dataSource) {
-
-        this.$spinner.hide();
-
-        this.$dataTables = this.$modalTable.dataTable({
-            data: dataSource.tableData(),
-            paging: true,
-            scrollX: false,
-            scrollY: '400px',
-            scrollCollapse: false,
-            scroller: true,
-            fixedColumns: true,
-            columns: dataSource.tableColumns()
-        });
-
-        this.$modalTable.find('tbody').on('click', 'tr', function () {
-
-            if ($(this).hasClass('selected')) {
-                $(this).removeClass('selected');
-            } else {
-                $(this).addClass('selected');
-            }
-
-        });
-
-    };
-
-    return igv;
-
-})(igv || {});
-
-/*
- * The MIT License (MIT)
- *
  * Copyright (c) 2014 Broad Institute
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38161,7 +40868,7 @@ var igv = (function (igv) {
 
         this.$popover.append(this.$popoverContent);
 
-        igv.makeDraggable(this.$popover, $popoverHeader);
+        this.$popover.draggable({ handle:$popoverHeader.get(0) });
 
         return $parent;
 
@@ -39444,8 +42151,6 @@ var igv = (function (igv) {
             menuItems = [],
             mapped, $color, colorClickHandler;
 
-        menuItems.push(igv.colorPickerMenuItem(popover, this.trackView));
-
         mapped = _.map(["COLLAPSED", "SQUISHED", "EXPANDED"], function (displayMode, index) {
             return {
                 object: $(displayModeMarkup(index, displayMode, self.displayMode)),
@@ -39522,43 +42227,6 @@ var igv = (function (igv) {
         return menuItems;
 
     };
-
-
-    //      igv.VariantTrack.prototype.menuItemList = function (popover) {
-    //
-    //     var myself = this,
-    //         menuItems = [],
-    //         lut = {"COLLAPSED": "Collapse", "SQUISHED": "Squish", "EXPANDED": "Expand"},
-    //         checkMark = '<i class="fa fa-check fa-check-shim"></i>',
-    //         checkMarkNone = '<i class="fa fa-check fa-check-shim fa-check-hidden"></i>',
-    //         trackMenuItem = '<div class=\"igv-track-menu-item\">',
-    //         trackMenuItemFirst = '<div class=\"igv-track-menu-item igv-track-menu-border-top\">';
-    //
-    //     menuItems.push(igv.colorPickerMenuItem(popover, this.trackView));
-    //
-    //     ["COLLAPSED", "SQUISHED", "EXPANDED"].forEach(function (displayMode, index) {
-    //
-    //         var chosen,
-    //             str;
-    //
-    //         chosen = (0 === index) ? trackMenuItemFirst : trackMenuItem;
-    //         str = (displayMode === myself.displayMode) ? chosen + checkMark + lut[displayMode] + '</div>' : chosen + checkMarkNone + lut[displayMode] + '</div>';
-    //
-    //         menuItems.push({
-    //             object: $(str),
-    //             click: function () {
-    //                 popover.hide();
-    //                 myself.displayMode = displayMode;
-    //                 myself.trackView.update();
-    //             }
-    //         });
-    //
-    //     });
-    //
-    //     return menuItems;
-    //
-    // };
-
 
     return igv;
 
@@ -40247,8 +42915,8 @@ var igv = (function (igv) {
 
     igv.Viewport.prototype.update = function () {
 
-        this.tile = null;
-
+        //console.trace();
+        if (this.tile) this.tile.invalidate = true;
         this.repaint();
 
     };
@@ -40266,15 +42934,18 @@ var igv = (function (igv) {
             chr,
             refFrameStart,
             refFrameEnd,
-            drawConfiguration;
+            drawConfiguration,
+            buffer;
 
         if (!(viewIsReady.call(this))) {
             return;
         }
 
+        // TODO -- show whole genome zoom in notice here
         if (this.$zoomInNotice && this.trackView.track.visibilityWindow !== undefined && this.trackView.track.visibilityWindow > 0) {
             if ((referenceFrame.bpPerPixel * this.$viewport.width() > this.trackView.track.visibilityWindow) ||
                 (referenceFrame.chrName.toLowerCase() === "all" && !this.trackView.track.supportsWholeGenome)) {
+
                 this.tile = null;
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -40291,16 +42962,26 @@ var igv = (function (igv) {
         refFrameStart = referenceFrame.start;
         refFrameEnd = refFrameStart + referenceFrame.toBP(this.canvas.width);
 
-        if (this.tile && this.tile.containsRange(chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel)) {
-            // console.log('paint pre-existing canvas');
-            this.paintImageWithReferenceFrame(referenceFrame);
-        } else {
+        //  if (this.tile && this.tile.containsRange(chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel)) {
+        // console.log('paint pre-existing canvas');
+        this.paintImage(chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel);
 
-            // Expand the requested range so we can pan a bit without reloading
+        if (!this.tile ||
+            this.tile.invalidate || !this.tile.containsRange(chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel)) {
+
+            //TODO -- if bpPerPixel changed repaint image from cached data => new optional track method to return
+            //TODO -- cached features directly (not a promise for features).
+
+            // Expand the requested range so we can pan a bit without reloading.  But not beyond chromosome bounds
+            var chrLength = igv.browser.genome.getChromosome(chr).bpLength;
+
             pixelWidth = 3 * this.canvas.width;
-            bpWidth = Math.round(referenceFrame.toBP(pixelWidth));
-            bpStart = Math.max(0, Math.round(referenceFrame.start - bpWidth / 3));
-            bpEnd = bpStart + bpWidth;
+            bpWidth = referenceFrame.toBP(pixelWidth);
+            bpStart = Math.max(0, referenceFrame.start - bpWidth / 3);
+            bpEnd = Math.min(chrLength, bpStart + bpWidth);
+
+            // Adjust pixel width in case bounds were clamped
+            pixelWidth = (bpEnd - bpStart) / referenceFrame.bpPerPixel;
 
             if (self.loading && self.loading.start === bpStart && self.loading.end === bpEnd) {
                 return;
@@ -40311,12 +42992,11 @@ var igv = (function (igv) {
             self.startSpinner();
 
             // console.log('get features');
-            this.trackView.track
-                .getFeatures(referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel)
+            this.trackView.track.getFeatures(referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel)
+
                 .then(function (features) {
 
-                    var buffer,
-                        requiredHeight,
+                    var requiredHeight,
                         roiPromises;
 
                     // self.loading = false;
@@ -40363,56 +43043,38 @@ var igv = (function (igv) {
                         if (doRenderControlCanvas(genomicState, self.trackView)) {
                             renderControlCanvasWithTrackView(self.trackView);
                         }
-
                     }
 
                     if (igv.browser.roi) {
-
-                        // Defer tile creation and image paint until ROI features are loaded and drawn
                         roiPromises = [];
                         igv.browser.roi.forEach(function (r) {
                             roiPromises.push(r.getFeatures(referenceFrame.chrName, bpStart, bpEnd))
                         });
 
-                        Promise.all(roiPromises)
-                            .then(function (featureArray) {
-                                var i, len;
-                                for (i = 0, len = igv.browser.roi.length; i < len; i++) {
-                                    drawConfiguration.features = featureArray[i];
-                                    igv.browser.roi[i].draw(drawConfiguration);
-                                }
-                                self.tile = new Tile(referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel, buffer);
-                                self.paintImageWithReferenceFrame(referenceFrame);
-                            })
-                            .catch(function (error) {
-                                console.log("Error drawing ROIs " + error);
-                            })
-
-
-                    } else {
-                        // No ROI overlays
-
-                        self.tile = new Tile(referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel, buffer);
-                        self.paintImageWithReferenceFrame(referenceFrame);
+                        return Promise.all(roiPromises)
                     }
-
-                    function renderControlCanvasWithTrackView(trackView) {
-                        var buffer2;
-
-                        buffer2 = document.createElement('canvas');
-                        buffer2.width = trackView.controlCanvas.width;
-                        buffer2.height = trackView.controlCanvas.height;
-
-                        trackView.track.paintAxis(buffer2.getContext('2d'), buffer2.width, buffer2.height);
-
-                        trackView.controlCtx.drawImage(buffer2, 0, 0);
-
-                    }
-
-                    function doRenderControlCanvas(genomicState, trackView) {
-                        return (/*0 === genomicState.locusIndex &&*/ trackView.track.paintAxis && trackView.controlCanvas.width > 0 && trackView.controlCanvas.height > 0);
+                    else {
+                        return undefined;   // No regions of interest
                     }
                 })
+
+                .then(function (roiArray) {
+
+                    if (roiArray) {
+                        var i, len;
+                        for (i = 0, len = roiArray.length; i < len; i++) {
+                            drawConfiguration.features = roiArray[i];
+                            igv.browser.roi[i].draw(drawConfiguration);
+                        }
+                    }
+                })
+
+                .then(function (ignore) {
+
+                    self.tile = new Tile(referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel, buffer);
+                    self.paintImage(chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel);
+                })
+
                 .catch(function (error) {
 
                     self.stopSpinner();
@@ -40425,6 +43087,25 @@ var igv = (function (igv) {
                         igv.presentAlert(error);
                     }
                 });
+
+            function renderControlCanvasWithTrackView(trackView) {
+                var buffer2;
+
+                buffer2 = document.createElement('canvas');
+                buffer2.width = trackView.controlCanvas.width;
+                buffer2.height = trackView.controlCanvas.height;
+
+                trackView.track.paintAxis(buffer2.getContext('2d'), buffer2.width, buffer2.height);
+
+                trackView.controlCtx.drawImage(buffer2, 0, 0);
+
+            }
+
+            function doRenderControlCanvas(genomicState, trackView) {
+                return (/*0 === genomicState.locusIndex &&*/ trackView.track.paintAxis && trackView.controlCanvas.width > 0 && trackView.controlCanvas.height > 0);
+            }
+
+
         }
 
         function viewIsReady() {
@@ -40462,17 +43143,45 @@ var igv = (function (igv) {
 
     };
 
-    igv.Viewport.prototype.paintImageWithReferenceFrame = function (referenceFrame) {
+    igv.Viewport.prototype.paintImage = function (chr, start, end, bpPerPixel) {
+
+        var offset, sx, dx, scale, sWidth, dWidth, iHeight,
+            tile = this.tile;
 
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        if (this.tile) {
-            this.xOffset = Math.round(this.genomicState.referenceFrame.toPixels(this.tile.startBP - this.genomicState.referenceFrame.start));
-            this.ctx.drawImage(this.tile.image, this.xOffset, 0);
+        if (tile && tile.containsRange(chr, start, end, bpPerPixel)) {
+            this.xOffset = Math.round((tile.startBP - start) / tile.bpPerPixel);
+            this.ctx.drawImage(tile.image, this.xOffset, 0);
+            this.ctx.save();
+            this.ctx.restore();
+        } else if (tile && tile.overlapsRange(chr, start, end)) {
+
+            var offset = Math.round((start - tile.startBP) / tile.bpPerPixel);
+            if (offset > 0) {
+                sx = offset;
+                dx = 0;
+            } else {
+                sx = 0;
+                dx = -offset;
+            }
+
+            dWidth = tile.image.width;
+            if (bpPerPixel === tile.bpPerPixel) {
+                sWidth = dWidth;
+            } else {
+                scale = bpPerPixel / tile.bpPerPixel;
+                sWidth = Math.round(scale * dWidth);
+
+            }
+
+            iHeight = tile.image.height;
+
+            this.ctx.drawImage(tile.image, sx, 0, sWidth, iHeight, dx, 0, dWidth, iHeight);
             this.ctx.save();
             this.ctx.restore();
         }
-    };
+    }
 
     igv.Viewport.prototype.isLoading = function () {
         return !(undefined === this.loading);
@@ -40518,17 +43227,21 @@ var igv = (function (igv) {
         return result;
     };
 
-    Tile = function (chr, tileStart, tileEnd, scale, image) {
+    Tile = function (chr, tileStart, tileEnd, bpPerPixel, image) {
         this.chr = chr;
         this.startBP = tileStart;
         this.endBP = tileEnd;
-        this.scale = scale;
+        this.bpPerPixel = bpPerPixel;
         this.image = image;
     };
 
-    Tile.prototype.containsRange = function (chr, start, end, scale) {
-        return this.scale === scale && start >= this.startBP && end <= this.endBP && chr === this.chr;
+    Tile.prototype.containsRange = function (chr, start, end, bpPerPixel) {
+        return this.bpPerPixel === bpPerPixel && start >= this.startBP && end <= this.endBP && chr === this.chr;
     };
+
+    Tile.prototype.overlapsRange = function (chr, start, end) {
+        return this.chr === chr && end >= this.startBP && start <= this.endBP;
+    }
 
     // TODO: dat - Called from BAMTrack.altClick. Change call to redrawTile(viewPort, features)
     igv.Viewport.prototype.redrawTile = function (features) {
@@ -40547,14 +43260,14 @@ var igv = (function (igv) {
             features: features,
             context: buffer.getContext('2d'),
             bpStart: this.tile.startBP,
-            bpPerPixel: this.tile.scale,
+            bpPerPixel: this.tile.bpPerPixel,
             pixelWidth: buffer.width,
             pixelHeight: buffer.height
         });
 
 
-        this.tile = new Tile(this.tile.chr, this.tile.startBP, this.tile.endBP, this.tile.scale, buffer);
-        this.paintImageWithReferenceFrame(this.genomicState.referenceFrame);
+        this.tile = new Tile(this.tile.chr, this.tile.startBP, this.tile.endBP, this.tile.bpPerPixel, buffer);
+        this.paintImage(this.genomicState.referenceFrame);
     };
 
     return igv;
@@ -40628,7 +43341,7 @@ var igv = (function (igv) {
 (igv || {});
 /* -*- mode: javascript; c-basic-offset: 4; indent-tabs-mode: nil -*- */
 
-//
+// 
 // Javascript ZLib
 // By Thomas Down 2010-2011
 //
@@ -41018,7 +43731,7 @@ function Inflate() {
 
 Inflate.prototype.inflateReset = function(z) {
     if(z == null || z.istate == null) return Z_STREAM_ERROR;
-
+    
     z.total_in = z.total_out = 0;
     z.msg = null;
     z.istate.mode = z.istate.nowrap!=0 ? BLOCKS : METHOD;
@@ -41051,7 +43764,7 @@ Inflate.prototype.inflateInit = function(z, w){
     }
     this.wbits=w;
 
-    z.istate.blocks=new InfBlocks(z,
+    z.istate.blocks=new InfBlocks(z, 
 				  z.istate.nowrap!=0 ? null : this,
 				  1<<w);
 
@@ -41309,24 +44022,24 @@ function InfBlocks(z, checkfn, w) {
     this.mode = IB_TYPE;
     this.reset(z, null);
 
-    this.left = 0;            // if STORED, bytes left to copy
+    this.left = 0;            // if STORED, bytes left to copy 
 
-    this.table = 0;           // table lengths (14 bits)
-    this.index = 0;           // index into blens (or border)
-    this.blens = null;         // bit lengths of codes
-    this.bb=new Int32Array(1); // bit length tree depth
-    this.tb=new Int32Array(1); // bit length decoding tree
+    this.table = 0;           // table lengths (14 bits) 
+    this.index = 0;           // index into blens (or border) 
+    this.blens = null;         // bit lengths of codes 
+    this.bb=new Int32Array(1); // bit length tree depth 
+    this.tb=new Int32Array(1); // bit length decoding tree 
 
     this.codes = new InfCodes();
 
-    this.last = 0;            // true if this block is the last block
+    this.last = 0;            // true if this block is the last block 
 
-  // mode independent information
-    this.bitk = 0;            // bits in bit buffer
-    this.bitb = 0;            // bit buffer
-    this.read = 0;            // window read pointer
-    this.write = 0;           // window write pointer
-    this.check = 0;          // check on output
+  // mode independent information 
+    this.bitk = 0;            // bits in bit buffer 
+    this.bitb = 0;            // bit buffer 
+    this.read = 0;            // window read pointer 
+    this.write = 0;           // window write pointer 
+    this.check = 0;          // check on output 
 
     this.inftree=new InfTree();
 }
@@ -41371,7 +44084,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    r=Z_OK;
 	  }
 	  else{
-	    this.bitb=b; this.bitk=k;
+	    this.bitb=b; this.bitk=k; 
 	    z.avail_in=n;
 	    z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
@@ -41385,7 +44098,7 @@ InfBlocks.prototype.reset = function(z, c){
 	this.last = t & 1;
 
 	switch (t >>> 1){
-        case 0:                         // stored
+        case 0:                         // stored 
           {b>>>=(3);k-=(3);}
           t = k & 7;                    // go to byte boundary
 
@@ -41420,7 +44133,7 @@ InfBlocks.prototype.reset = function(z, c){
           z.msg = "invalid block type";
           r = Z_DATA_ERROR;
 
-	  this.bitb=b; this.bitk=k;
+	  this.bitb=b; this.bitk=k; 
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  this.write=q;
 	  return this.inflate_flush(z,r);
@@ -41432,7 +44145,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    r=Z_OK;
 	  }
 	  else{
-	    this.bitb=b; this.bitk=k;
+	    this.bitb=b; this.bitk=k; 
 	    z.avail_in=n;
 	    z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
@@ -41448,7 +44161,7 @@ InfBlocks.prototype.reset = function(z, c){
 	  z.msg = "invalid stored block lengths";
 	  r = Z_DATA_ERROR;
 
-	  this.bitb=b; this.bitk=k;
+	  this.bitb=b; this.bitk=k; 
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  this.write=q;
 	  return this.inflate_flush(z,r);
@@ -41459,7 +44172,7 @@ InfBlocks.prototype.reset = function(z, c){
 	break;
       case IB_STORED:
 	if (n == 0){
-	  this.bitb=b; this.bitk=k;
+	  this.bitb=b; this.bitk=k; 
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  write=q;
 	  return this.inflate_flush(z,r);
@@ -41470,14 +44183,14 @@ InfBlocks.prototype.reset = function(z, c){
 	    q=0; m=(q<this.read ? this.read-q-1 : this.end-q);
 	  }
 	  if(m==0){
-	    this.write=q;
+	    this.write=q; 
 	    r=this.inflate_flush(z,r);
 	    q=this.write; m = (q < this.read ? this.read-q-1 : this.end-q);
 	    if(q==this.end && this.read != 0){
 	      q=0; m = (q < this.read ? this.read-q-1 : this.end-q);
 	    }
 	    if(m==0){
-	      this.bitb=b; this.bitk=k;
+	      this.bitb=b; this.bitk=k; 
 	      z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
 	      return this.inflate_flush(z,r);
@@ -41503,7 +44216,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    r=Z_OK;
 	  }
 	  else{
-	    this.bitb=b; this.bitk=k;
+	    this.bitb=b; this.bitk=k; 
 	    z.avail_in=n;
 	    z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
@@ -41521,7 +44234,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    z.msg = "too many length or distance symbols";
 	    r = Z_DATA_ERROR;
 
-	    this.bitb=b; this.bitk=k;
+	    this.bitb=b; this.bitk=k; 
 	    z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	    this.write=q;
 	    return this.inflate_flush(z,r);
@@ -41547,7 +44260,7 @@ InfBlocks.prototype.reset = function(z, c){
 	      r=Z_OK;
 	    }
 	    else{
-	      this.bitb=b; this.bitk=k;
+	      this.bitb=b; this.bitk=k; 
 	      z.avail_in=n;
 	      z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
@@ -41576,7 +44289,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    this.mode = IB_BAD;
 	  }
 
-	  this.bitb=b; this.bitk=k;
+	  this.bitb=b; this.bitk=k; 
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  write=q;
 	  return this.inflate_flush(z,r);
@@ -41601,7 +44314,7 @@ InfBlocks.prototype.reset = function(z, c){
 	      r=Z_OK;
 	    }
 	    else{
-	      this.bitb=b; this.bitk=k;
+	      this.bitb=b; this.bitk=k; 
 	      z.avail_in=n;
 	      z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
@@ -41632,7 +44345,7 @@ InfBlocks.prototype.reset = function(z, c){
 		r=Z_OK;
 	      }
 	      else{
-		this.bitb=b; this.bitk=k;
+		this.bitb=b; this.bitk=k; 
 		z.avail_in=n;
 		z.total_in+=p-z.next_in_index;z.next_in_index=p;
 		this.write=q;
@@ -41658,7 +44371,7 @@ InfBlocks.prototype.reset = function(z, c){
 	      z.msg = "invalid bit length repeat";
 	      r = Z_DATA_ERROR;
 
-	      this.bitb=b; this.bitk=k;
+	      this.bitb=b; this.bitk=k; 
 	      z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	      this.write=q;
 	      return this.inflate_flush(z,r);
@@ -41683,7 +44396,7 @@ InfBlocks.prototype.reset = function(z, c){
 	    bd[0] = 6;         // must be <= 9 for lookahead assumptions
 
 	    t = this.table;
-	    t = this.inftree.inflate_trees_dynamic(257 + (t & 0x1f),
+	    t = this.inftree.inflate_trees_dynamic(257 + (t & 0x1f), 
 					      1 + ((t >> 5) & 0x1f),
 					      this.blens, bl, bd, tl, td, this.hufts, z);
 
@@ -41694,7 +44407,7 @@ InfBlocks.prototype.reset = function(z, c){
 	        }
 	        r = t;
 
-	        this.bitb=b; this.bitk=k;
+	        this.bitb=b; this.bitk=k; 
 	        z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	        this.write=q;
 	        return this.inflate_flush(z,r);
@@ -41722,11 +44435,11 @@ InfBlocks.prototype.reset = function(z, c){
 	}
 	this.mode = IB_DRY;
       case IB_DRY:
-	this.write=q;
-	r = this.inflate_flush(z, r);
+	this.write=q; 
+	r = this.inflate_flush(z, r); 
 	q=this.write; m = (q < this.read ? this.read-q-1 : this.end-q);
 	if (this.read != this.write){
-	  this.bitb=b; this.bitk=k;
+	  this.bitb=b; this.bitk=k; 
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  this.write=q;
 	  return this.inflate_flush(z, r);
@@ -41735,14 +44448,14 @@ InfBlocks.prototype.reset = function(z, c){
       case IB_DONE:
 	r = Z_STREAM_END;
 
-	this.bitb=b; this.bitk=k;
+	this.bitb=b; this.bitk=k; 
 	z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	this.write=q;
 	return this.inflate_flush(z, r);
       case IB_BAD:
 	r = Z_DATA_ERROR;
 
-	this.bitb=b; this.bitk=k;
+	this.bitb=b; this.bitk=k; 
 	z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	this.write=q;
 	return this.inflate_flush(z, r);
@@ -41750,7 +44463,7 @@ InfBlocks.prototype.reset = function(z, c){
       default:
 	r = Z_STREAM_ERROR;
 
-	this.bitb=b; this.bitk=k;
+	this.bitb=b; this.bitk=k; 
 	z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	this.write=q;
 	return this.inflate_flush(z, r);
@@ -41770,7 +44483,7 @@ InfBlocks.prototype.set_dictionary = function(d, start, n){
 }
 
   // Returns true if inflate is currently at the end of a block generated
-  // by Z_SYNC_FLUSH or Z_FULL_FLUSH.
+  // by Z_SYNC_FLUSH or Z_FULL_FLUSH. 
 InfBlocks.prototype.sync_point = function(){
     return this.mode == IB_LENS;
 }
@@ -41866,7 +44579,7 @@ InfCodes.prototype.init = function(bl, bd, tl, tl_index, td, td_index, z) {
     this.tree=null;
 }
 
-InfCodes.prototype.proc = function(s, z, r){
+InfCodes.prototype.proc = function(s, z, r){ 
     var j;              // temporary storage
     var t;              // temporary pointer (int[])
     var tindex;         // temporary pointer
@@ -41893,8 +44606,8 @@ InfCodes.prototype.proc = function(s, z, r){
 	  s.bitb=b;s.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  s.write=q;
-	  r = this.inflate_fast(this.lbits, this.dbits,
-			   this.ltree, this.ltree_index,
+	  r = this.inflate_fast(this.lbits, this.dbits, 
+			   this.ltree, this.ltree_index, 
 			   this.dtree, this.dtree_index,
 			   s, z);
 
@@ -42073,7 +44786,7 @@ InfCodes.prototype.proc = function(s, z, r){
 		z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 		s.write=q;
 		return s.inflate_flush(z,r);
-	      }
+	      }  
 	    }
 	  }
 
@@ -42196,7 +44909,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
       }
 
       t= b&ml;
-      tp=tl;
+      tp=tl; 
       tp_index=tl_index;
       tp_index_t_3=(tp_index+t)*3;
       if ((e = tp[tp_index_t_3]) == 0){
@@ -42249,7 +44962,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 	      if (q >= d){                // offset before dest
 		//  just copy
 		r=q-d;
-		if(q-r>0 && 2>(q-r)){
+		if(q-r>0 && 2>(q-r)){           
 		  s.window[q++]=s.window[r++]; // minimum count is three,
 		  s.window[q++]=s.window[r++]; // so unroll loop a little
 		  c-=2;
@@ -42268,7 +44981,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 		e=s.end-r;
 		if(c>e){             // if source crosses,
 		  c-=e;              // wrapped copy
-		  if(q-r>0 && e>(q-r)){
+		  if(q-r>0 && e>(q-r)){           
 		    do{s.window[q++] = s.window[r++];}
 		    while(--e!=0);
 		  }
@@ -42324,7 +45037,7 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 	else if((e&32)!=0){
 
 	  c=z.avail_in-n;c=(k>>3)<c?k>>3:c;n+=c;p-=c;k-=c<<3;
-
+ 
 	  s.bitb=b;s.bitk=k;
 	  z.avail_in=n;z.total_in+=p-z.next_in_index;z.next_in_index=p;
 	  s.write=q;
@@ -42342,9 +45055,9 @@ InfCodes.prototype.inflate_fast = function(bl, bd, tl, tl_index, td, td_index, s
 
 	  return Z_DATA_ERROR;
 	}
-      }
+      } 
       while(true);
-    }
+    } 
     while(m>=258 && n>= 10);
 
     // not enough input or output--restore pointers and return
@@ -42490,7 +45203,7 @@ InfTree.prototype.huft_build = function(b, bindex, n, s, d, e, t, m, hp, hn, v) 
           }
           this.u[h] = q = /*hp+*/ this.hn[0];   // DEBUG
           this.hn[0] += z;
-
+ 
 	  // connect to last table, if there is one
 	  if(h!=0){
             this.x[h]=i;           // save pattern for backing up
@@ -42603,7 +45316,7 @@ InfTree.prototype.inflate_trees_dynamic = function(nl, nd, c, bl, bd, tl, td, hp
   static int inflate_trees_fixed(int[] bl,  //literal desired/actual bit depth
                                  int[] bd,  //distance desired/actual bit depth
                                  int[][] tl,//literal/length tree result
-                                 int[][] td,//distance tree result
+                                 int[][] td,//distance tree result 
                                  ZStream z  //for memory allocation
 				 ){
 
@@ -42626,8 +45339,8 @@ InfTree.prototype.initWorkArea = function(vsize){
         this.u=new Int32Array(BMAX);
         this.x=new Int32Array(BMAX+1);
     }
-    if(this.v.length<vsize){
-        this.v=new Int32Array(vsize);
+    if(this.v.length<vsize){ 
+        this.v=new Int32Array(vsize); 
     }
     for(var i=0; i<vsize; i++){this.v[i]=0;}
     for(var i=0; i<BMAX+1; i++){this.c[i]=0;}
@@ -42645,7 +45358,7 @@ var hasSlice = false; /* (typeof testArray.slice === 'function'); */ // Chrome s
 function arrayCopy(src, srcOffset, dest, destOffset, count) {
     if (count == 0) {
         return;
-    }
+    } 
     if (!src) {
         throw "Undef src";
     } else if (!dest) {
@@ -42655,10 +45368,10 @@ function arrayCopy(src, srcOffset, dest, destOffset, count) {
     if (srcOffset == 0 && count == src.length) {
         arrayCopy_fast(src, dest, destOffset);
     } else if (hasSubarray) {
-        arrayCopy_fast(src.subarray(srcOffset, srcOffset + count), dest, destOffset);
+        arrayCopy_fast(src.subarray(srcOffset, srcOffset + count), dest, destOffset); 
     } else if (src.BYTES_PER_ELEMENT == 1 && count > 100) {
         arrayCopy_fast(new Uint8Array(src.buffer, src.byteOffset + srcOffset, count), dest, destOffset);
-    } else {
+    } else { 
         arrayCopy_slow(src, srcOffset, dest, destOffset, count);
     }
 
@@ -42679,7 +45392,7 @@ function arrayCopy_fast(src, dest, destOffset) {
 
 
   // largest prime smaller than 65536
-var ADLER_BASE=65521;
+var ADLER_BASE=65521; 
   // NMAX is the largest n such that 255n(n+1)/2 + (n+1)(BASE-1) <= 2^32-1
 var ADLER_NMAX=5552;
 
