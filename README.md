@@ -25,7 +25,7 @@ create a node, npm and webpack version of the latest igv.js
     var igv = require('igv.js.npm')
     require('igv.js.npm/igv.css')
 `````
-   - webpack needsa css and an svg loader:
+   - webpack needs a css and an svg loader:
 ````
 var rules = [
     { test: /\.css$/, use: ['style-loader', 'css-loader']},
