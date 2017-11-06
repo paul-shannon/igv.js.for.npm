@@ -1,4 +1,4 @@
-# igv.js.npm
+# igv.js.npm: create a node, npm and webpack version of the latest igv.js
 
 ## pull, then build a fresh version of igv.js from the igvteam's repo
 
