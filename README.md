@@ -1,16 +1,21 @@
 # igv.js.npm
-Drawing from the latest (15 oct 2017) build of igv.js, with very few modifications, this packaging
-of the javascript genome browser can be used with npm, webpack, and
-jupyter widgets 7.0.1.
 
-## changes
-  - require("datatables.net") is now require("datatables")
-  - this then obtains (I think) the jQuery datatables plugin via
-    normal npm and webpack usage.
-  - all the image files (cursor_logo.png, cursor_log.svg, favicon.ico,
-    igv-logo.svg) are in the img/ directory of this repo
+create a node, npm and webpack version of the latest igv.js
 
-## usage
+## pull, then build a fresh version of igv.js from the igvteam's repo
+
+ - git clone https://github.com/igvteam/igv.js.git (or ````git pull origin```` if you had previously cloned the repo)
+ - cd igv.js
+ - grunt
+ - cd ../igv.js.npm
+ - cp ../igv.js/dist/igv.js .
+ - cp ../igv.js/css/igv.css igv.css 
+ - cp ../igv.js/css/img/* img/
+ - bump version number in package.json
+ - commit these changes 
+
+## How to use this this npm version of igv.js in your (separate) webapp
+
    - add this to your package.json file in the dependencies section:   
 ````
    "igv_js_npm": "github:paul-shannon/igv.js.npm"
@@ -20,7 +25,7 @@ jupyter widgets 7.0.1.
     var igv = require('igv.js.npm')
     require('igv.js.npm/igv.css')
 `````
-   - webpack needsa css and an svg loader:
+   - webpack needs a css and an svg loader:
 ````
 var rules = [
     { test: /\.css$/, use: ['style-loader', 'css-loader']},
