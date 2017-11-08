@@ -21832,19 +21832,18 @@ var igv = (function (igv) {
  */
 var igv = (function (igv) {
 
-    igv.EncodeDataSource = function (config, columnFormat) {
-        this.config = config;
+    igv.EncodeDataSource = function (columnFormat) {
         this.columnFormat = columnFormat;
     };
 
-    igv.EncodeDataSource.prototype.retrieveData = function () {
+    igv.EncodeDataSource.prototype.retrieveData = function (genomeID) {
 
         var self = this,
             fileFormat,
             assembly;
 
         fileFormat = 'bigWig';
-        assembly = this.config.genomeID;
+        assembly = genomeID;
 
         return igv.xhr
             .loadJson(urlString(assembly, fileFormat), {})
@@ -21857,7 +21856,7 @@ var igv = (function (igv) {
             })
             .catch(function (e) {
                 var str;
-                str = e.toString() + ' unable to access Encode Project with assembly ' + self.config.genomeID;
+                str = e.toString() + ' unable to access Encode Project with assembly ' + genomeID;
                 igv.presentAlert(str);
                 continuation(undefined);
 
@@ -32394,6 +32393,11 @@ var igv = (function (igv) {
             .then(function (genome) {
 
                 igv.browser.genome = genome;
+                igv.browser.genome.id = config.reference.id;
+
+                if (true === config.encodeEnabled) {
+                    igv.browser.encodeTable.loadData();
+                }
 
                 igv.browser.chromosomeSelectWidget.update(igv.browser.genome);
 
@@ -32680,6 +32684,10 @@ var igv = (function (igv) {
     }
 
     function setDefaults(config) {
+
+        if (undefined === config.encodeEnabled) {
+            config.encodeEnabled = false;
+        }
 
         if (undefined === config.showLoadFileWidget) {
             config.showLoadFileWidget = false;
