@@ -1,5 +1,5 @@
-var igv = require('igv.js.npm')
-require('igv.js.npm/igv.css')
+var igv = require('igv.js')
+require('igv.js/igv.css')
 var $ = require("jquery")
 //------------------------------------------------------------------------------------------------------------------------
 $(document).ready(function() {

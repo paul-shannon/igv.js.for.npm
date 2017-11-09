@@ -6,7 +6,7 @@
   "main": "lib/main.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/paul-shannon/igv.js.npm.git"
+    "url": "git+https://github.com/igvteam/igv.js-npm.git"
   },
   "keywords": [
     "igv.js",
@@ -31,7 +31,7 @@
     "webpack": "^3.5.5"
   },
   "dependencies": {
-      "igv_js_npm": "github:paul-shannon/igv.js.npm",
+      "igv.js.npm": "github:igvteam/igv.js-npm",
       "jquery": "^3.2.1"
   },
   "bugs": {
