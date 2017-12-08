@@ -24630,10 +24630,12 @@ var igv = (function (igv) {
             this.bamReader = new igv.Ga4ghAlignmentReader(config);
         } else if ("pysam" === config.sourceType) {
             this.bamReader = new igv.BamWebserviceReader(config)
-        } else if("htsget" === config.sourceType) {
+        } else if ("htsget" === config.sourceType) {
             this.bamReader = new igv.HtsgetReader(config);
+        } else if ("shardedBam" === config.sourceType) {
+            this.bamReader = new igv.ShardedBamReader(config);
         } else {
-            if(this.config.indexed === false) {
+            if (this.config.indexed === false) {
                 this.bamReader = new igv.BamReaderNonIndexed(config);
             }
             else {
@@ -24668,15 +24670,14 @@ var igv = (function (igv) {
 
     igv.BamSource.prototype.getAlignments = function (chr, bpStart, bpEnd) {
 
-        var self = this;
+        var self = this, hasAlignments;
 
         if (self.alignmentContainer && self.alignmentContainer.contains(chr, bpStart, bpEnd)) {
             return Promise.resolve(self.alignmentContainer);
         } else {
-            return new Promise(function (fulfill, reject) {
+            return self.bamReader.readAlignments(chr, bpStart, bpEnd)
 
-
-                self.bamReader.readAlignments(chr, bpStart, bpEnd).then(function (alignmentContainer) {
+                .then(function (alignmentContainer) {
 
                     var maxRows = self.config.maxRows || 500,
                         alignments = alignmentContainer.alignments;
@@ -24685,31 +24686,33 @@ var igv = (function (igv) {
                         alignments = unpairAlignments([{alignments: alignments}]);
                     }
 
+                    hasAlignments = alignments.length > 0;
+
                     alignmentContainer.packedAlignmentRows = packAlignmentRows(alignments, alignmentContainer.start, alignmentContainer.end, maxRows);
 
-
                     alignmentContainer.alignments = undefined;  // Don't need to hold onto these anymore
+
                     self.alignmentContainer = alignmentContainer;
 
-                    igv.browser.genome.sequence.getSequence(alignmentContainer.chr, alignmentContainer.start, alignmentContainer.end).then(
-                        function (sequence) {
+                    if (!hasAlignments) {
+                        return alignmentContainer;
+                    }
+                    else {
+                        return igv.browser.genome.sequence.getSequence(alignmentContainer.chr, alignmentContainer.start, alignmentContainer.end)
+
+                            .then(function (sequence) {
+
+                                if (sequence) {
+
+                                    alignmentContainer.coverageMap.refSeq = sequence;    // TODO -- fix this
+                                    alignmentContainer.sequence = sequence;           // TODO -- fix this
 
 
-                            if (sequence) {
-
-                                alignmentContainer.coverageMap.refSeq = sequence;    // TODO -- fix this
-                                alignmentContainer.sequence = sequence;           // TODO -- fix this
-
-
-                                fulfill(alignmentContainer);
-                            }
-                        }).catch(reject);
-
-                }).catch(function (error) {
-                    reject(error);
-                });
-
-            });
+                                    return alignmentContainer;
+                                }
+                            })
+                    }
+                })
         }
     }
 
@@ -24774,14 +24777,9 @@ var igv = (function (igv) {
 
         if (!alignments) return;
 
-        alignments.sort(function (a, b) {
-            return a.start - b.start;
-        });
 
         if (alignments.length === 0) {
-
             return [];
-
         } else {
 
             var bucketList = [],
@@ -24795,6 +24793,11 @@ var igv = (function (igv) {
                 alignmentSpace = 4 * 2,
                 packedAlignmentRows = [],
                 bucketStart;
+
+
+            alignments.sort(function (a, b) {
+                return a.start - b.start;
+            });
 
             bucketStart = Math.max(start, alignments[0].start);
             nextStart = bucketStart;
@@ -26954,94 +26957,87 @@ var igv = (function (igv) {
 
         var self = this;
 
-        return new Promise(function (fulfill, reject) {
+        return getHeader()
 
-                getHeader()
+            .then(function (header) {
 
-                    .then(function (header) {
+                var queryChr, url;
 
-                        var queryChr, url;
+                queryChr = header.chrAliasTable.hasOwnProperty(chr) ? header.chrAliasTable[chr] : chr;
 
-                        queryChr = header.chrAliasTable.hasOwnProperty(chr) ? header.chrAliasTable[chr] : chr;
+                url = self.config.endpoint + '/reads/' + self.config.id +
+                    '?referenceName=' + queryChr +
+                    '&start=' + start +
+                    '&end=' + end;
 
-                        url = self.config.endpoint + '/reads/' + self.config.id +
-                            '?referenceName=' + queryChr +
-                            '&start=' + start +
-                            '&end=' + end;
+                return igv.xhr.loadJson(url, self.config)
+            })
+            .then(function (data) {
+                return loadUrls(data.htsget.urls)
+            })
+            .then(function (dataArr) {
 
-                        return igv.xhr.loadJson(url, self.config)
-                    })
+                var compressedData, unc, ba, alignmentContainer, chrIdx;
+
+                compressedData = concatArrays(dataArr);  // In essence a complete bam file
+                unc = igv.unbgzf(compressedData.buffer);
+                ba = new Uint8Array(unc);
+
+
+                chrIdx = self.header.chrToIndex[chr];
+                alignmentContainer = new igv.AlignmentContainer(chr, start, end, self.samplingWindowSize, self.samplingDepth, self.pairsSupported);
+
+                igv.BamUtils.decodeBamRecords(ba, self.header.size, alignmentContainer, self.header.chrNames, chrIdx, start, end);
+
+                alignmentContainer.finish()
+                return alignmentContainer;
+            })
+
+
+        function getHeader() {
+
+            if (self.header) {
+                return Promise.resolve(self.header);
+            }
+            else {
+
+                // htsget does not specify a method to get the header alone.  specify a non-sensical range
+                // to return just the header
+
+                var url = self.config.endpoint + '/reads/' + self.config.id + '?referenceName=noSuchReference';
+
+                return igv.xhr.loadJson(url, self.config)
+
                     .then(function (data) {
-                        return loadUrls(data.htsget.urls)
-                    })
-                    .then(function (dataArr) {
 
-                        var compressedData, unc, ba, alignmentContainer, chrIdx;
+                        var genome = igv.browser ? igv.browser.genome : undefined;
 
-                        compressedData = concatArrays(dataArr);  // In essence a complete bam file
-                        unc = igv.unbgzf(compressedData.buffer);
-                        ba = new Uint8Array(unc);
+                        if (data && data.htsget && data.htsget.urls) {
 
+                            return loadUrls(data.htsget.urls)
 
-                        chrIdx = self.header.chrToIndex[chr];
-                        alignmentContainer =  new igv.AlignmentContainer(chr, start, end, self.samplingWindowSize, self.samplingDepth, self.pairsSupported);
+                                .then(function (dataArr) {
 
-                        igv.BamUtils.decodeBamRecords(ba, self.header.size, alignmentContainer, self.header.chrNames, chrIdx, start, end);
-                        alignmentContainer.finish()
-                        fulfill(alignmentContainer);
-                    })
-                    .catch(function (error) {
-                        reject(error);
+                                    var compressedData, unc, ba, alignmentContainer, chrIdx;
+
+                                    compressedData = concatArrays(dataArr);  // In essence a complete bam file
+                                    unc = igv.unbgzf(compressedData.buffer);
+                                    ba = new Uint8Array(unc);
+
+                                    self.header = igv.BamUtils.decodeBamHeader(ba, genome);
+
+                                    return self.header;
+                                });
+                        }
+                        else {
+                            throw new Error("Error querying htsget: " + headerUrl);
+                        }
                     });
 
-
-                function getHeader() {
-
-                    if (self.header) {
-                        return Promise.resolve(self.header);
-                    }
-                    else {
-                        return new Promise(function (fulfill, reject) {
-
-                            // htsget does not specify a method to get the header alone.  specify a non-sensical range
-                            // to return just the header
-
-                            var url = self.config.endpoint + '/reads/' + self.config.id + '?referenceName=noSuchReference';
-
-                            igv.xhr.loadJson(url, self.config)
-
-                                .then(function (data) {
-
-                                    var genome = igv.browser ? igv.browser.genome : undefined;
-
-                                    if (data && data.htsget && data.htsget.urls) {
-
-                                        loadUrls(data.htsget.urls)
-
-                                            .then(function (dataArr) {
-
-                                                var compressedData, unc, ba, alignmentContainer, chrIdx;
-
-                                                compressedData = concatArrays(dataArr);  // In essence a complete bam file
-                                                unc = igv.unbgzf(compressedData.buffer);
-                                                ba = new Uint8Array(unc);
-
-                                                self.header = igv.BamUtils.decodeBamHeader(ba, genome);
-
-                                                fulfill(self.header);
-                                            });
-                                    }
-                                    else {
-                                        reject("Error querying htsget: " + headerUrl);
-                                    }
-                                });
-
-                        })
-                    }
-
-                }
             }
-        );
+
+        }
+
     }
 
 
@@ -27229,6 +27225,96 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
+ * Copyright (c) 2016-2017 The Regents of the University of California 
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+var igv = (function (igv) {
+
+    igv.ShardedBamReader = function (config) {
+
+        var genome, alias, bamReaders, chrAliasTable;
+
+        this.config = config;
+
+        bamReaders = {};
+        chrAliasTable = {};
+        genome = igv.browser ? igv.browser.genome : undefined;
+
+        config.sources.sequences.forEach(function (chr) {
+
+            bamReaders[chr] = null;   // Placeholder
+
+            if (genome) {
+                alias = genome.getChromosomeName(chr);
+                chrAliasTable[alias] = chr;
+            }
+        });
+
+        this.chrAliasTable = chrAliasTable;
+        this.bamReaders = bamReaders;
+
+        igv.BamUtils.setReaderDefaults(this, config);
+    };
+
+    igv.ShardedBamReader.prototype.readAlignments = function (chr, start, end) {
+
+        var self = this, queryChr,
+            reader;
+
+        queryChr = self.chrAliasTable.hasOwnProperty(chr) ? self.chrAliasTable[chr] : chr;
+
+        if (!this.bamReaders.hasOwnProperty(queryChr)) {
+            return Promise.resolve(new igv.AlignmentContainer(chr, start, end));
+        }
+
+        else {
+
+            reader = self.bamReaders[queryChr];
+
+            if (!reader) {
+                var bamUrl = self.config.sources.url.replace("$CHR", queryChr);
+                var bamConfig = Object.assign(self.config, {url: bamUrl});
+                reader = new igv.BamReader(bamConfig);
+                self.bamReaders[queryChr] = reader;
+            }
+
+            return reader.readAlignments(queryChr, start, end)
+                .catch(function (error) {
+                    console.error(error);
+                    self.bamReaders[queryChr] = "none";
+                    return [];
+                })
+        }
+    }
+
+
+    return igv;
+})
+(igv || {});
+
+/*
+ * The MIT License (MIT)
+ *
  * Copyright (c) 2016 University of California San Diego
  * Author: Jim Robinson
  *
@@ -27348,8 +27434,13 @@ var igv = (function (igv) {
             return Promise.resolve(subbuffer(self, requestedRange, asUint8));
         }
         else {
-            // Expand buffer size if needed, but not beyond content length
-            bufferSize = Math.max(self.bufferSize, requestedRange.size);
+            // If requested range size is specified, expand buffer size if needed, but not beyond content length
+            if(requestedRange.size) {
+                bufferSize = Math.max(self.bufferSize, requestedRange.size);
+            }
+            else {
+                bufferSize = self.bufferSize;
+            }
 
             if (self.contentLength > 0 && requestedRange.start + bufferSize > self.contentLength) {
                 loadRange = {start: requestedRange.start};
@@ -28204,6 +28295,9 @@ var igv = (function (igv) {
                     value = validCount == 0 ? 0 : sumData / validCount;
             }
 
+            if (chromId < chrIdx1 || (chromId === chrIdx1 && chromEnd < bpStart)) continue;
+            else if (chromId > chrIdx2 || (chromId === chrIdx2 && chromStart >= bpEnd))  break;
+
 
             if (Number.isFinite(value)) {
                 featureArray.push({chr: chr, start: chromStart, end: chromEnd, value: value});
@@ -28762,7 +28856,7 @@ var igv = (function (igv) {
         var self = this,
             loadedTracks = [];
 
-        _.each(configList, function (config) {
+        configList.forEach( function (config) {
             var track = self.loadTrack(config);
             if (track) {
                 loadedTracks.push(track);
@@ -28770,7 +28864,7 @@ var igv = (function (igv) {
         });
 
         // Really we should just resize the new trackViews, but currently there is no way to get a handle on those
-        _.each(this.trackViews, function (trackView) {
+        this.trackViews.forEach( function (trackView) {
             trackView.resize();
         });
 
@@ -30642,6 +30736,12 @@ var igv = (function (igv) {
 
     igv.FastaSequence.prototype.getSequence = function (chr, start, end) {
 
+        var genome;
+        genome = igv.browser ? igv.browser.genome : undefined;
+        if(genome) {
+            chr = genome.getChromosomeName(chr);  // Translates from alias if required
+        }
+
         if (this.indexed) {
             return getSequenceIndexed.call(this, chr, start, end);
         }
@@ -32227,9 +32327,10 @@ var igv = (function (igv) {
             return Promise.resolve(self.index);
         }
 
-        if (self.indexURL || self.indexed) {
+        if (self.indexURL || self.indexed || (typeof self.config.url === 'string' && self.config.url.endsWith(".gz"))) {
 
             return self.loadIndex()
+
                 .then(function (indexOrUndefined) {
                     if (indexOrUndefined) {
                         self.index = indexOrUndefined;
@@ -34943,6 +35044,23 @@ var igv = (function (igv) {
 
     }
 
+    igv.MergedTrack.prototype.paintAxis = function (ctx, pixelWidth, pixelHeight) {
+
+        var i, len, autoscale, track;
+
+        autoscale = true;   // Hardcoded for now
+
+        for (i = 0, len = this.tracks.length; i < len; i++) {
+
+            track = this.tracks[i];
+
+            if (typeof track.paintAxis === 'function') {
+                track.paintAxis(ctx, pixelWidth, pixelHeight);
+                if (autoscale) break;
+            }
+        }
+    }
+
     function autoscale(chr, featureArrays) {
 
 
@@ -35828,7 +35946,7 @@ var igv = (function (igv) {
         function htmlStringified(autoscale) {
             var html = [];
 
-            html.push('<div>');
+            html.push('<div id="datarange-autoscale">');
             html.push(true === autoscale ? '<i class="fa fa-check">' : '<i class="fa fa-check fa-check-hidden">');
             html.push('</i>');
             html.push('Autoscale');
@@ -35887,7 +36005,7 @@ var igv = (function (igv) {
 
 
         // Temp hack
-        if(self.color && self.color.startsWith("rgb(")) {
+        if(typeof self.color === "string" && self.color.startsWith("rgb(")) {
             baselineColor =  igv.Color.addAlpha(self.color, 0.1);
         }
 
@@ -35943,9 +36061,8 @@ var igv = (function (igv) {
                 x,
                 y,
                 width,
-                height,
-                rectEnd,
-                rectBaseline;
+                color,
+                rectEnd;
 
             if (feature.end < bpStart) return;
             if (feature.start > bpEnd) return;
@@ -35979,7 +36096,10 @@ var igv = (function (igv) {
             }
 
             //canvas.fillRect(x, yUnitless * pixelHeight, width, heightUnitLess * pixelHeight, { fillStyle: igv.randomRGB(64, 255) });
-            igv.graphics.fillRect(ctx, x, yUnitless * pixelHeight, width, heightUnitLess * pixelHeight, {fillStyle: self.color});
+
+            color = (typeof self.color === "function") ? self.color(feature.value) : self.color;
+
+            igv.graphics.fillRect(ctx, x, yUnitless * pixelHeight, width, heightUnitLess * pixelHeight, {fillStyle: color});
 
         }
 
@@ -36263,29 +36383,6 @@ var igv = (function (igv) {
     }
 
 
-    function translateCigar(cigar) {
-
-        var cigarUnit, opLen, opLtr,
-            lengthOnRef = 0,
-            cigarArray = [];
-
-        for (i = 0; i < cigar.length; i++) {
-
-            cigarUnit = cigar[i];
-
-            opLtr = CigarOperationTable[cigarUnit.operation];
-            opLen = parseInt(cigarUnit.operationLength);    // TODO -- this should be a long by the spec
-
-            if (opLtr == 'M' || opLtr == 'EQ' || opLtr == 'X' || opLtr == 'D' || opLtr == 'N' || opLtr == '=')
-                lengthOnRef += opLen;
-
-            cigarArray.push({len: opLen, ltr: opLtr});
-
-        }
-
-        return {lengthOnRef: lengthOnRef, array: cigarArray};
-    }
-
 
     /**
      * Split the alignment record into blocks as specified in the cigarArray.  Each aligned block contains
@@ -36554,7 +36651,8 @@ var igv = (function (igv) {
                     cigarDecoded,
                     alignments = [],
                     genome = igv.browser.genome,
-                    mate;
+                    mate,
+                    blocks;
 
                 for (i = 0; i < len; i++) {
 
@@ -36844,7 +36942,8 @@ var igv = (function (igv) {
                 url = options.url,
                 body = options.body,
                 decode = options.decode,
-                apiKey = (igv.oauth.google.apiKey),
+                apiKey = igv.oauth.google.apiKey,
+                acToken = igv.oauth.google.access_token,
                 paramSeparator = "?",
                 fields = options.fields;  // Partial response
 
@@ -37358,30 +37457,42 @@ var igv = (function (igv) {
             var i1, i2, id;
             // Return a google drive download url for the sharable link
             //https://drive.google.com/open?id=0B-lleX9c2pZFbDJ4VVRxakJzVGM
-            //https://drive.google.com/file/d/0B-lleX9c2pZFZVZyVTdkSFZ2cm8/view?usp=sharing
-            //https://drive.google.com/file/d/0B-lleX9c2pZFbDJ4VVRxakJzVGM/view?usp=sharing
-            // url: 'https://www.googleapis.com/drive/v3/files/0B-lleX9c2pZFZVZyVTdkSFZ2cm8/?alt=media',
+            //https://drive.google.com/file/d/1_FC4kCeO8E3V4dJ1yIW7A0sn1yURKIX-/view?usp=sharing
 
-            if (link.includes("/open?id=")) {
-                i1 = link.indexOf("/open?id=") + 9;
-                i2 = link.indexOf("&");
-                if (i1 > 0 && i2 > i1) {
-                    id = link.substring(i1, i2)
-                }
-                else if (i1 > 0) {
-                    id = link.substring(i1);
-                }
-
-            }
-            else if (link.includes("/file/d/")) {
-                i1 = link.indexOf("/file/d/") + 8;
-                i2 = link.lastIndexOf("/");
-                id = link.substring(i1, i2);
-
-            }
+            var id = getGoogleDriveFileID(link);
 
             return id ? "https://www.googleapis.com/drive/v3/files/" + id + "?alt=media" : link;
+        },
 
+        getDriveFileInfo: function (googleDriveURL) {
+
+            var id = getGoogleDriveFileID(googleDriveURL),
+                endPoint = "https://www.googleapis.com/drive/v2/files/" + id;
+
+            return igv.xhr.loadJson(endPoint, igv.buildOptions({}));
+        }
+    }
+
+    function getGoogleDriveFileID(link) {
+
+        //https://drive.google.com/file/d/1_FC4kCeO8E3V4dJ1yIW7A0sn1yURKIX-/view?usp=sharing
+        var i1, i2;
+
+        if (link.includes("/open?id=")) {
+            i1 = link.indexOf("/open?id=") + 9;
+            i2 = link.indexOf("&");
+            if (i1 > 0 && i2 > i1) {
+                return link.substring(i1, i2)
+            }
+            else if (i1 > 0) {
+                 return link.substring(i1);
+            }
+
+        }
+        else if (link.includes("/file/d/")) {
+            i1 = link.indexOf("/file/d/") + 8;
+            i2 = link.lastIndexOf("/");
+            return link.substring(i1, i2);
         }
     }
 
@@ -37417,6 +37528,18 @@ var igv = (function (igv) {
 
 var igv = (function (igv) {
 
+    igv.genomeIdLUT = function (string) {
+
+        var lut =
+            {
+                dm3:'dm3',
+                mm10:'mm10',
+                hg19:'hg19',
+                hg38:'GRCh38'
+            };
+
+        return lut[ string ];
+    };
 
     igv.loadGenome = function (reference) {
 
@@ -37883,6 +38006,10 @@ var igv = (function (igv) {
         this.name = label;
         this.pValueField = config.pValueField || "pValue";
         this.geneField = config.geneField || "geneName";
+
+        this.autoscale = (config.autoScale === undefined ? true : config.autoScale);
+        this.percentile = (config.percentile === undefined ? 98 : config.percentile);
+
         this.minLogP = config.minLogP || 3.5;
         this.maxLogP = config.maxLogP || 25;
         this.background = config.background;    // No default
@@ -37937,7 +38064,7 @@ var igv = (function (igv) {
 
         font['textAlign'] = 'center';
 
-        igv.graphics.fillText(ctx, "-log10(pvalue)", pixelWidth/4, pixelHeight/2, font, {rotate: {angle: -90}});
+        igv.graphics.fillText(ctx, "-log10(pvalue)", pixelWidth / 4, pixelHeight / 2, font, {rotate: {angle: -90}});
 
     };
 
@@ -37947,7 +38074,7 @@ var igv = (function (igv) {
 
     igv.EqtlTrack.prototype.draw = function (options) {
 
-        var track = this,
+        var self = this,
             featureList = options.features,
             ctx = options.context,
             bpPerPixel = options.bpPerPixel,
@@ -37955,7 +38082,7 @@ var igv = (function (igv) {
             pixelWidth = options.pixelWidth,
             pixelHeight = options.pixelHeight,
             bpEnd = bpStart + pixelWidth * bpPerPixel + 1,
-            yScale = (track.maxLogP - track.minLogP) / pixelHeight;
+            yScale = (self.maxLogP - self.minLogP) / pixelHeight;
 
         // Background
         if (this.background) igv.graphics.fillRect(ctx, 0, 0, pixelWidth, pixelHeight, {'fillStyle': this.background});
@@ -37964,16 +38091,15 @@ var igv = (function (igv) {
         if (ctx) {
 
             var len = featureList.length;
-
-
+            
             ctx.save();
-
-
+            
+            self.maxLogP = autoscale(featureList, bpStart, bpEnd);
+            
             // Draw in two passes, with "selected" eqtls drawn last
             drawEqtls(false);
             drawEqtls(true);
-
-
+            
             ctx.restore();
 
         }
@@ -37981,16 +38107,10 @@ var igv = (function (igv) {
         function drawEqtls(drawSelected) {
 
             var radius = drawSelected ? 2 * track.dotSize : track.dotSize,
-                eqtl,
-                i,
-                px,
-                py,
-                color,
-                isSelected,
-                snp,
-                geneName,
-                selection;
+                eqtl, i, px, py, color, isSelected, snp, geneName, selection;
 
+
+            //ctx.fillStyle = igv.selection.colorForGene(eqtl.geneName);
             igv.graphics.setProperties(ctx, {
                 fillStyle: "rgb(180, 180, 180)",
                 strokeStyle: "rgb(180, 180, 180)"
@@ -38001,7 +38121,7 @@ var igv = (function (igv) {
                 eqtl = featureList[i];
                 snp = eqtl.snp.toUpperCase();
                 geneName = eqtl[track.geneField].toUpperCase();
-                selection = options.genomicState.selection;
+                selection = igv.browser.selection;
                 isSelected = selection &&
                 (selection.snp === snp || selection.gene === geneName);
 
@@ -38079,7 +38199,7 @@ var igv = (function (igv) {
                         feature.start <= genomicLocation + tolerance &&
                         feature.py - yOffset < 2 * dotSize) {
 
-                        if(popupData.length > 0) {
+                        if (popupData.length > 0) {
                             popupData.push("<hr>");
                         }
 
@@ -40565,14 +40685,7 @@ var igv = (function (igv) {
             if (s === 0) {
                 r = g = b = l; // achromatic
             } else {
-                function hue2rgb(p, q, t) {
-                    if (t < 0) t += 1;
-                    if (t > 1) t -= 1;
-                    if (t < 1 / 6) return p + (q - p) * 6 * t;
-                    if (t < 1 / 2) return q;
-                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-                    return p;
-                }
+
 
                 var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
                 var p = 2 * l - q;
@@ -40694,6 +40807,14 @@ var igv = (function (igv) {
         }
     };
 
+    function hue2rgb(p, q, t) {
+        if (t < 0) t += 1;
+        if (t > 1) t -= 1;
+        if (t < 1 / 6) return p + (q - p) * 6 * t;
+        if (t < 1 / 2) return q;
+        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+        return p;
+    }
 
     igv.nucleotideColorComponents = {
         "A": [0, 200, 0],
@@ -41003,6 +41124,8 @@ var igv = (function (igv) {
 
                 if (session) {
                     config = Object.assign(config, session);
+                    if(undefined === config.tracks) config.tracks = [];
+                    config.tracks.push({type: "sequence", order: -Number.MAX_VALUE});
                 }
 
                 // Deal with legacy genome definition options
@@ -42155,9 +42278,15 @@ var igv = (function (igv) {
         return $button;
     };
 
-    igv.presentAlert = function (string) {
+    igv.presentAlert = function (obj) {
 
-        console.trace();
+        //console.trace();
+
+        var string = obj.message || obj;
+
+        if(httpMessages.hasOwnProperty(string)) {
+            string = httpMessages[string];
+        }
         
         igv.alert.$dialogLabel.text(string);
         igv.alert.show(undefined);
@@ -42165,6 +42294,13 @@ var igv = (function (igv) {
         igv.popover.hide();
 
     };
+
+    var httpMessages = {
+        "401": "Access unauthorized",
+        "403": "Access forbidden",
+        "404": "Not found"
+    }
+
 
     igv.attachDialogCloseHandlerWithParent = function ($parent, closeHandler) {
 
@@ -42556,14 +42692,14 @@ var igv = (function (igv) {
     };
 
     igv.buildOptions = function(config, options) {
+
         var defaultOptions = {
-            oauthToken: config.oauthToken || undefined,
+            oauthToken: config.oauthToken,
             headers: config.headers,
-            withCredentials: config.withCredentials,
-            oauth: config.oauth
+            withCredentials: config.withCredentials
         };
 
-        return _.extend(defaultOptions, options);
+        return Object.assign(defaultOptions, options);
     };
 
     return igv;
@@ -42609,7 +42745,7 @@ var igv = (function (igv) {
 
         url = mapUrl(url);
 
-        if (!options) options = {};
+        options = options ||  {};
 
         if (!options.oauthToken) {
             return getLoadPromise(url, options);
@@ -42636,6 +42772,7 @@ var igv = (function (igv) {
         }
 
         function getLoadPromise(url, options) {
+
             return new Promise(function (fullfill, reject) {
 
                 var xhr = new XMLHttpRequest(),
@@ -42757,7 +42894,7 @@ var igv = (function (igv) {
 
                 xhr.onabort = function (event) {
                     console.log("Aborted");
-                    reject(new igv.AbortLoad());
+                    reject(event);
                 };
 
                 try {
@@ -42781,10 +42918,11 @@ var igv = (function (igv) {
 
     igv.xhr.loadArrayBuffer = function (url, options) {
 
+        options = options || {};
+
         if (url instanceof File) {
             return loadFileSlice(url, options);
         } else {
-            if (options === undefined) options = {};
             options.responseType = "arraybuffer";
             return igv.xhr.load(url, options);
         }
@@ -42793,6 +42931,8 @@ var igv = (function (igv) {
 
     igv.xhr.loadJson = function (url, options) {
 
+        options = options || {};
+        
         var method = options.method || (options.sendData ? "POST" : "GET");
 
         if (method == "POST") options.contentType = "application/json";
@@ -42814,6 +42954,9 @@ var igv = (function (igv) {
     };
 
     igv.xhr.loadString = function (path, options) {
+
+        options = options || {};
+
         if (path instanceof File) {
             return loadStringFromFile(path, options);
         } else {
@@ -42945,10 +43088,6 @@ var igv = (function (igv) {
         return !url.startsWith(origin);
 
     }
-
-    igv.AbortLoad = function () {
-
-    };
 
     /**
      * Legacy method to add oauth tokens.  Kept for backward compatibility.  Do not use -- use config.token setting instead.
@@ -44009,6 +44148,7 @@ var igv = (function (igv) {
             //log("=== loadfeatures of chr " + chr + ", x=" + guichrom.x);
 
             source.getSummary(chr, start, end, function (featureList) {
+                var len;
                 if (featureList) {
                     len = featureList.length;
                     //log(" -->- loaded: chrom " + chr + " with " + len + " summary features, drawing them");
@@ -45304,6 +45444,7 @@ var igv = (function (igv) {
         Array.from(elements).forEach(function (res, idx) {
             var res = {
                 url: res.getAttribute("path"),
+                indexURL: res.getAttribute("index"),
                 order: idx
             };
             self.tracks.push(res);
@@ -46260,7 +46401,7 @@ var igv = (function (igv) {
             })
             .then(function (data) {
 
-                binaryParser = new igv.BinaryParser(new DataView(data));
+                var binaryParser = new igv.BinaryParser(new DataView(data));
 
                 self.datasetIndex = {};
                 var nEntries = binaryParser.getInt();
@@ -46509,7 +46650,7 @@ var igv = (function (igv) {
     }
 
     function createBed(binaryParser, nTracks, type) {
-        var nPositions, start, end, nS, data, name, n, nt;
+        var nPositions, start, end, nS, data, name, n, nt, np, dtrack;
 
         nPositions = binaryParser.getInt();
 
@@ -46558,6 +46699,83 @@ var igv = (function (igv) {
 
     }
 
+    igv.TDFReader.prototype.readTiles = function (tileIndeces, nTracks) {
+
+        var self = this;
+        
+        tileIndeces.sort(function (a, b) {
+            return a.position - b.position;
+        })
+        
+        tileIndeces = tileIndeces.filter(function (idx) {return idx.size > 0;});
+
+        if(tileIndeces.length === 0) {
+            return Promise.resolve([]);
+        }
+
+        var firstEntry = tileIndeces[0];
+        var lastEntry = tileIndeces[tileIndeces.length - 1];
+        var position = firstEntry.position;
+        var size = (lastEntry.position + lastEntry.size) - position;
+
+
+
+        return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
+            range: {
+                start: position,
+                size: size
+            }
+        }))
+            .then(function (data) {
+
+                var tiles = [];
+
+                // Loop through and decode tiles
+                tileIndeces.forEach(function (indexEntry) {
+
+                    var start = indexEntry.position - position;
+                    var size = indexEntry.size;
+                    if (size > 0) {
+                        var tileData;
+
+                        if (self.compressed) {
+                            var inflate = new Zlib.Inflate(new Uint8Array(data, start, size));
+                            var plain = inflate.decompress();
+                            tileData = plain.buffer;
+                        } else {
+                            tileData = data.slice(start, start + size);
+                        }
+
+
+                        var binaryParser = new igv.BinaryParser(new DataView(tileData));
+                        var type = binaryParser.getString();
+                        var tile;
+
+                        switch (type) {
+                            case "fixedStep":
+                                tile = createFixedStep(binaryParser, nTracks);
+                                break;
+                            case "variableStep":
+                                tile = createVariableStep(binaryParser, nTracks);
+                                break;
+                            case "bed":
+                            case "bedWithName":
+                                tile = createBed(binaryParser, nTracks, type);
+                                break;
+                            default:
+                                throw "Unknown tile type: " + type;
+                        }
+
+                        tiles.push(tile);
+                    }
+                });
+
+                return tiles;
+
+            });
+
+        // Read raw data for all tiles into a buffer
+    }
 
     igv.TDFReader.prototype.readTile = function (indexEntry, nTracks) {
 
@@ -46641,18 +46859,27 @@ var igv = (function (igv) {
 
         this.windowFunction = config.windowFunction || "mean";
         this.reader = new igv.TDFReader(config);
+        this.featureCache = [];
     };
 
     igv.TDFSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel) {
 
         var self = this,
             featureCache = self.featureCache,
-            genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
+            cache,
+            genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd),
+            i;
 
         genomicInterval.bpPerPixel = bpPerPixel;
 
-        if (featureCache && featureCache.range.bpPerPixel === bpPerPixel && featureCache.range.containsRange(genomicInterval)) {
-            return Promise.resolve(self.featureCache.queryFeatures(chr, bpStart, bpEnd));
+        if (featureCache) {
+
+            for (i = 0; i < featureCache.length; i++) {
+                cache = featureCache[i];
+                if (cache.range.bpPerPixel === bpPerPixel && cache.range.containsRange(genomicInterval)) {
+                    return Promise.resolve(cache.queryFeatures(chr, bpStart, bpEnd));
+                }
+            }
         }
 
         return self.reader.readRootGroup()
@@ -46685,20 +46912,16 @@ var igv = (function (igv) {
                     p = [],
                     NTRACKS = 1;   // TODO read this
 
-                for (i = startTile; i <= endTile; i++) {
-                    if (dataset.tiles[i] !== undefined) {
-                        p.push(self.reader.readTile(dataset.tiles[i], NTRACKS));
-                    }
-                }
+                
+                return self.reader.readTiles(dataset.tiles.slice(startTile, endTile + 1), NTRACKS);
 
-                return Promise.all(p);
             })
 
             .then(function (tiles) {
 
                 var features = [];
 
-                tiles.forEach( function (tile) {
+                tiles.forEach(function (tile) {
                     switch (tile.type) {
                         case "bed":
                             decodeBedTile(tile, chr, bpStart, bpEnd, bpPerPixel, features);
@@ -46713,13 +46936,24 @@ var igv = (function (igv) {
                             reject("Unknown tile type: " + tile.type);
                             return;
                     }
+                });
+
+                features.sort(function (a, b) {
+                    return a.start - b.start;
                 })
 
-                // Note -- replacing feature cache
-                self.featureCache = new igv.FeatureCache(features, genomicInterval);
+                cache = new igv.FeatureCache(features, genomicInterval);
+
+                // Limit to 2 caches for now
+                if (self.featureCache.length < 2) {
+                    self.featureCache.push(cache);
+                }
+                else {
+                    self.featureCache[1] = self.featureCache[0];
+                    self.featureCache[0] = cache;
+                }
 
                 return features;
-
             })
     }
 
@@ -46785,16 +47019,18 @@ var igv = (function (igv) {
 
             var e = s + span;
 
-            if (e < bpStart) continue;
             if (s > bpEnd) break;
 
-            if (!Number.isNaN(data[i])) {
-                features.push({
-                    chr: chr,
-                    start: s,
-                    end: e,
-                    value: data[i]
-                });
+            if (e >= bpStart) {
+
+                if (!Number.isNaN(data[i])) {
+                    features.push({
+                        chr: chr,
+                        start: s,
+                        end: e,
+                        value: data[i]
+                    });
+                }
             }
 
             s = e;
@@ -48207,7 +48443,8 @@ var igv = (function (igv) {
     igv.TrackScrollbar = function ($viewportContainer, viewports) {
 
         var self = this,
-            offY;
+            offY,
+            contentDivHeight;
 
         contentDivHeight = maxContentHeightWithViewports(viewports);
 
@@ -49053,6 +49290,11 @@ var igv = (function (igv) {
             if(isNaN(min) || isNaN(max)) {
                 igv.presentAlert("Must input numeric values");
             } else {
+
+                if (true === trackView.track.autoscale) {
+                    $('#datarange-autoscale').trigger('click');
+                }
+
                 trackView.setDataRange(min, max, false);
             }
 
@@ -50246,7 +50488,7 @@ var igv = (function (igv) {
             vGap = (this.displayMode === 'EXPANDED') ? this.expandedVGap : this.squishedVGap,
             groupGap = (this.displayMode === 'EXPANDED') ? this.expandedGroupGap : this.squishedGroupGap,
             px, px1, pw, py, h, style, i, variant, call, callSet, j, k, group, allRef, allVar, callSets, nCalls,
-            firstAllele, secondAllele, lowColorScale, highColorScale, period, callsDrawn;
+            firstAllele, secondAllele, lowColorScale, highColorScale, period, callsDrawn, len, variantColors;
 
         this.variantBandHeight = 10 + this.nRows * (this.variantHeight + vGap);
 
@@ -50387,15 +50629,7 @@ var igv = (function (igv) {
                                         ctx.strokeRect(px, py, pw, h);
                                     }
 
-                                    function getFillColor(allele) {
-                                        if (allele.length < variant.referenceBases.length) {
-                                            return lowColorScale.getColor(allele.length);
-                                        } else if (allele.length > variant.referenceBases.length) {
-                                            return highColorScale.getColor(allele.length);
-                                        } else {
-                                            return "rgb(150,150,150)"; // gray for reference length
-                                        }
-                                    }
+
                                 }
                             }
                             callsDrawn++;
@@ -50406,6 +50640,16 @@ var igv = (function (igv) {
         }
         else {
             console.log("No feature list");
+        }
+
+        function getFillColor(allele) {
+            if (allele.length < variant.referenceBases.length) {
+                return lowColorScale.getColor(allele.length);
+            } else if (allele.length > variant.referenceBases.length) {
+                return highColorScale.getColor(allele.length);
+            } else {
+                return "rgb(150,150,150)"; // gray for reference length
+            }
         }
 
     };
@@ -51641,31 +51885,27 @@ var igv = (function (igv) {
 
                     self.loading = false;
 
-                    if (error instanceof igv.AbortLoad) {
-                        console.log("Aborted ---");
-                    } else {
-                        igv.presentAlert(error);
-                    }
+                    igv.presentAlert(error);
+              
                 });
 
-            function renderControlCanvasWithTrackView(trackView) {
-                var buffer2;
+        }
 
-                buffer2 = document.createElement('canvas');
-                buffer2.width = trackView.controlCanvas.width;
-                buffer2.height = trackView.controlCanvas.height;
+        function renderControlCanvasWithTrackView(trackView) {
+            var buffer2;
 
-                trackView.track.paintAxis(buffer2.getContext('2d'), buffer2.width, buffer2.height);
+            buffer2 = document.createElement('canvas');
+            buffer2.width = trackView.controlCanvas.width;
+            buffer2.height = trackView.controlCanvas.height;
 
-                trackView.controlCtx.drawImage(buffer2, 0, 0);
+            trackView.track.paintAxis(buffer2.getContext('2d'), buffer2.width, buffer2.height);
 
-            }
+            trackView.controlCtx.drawImage(buffer2, 0, 0);
 
-            function doRenderControlCanvas(genomicState, trackView) {
-                return (/*0 === genomicState.locusIndex &&*/ trackView.track.paintAxis && trackView.controlCanvas.width > 0 && trackView.controlCanvas.height > 0);
-            }
+        }
 
-
+        function doRenderControlCanvas(genomicState, trackView) {
+            return (/*0 === genomicState.locusIndex &&*/ (typeof trackView.track.paintAxis === 'function') && trackView.controlCanvas.width > 0 && trackView.controlCanvas.height > 0);
         }
 
         function viewIsReady() {
