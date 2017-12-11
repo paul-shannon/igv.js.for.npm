@@ -25051,12 +25051,12 @@ var igv = (function (igv) {
 
     };
 
-    igv.BAMTrack.prototype.popupDataWithConfiguration = function (config) {
+    igv.BAMTrack.prototype.popupData = function (config) {
 
         if (config.y >= this.coverageTrack.top && config.y < this.coverageTrack.height) {
-            return this.coverageTrack.popupDataWithConfiguration(config);
+            return this.coverageTrack.popupData(config);
         } else {
-            return this.alignmentTrack.popupDataWithConfiguration(config);
+            return this.alignmentTrack.popupData(config);
         }
 
     };
@@ -25361,13 +25361,13 @@ var igv = (function (igv) {
 
     };
 
-    CoverageTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, this.top, config.viewport.genomicState.referenceFrame);
-    };
-
-    CoverageTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
-
-        var coverageMap = this.featureSource.alignmentContainer.coverageMap,
+    CoverageTrack.prototype.popupData = function (config) {
+        
+        var genomicLocation = config.genomicLocation,
+            xOffset = config.x,
+            yOffset = config.y,
+            referenceFrame = config.viewport.genomicState.referenceFrame,
+            coverageMap = this.featureSource.alignmentContainer.coverageMap,
             coverageMapIndex,
             coverage,
             nameValues = [],
@@ -25749,7 +25749,7 @@ var igv = (function (igv) {
 
     };
 
-    AlignmentTrack.prototype.popupDataWithConfiguration = function (config) {
+    AlignmentTrack.prototype.popupData = function (config) {
 
         var clickedObject;
 
@@ -25795,7 +25795,7 @@ var igv = (function (igv) {
                 Array.prototype.push.apply(head, tail);
             }
 
-            igv.browser.parseSearchInput(head.join(' '));
+            igv.browser.search(head.join(' '));
         }
 
         function locusPairWithAlignmentAndViewport(alignment, viewport) {
@@ -27278,12 +27278,12 @@ var igv = (function (igv) {
 
     igv.ShardedBamReader.prototype.readAlignments = function (chr, start, end) {
 
-        var self = this, queryChr,
-            reader;
+        var self = this,
+            queryChr, reader, tmp, bamConfig;
 
         queryChr = self.chrAliasTable.hasOwnProperty(chr) ? self.chrAliasTable[chr] : chr;
 
-        if (!this.bamReaders.hasOwnProperty(queryChr)) {
+        if (!this.bamReaders.hasOwnProperty(queryChr) || "none" === this.bamReaders[queryChr]) {
             return Promise.resolve(new igv.AlignmentContainer(chr, start, end));
         }
 
@@ -27292,8 +27292,13 @@ var igv = (function (igv) {
             reader = self.bamReaders[queryChr];
 
             if (!reader) {
-                var bamUrl = self.config.sources.url.replace("$CHR", queryChr);
-                var bamConfig = Object.assign(self.config, {url: bamUrl});
+                tmp = {
+                    url: self.config.sources.url.replace("$CHR", queryChr)
+                }
+                if (self.config.sources.indexURL) {
+                    tmp.indexURL = self.config.sources.indexURL.replace("$CHR", queryChr);
+                }
+                bamConfig = Object.assign(self.config, tmp);
                 reader = new igv.BamReader(bamConfig);
                 self.bamReaders[queryChr] = reader;
             }
@@ -27301,8 +27306,9 @@ var igv = (function (igv) {
             return reader.readAlignments(queryChr, start, end)
                 .catch(function (error) {
                     console.error(error);
+                    igv.presentAlert("Error reading BAM or index file for: " + tmp.url);
                     self.bamReaders[queryChr] = "none";
-                    return [];
+                    return new igv.AlignmentContainer(chr, start, end);   // Empty alignment container
                 })
         }
     }
@@ -28351,10 +28357,12 @@ var igv = (function (igv) {
         this.wgValues = {};
     };
 
+
     igv.BWSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel, windowFunction) {
 
-        var self = this,
-            featureCache = self.featureCache,
+        var self = this;
+
+        var featureCache = self.featureCache,
             genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
 
         genomicInterval.bpPerPixel = bpPerPixel;
@@ -28373,12 +28381,13 @@ var igv = (function (igv) {
 
                     // Note -- replacing feature cache
                     if (self.cache) self.featureCache = new igv.FeatureCache(features, genomicInterval);
-
+                    
                     return features;
                 })
 
         }
     }
+
 
     igv.BWSource.prototype.getDefaultRange = function () {
 
@@ -28896,7 +28905,7 @@ var igv = (function (igv) {
         newTrack = igv.createTrack(config);
 
         if (undefined === newTrack) {
-            igv.presentAlert("Unknown file type: " + config.url);
+            igv.presentAlert("Unknown file type: " + config.url, undefined);
             return newTrack;
         }
 
@@ -28910,7 +28919,7 @@ var igv = (function (igv) {
             newTrack.getFileHeader().then(function (header) {
                 self.addTrack(newTrack);
             }).catch(function (error) {
-                igv.presentAlert(error);
+                igv.presentAlert(error, undefined);
             });
         } else {
             self.addTrack(newTrack);
@@ -29095,7 +29104,7 @@ var igv = (function (igv) {
         if (true === resizeWillExceedChromosomeLength(this.trackViews)) {
 
             viewport = _.first((_.first(this.trackViews)).viewports);
-            this.parseSearchInput(viewport.genomicState.chromosome.name);
+            this.search(viewport.genomicState.chromosome.name);
         } else {
 
             _.each(_.union([this.ideoPanel, this.karyoPanel, this.centerGuide], this.trackViews), function (renderable) {
@@ -29575,7 +29584,7 @@ var igv = (function (igv) {
 
     };
 
-    igv.Browser.prototype.parseSearchInput = function (string) {
+    igv.Browser.prototype.search = function (string) {
 
         var self = this,
             loci = string.split(' ');
@@ -29616,7 +29625,7 @@ var igv = (function (igv) {
                 self.update();
             } else {
                 errorString = 'Unrecognized locus ' + string;
-                igv.presentAlert(errorString);
+                igv.presentAlert(errorString, undefined);
             }
 
         });
@@ -30187,7 +30196,7 @@ var igv = (function (igv) {
      * @param callback - function to call
      * @param force - force callback
      */
-    igv.Browser.prototype.search = function (feature, callback, force) {
+    igv.Browser.prototype.__depricated_search = function (feature, callback, force) {
         var type,
             chr,
             start,
@@ -30243,7 +30252,7 @@ var igv = (function (igv) {
 
                     if (results.length == 0) {
                         //alert('No feature found with name "' + feature + '"');
-                        igv.presentAlert('No feature found with name "' + feature + '"');
+                        igv.presentAlert('No feature found with name "' + feature + '"', undefined);
                     }
                     else if (results.length == 1) {
                         // Just take the first result for now
@@ -30315,7 +30324,7 @@ var igv = (function (igv) {
         }
 
         if (undefined === chr || isNaN(start) || (start > end)) {
-            igv.presentAlert("Unrecognized feature or locus: " + locusFeature);
+            igv.presentAlert("Unrecognized feature or locus: " + locusFeature, undefined);
             return false;
         }
 
@@ -31697,13 +31706,13 @@ var igv = (function (igv) {
     };
 
 
-    igv.AneuTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame)
-    };
+    igv.AneuTrack.prototype.popupData = function (config) {
 
-    igv.AneuTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
-
-        var sampleName, row = Math.floor(yOffset / this.sampleHeight), items;
+        var genomicLocation = config.genomicLocation,
+            xOffset = config.x,
+            yOffset = config.y,
+            referenceFrame = config.viewport.genomicState.referenceFrame,
+            sampleName, row = Math.floor(yOffset / this.sampleHeight), items;
 
         log("popupData for row " + row + ", sampleNames=" + JSON.stringify(this.sampleNames));
         if (row < this.sampleNames.length) {
@@ -31858,6 +31867,96 @@ var igv = (function (igv) {
 
 })(igv || {});
 
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+var igv = (function (igv) {
+
+
+    igv.getDataWrapper = function(data) {
+
+        if (typeof(data) == 'string' || data instanceof String) {
+            return new StringDataWrapper(data);
+        } else {
+            return new ByteArrayDataWrapper(data);
+        }
+    }
+
+
+// Data might be a string, or an UInt8Array
+    var StringDataWrapper = function (string) {
+        this.data = string;
+        this.ptr = 0;
+    }
+
+    StringDataWrapper.prototype.nextLine = function () {
+        //return this.split(/\r\n|\n|\r/gm);
+        var start = this.ptr,
+            idx = this.data.indexOf('\n', start);
+
+        if (idx > 0) {
+            this.ptr = idx + 1;   // Advance pointer for next line
+            return idx === start ? undefined : this.data.substring(start, idx).trim();
+        }
+        else {
+            // Last line
+            this.ptr = this.data.length;
+            return (start >= this.data.length) ? undefined : this.data.substring(start).trim();
+        }
+    }
+
+
+    var ByteArrayDataWrapper = function (array) {
+        this.data = array;
+        this.length = this.data.length;
+        this.ptr = 0;
+    }
+
+    ByteArrayDataWrapper.prototype.nextLine = function () {
+
+        var c, result;
+        result = "";
+
+        if (this.ptr >= this.length) return undefined;
+
+        for (var i = this.ptr; i < this.length; i++) {
+            c = String.fromCharCode(this.data[i]);
+            if (c === '\r') continue;
+            if (c === '\n') break;
+            result = result + c;
+        }
+
+        this.ptr = i + 1;
+        return result;
+    }
+
+
+    return igv;
+})
+(igv || {});
 /*
  * The MIT License (MIT)
  *
@@ -32343,7 +32442,7 @@ var igv = (function (igv) {
                 .catch(function (error) {
                     self.indexed = false;
                     if (error.message === '404' && self.config.indexURL === undefined) {
-                        igv.presentAlert("Index file not found.  Check track configuration")
+                        igv.presentAlert("Index file not found.  Check track configuration", undefined)
                     } else {
                         throw error;
                     }
@@ -32519,7 +32618,7 @@ var igv = (function (igv) {
             header,
             dataWrapper;
 
-        dataWrapper = getDataWrapper(data);
+        dataWrapper = igv.getDataWrapper(data);
 
         while (line = dataWrapper.nextLine()) {
             if (line.startsWith("track") || line.startsWith("#") || line.startsWith("browser")) {
@@ -32556,7 +32655,7 @@ var igv = (function (igv) {
             format = this.format,
             delimiter = this.delimiter || "\t";
 
-        dataWrapper = getDataWrapper(data);
+        dataWrapper = igv.getDataWrapper(data);
         i = 0;
 
         while (line = dataWrapper.nextLine()) {
@@ -33208,62 +33307,7 @@ var igv = (function (igv) {
 
     }
 
-    function getDataWrapper(data) {
 
-        if (typeof(data) == 'string' || data instanceof String) {
-            return new StringDataWrapper(data);
-        } else {
-            return new ByteArrayDataWrapper(data);
-        }
-    }
-
-
-    // Data might be a string, or an UInt8Array
-    var StringDataWrapper = function (string) {
-        this.data = string;
-        this.ptr = 0;
-    }
-
-    StringDataWrapper.prototype.nextLine = function () {
-        //return this.split(/\r\n|\n|\r/gm);
-        var start = this.ptr,
-            idx = this.data.indexOf('\n', start);
-
-        if (idx > 0) {
-            this.ptr = idx + 1;   // Advance pointer for next line
-            return idx === start ? undefined : this.data.substring(start, idx).trim();
-        }
-        else {
-            // Last line
-            this.ptr = this.data.length;
-            return (start >= this.data.length) ? undefined : this.data.substring(start).trim();
-        }
-    }
-
-
-    var ByteArrayDataWrapper = function (array) {
-        this.data = array;
-        this.length = this.data.length;
-        this.ptr = 0;
-    }
-
-    ByteArrayDataWrapper.prototype.nextLine = function () {
-
-        var c, result;
-        result = "";
-
-        if (this.ptr >= this.length) return undefined;
-
-        for (var i = this.ptr; i < this.length; i++) {
-            c = String.fromCharCode(this.data[i]);
-            if (c === '\r') continue;
-            if (c === '\n') break;
-            result = result + c;
-        }
-
-        this.ptr = i + 1;
-        return result;
-    }
 
 
     return igv;
@@ -33820,28 +33864,24 @@ var igv = (function (igv) {
     };
 
 
-    igv.FeatureTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame)
-    };
-
     /**
      * Return "popup data" for feature @ genomic location.  Data is an array of key-value pairs
-     */
-    igv.FeatureTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
+     */ 
+    igv.FeatureTrack.prototype.popupData = function (config) {
 
         // We use the featureCache property rather than method to avoid async load.  If the
         // feature is not already loaded this won't work,  but the user wouldn't be mousing over it either.
         if (this.featureSource.featureCache) {
 
-            var tolerance,
+            var genomicLocation = config.genomicLocation,
+                yOffset = config.y,
+                referenceFrame = config.viewport.genomicState.referenceFrame,
+                tolerance,
                 featureList,
                 row,
                 popupData,
                 ss,
-                ee,
-                str,
-                filtered,
-                mapped;
+                ee;
 
             // We need some tolerance around genomicLocation, start with +/- 2 pixels
             tolerance = 2 * referenceFrame.bpPerPixel;
@@ -35536,13 +35576,13 @@ var igv = (function (igv) {
         sortDirection = (sortDirection === "ASC" ? "DESC" : "ASC");
     };
 
-    igv.SegTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame)
-    };
+    igv.SegTrack.prototype.popupData = function (config) {
 
-    igv.SegTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
-
-        var sampleHeight = ("SQUISHED" === this.displayMode) ? this.sampleSquishHeight : this.sampleExpandHeight,
+        var genomicLocation = config.genomicLocation,
+            xOffset = config.x,
+            yOffset = config.y,
+            referenceFrame = config.viewport.genomicState.referenceFrame,
+            sampleHeight = ("SQUISHED" === this.displayMode) ? this.sampleSquishHeight : this.sampleExpandHeight,
             sampleName,
             row,
             items;
@@ -35883,7 +35923,7 @@ var igv = (function (igv) {
         if (config.color === undefined) {
             config.color = "rgb(150,150,150)";
         }
-        if(config.height === undefined) {
+        if (config.height === undefined) {
             config.height = 50;
         }
 
@@ -35968,18 +36008,18 @@ var igv = (function (igv) {
             return self.featureSource.getFileHeader()
                 .then(function (header) {
 
-                if (header) {
-                    // Header (from track line).  Set properties,unless set in the config (config takes precedence)
-                    if (header.name && !self.config.name) {
-                        self.name = header.name;
+                    if (header) {
+                        // Header (from track line).  Set properties,unless set in the config (config takes precedence)
+                        if (header.name && !self.config.name) {
+                            self.name = header.name;
+                        }
+                        if (header.color && !self.config.color) {
+                            self.color = "rgb(" + header.color + ")";
+                        }
                     }
-                    if (header.color && !self.config.color) {
-                        self.color = "rgb(" + header.color + ")";
-                    }
-                }
-                return header;
+                    return header;
 
-            })
+                })
         }
         else {
             return Promise.resolve(null);
@@ -36004,9 +36044,11 @@ var igv = (function (igv) {
             baselineColor;
 
 
+        this.currentFeatures = options.features;    // Cache for popup text
+
         // Temp hack
-        if(typeof self.color === "string" && self.color.startsWith("rgb(")) {
-            baselineColor =  igv.Color.addAlpha(self.color, 0.1);
+        if (typeof self.color === "string" && self.color.startsWith("rgb(")) {
+            baselineColor = igv.Color.addAlpha(self.color, 0.1);
         }
 
 
@@ -36042,7 +36084,7 @@ var igv = (function (igv) {
                 features.forEach(renderFeature);
 
                 // If the track includes negative values draw a baseline
-                if(featureValueMinimum < 0) {
+                if (featureValueMinimum < 0) {
                     var alpha = ctx.lineWidth;
                     ctx.lineWidth = 5;
                     var basepx = (featureValueMaximum / (featureValueMaximum - featureValueMinimum)) * options.pixelHeight;
@@ -36105,6 +36147,44 @@ var igv = (function (igv) {
 
     };
 
+    igv.WIGTrack.prototype.popupData = function (config) {
+
+        // We use the featureCache property rather than method to avoid async load.  If the
+        // feature is not already loaded this won't work,  but the user wouldn't be mousing over it either.
+        if (this.currentFeatures) {
+
+            var genomicLocation = config.genomicLocation,
+
+                referenceFrame = config.viewport.genomicState.referenceFrame,
+                tolerance,
+                featureList,
+                popupData,
+                selectedFeature;
+
+            featureList = this.currentFeatures;
+
+            if (featureList.length > 0) {
+
+                popupData = [];
+
+                // We need some tolerance around genomicLocation, start with +/- 2 pixels
+                tolerance = 2 * referenceFrame.bpPerPixel;
+                selectedFeature = binarySearch(featureList, genomicLocation, tolerance);
+
+                if (selectedFeature) {
+                    popupData.push({name: "Position:", value: igv.numberFormatter(selectedFeature.start + 1) + "-" + igv.numberFormatter(selectedFeature.end)});
+                    popupData.push({name: "Value:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", value: igv.numberFormatter(selectedFeature.value)});
+                }
+
+                return popupData;
+            }
+
+        }
+        else {
+            return null;
+        }
+    }
+
     function autoscale(features) {
         var min = 0,
             max = -Number.MAX_VALUE;
@@ -36123,6 +36203,79 @@ var igv = (function (igv) {
         return (a > 0 && b < 0 || a < 0 && b > 0);
     }
 
+    /**
+     * Return the closest feature to the genomic position +/- the specified tolerance.  Closest is defined
+     * by the minimum of the distance between position and start or end of the feature.
+     *
+     * @param features
+     * @param position
+     * @returns {*}
+     */
+    function binarySearch(features, position, tolerance) {
+        var startIndex = 0,
+            stopIndex = features.length - 1,
+            index = (startIndex + stopIndex) >> 1,
+            candidateFeature,
+            tmp, delta;
+
+
+        // Use binary search to get the index of at least 1 feature in the click tolerance bounds
+        while (!test(features[index], position, tolerance) && startIndex < stopIndex) {
+            if (position < features[index].start) {
+                stopIndex = index - 1;
+            } else if (position > features[index].end) {
+                startIndex = index + 1;
+            }
+
+            index = (startIndex + stopIndex) >> 1;
+        }
+
+        if (test(features[index], position, tolerance)) {
+
+            candidateFeature = features[index];
+            if (test(candidateFeature, position, 0)) return candidateFeature;
+
+            // Else, find closest feature to click
+            tmp = index;
+            while (tmp-- >= 0) {
+                if (!test(features[tmp]), position, tolerance) {
+                    break;
+                }
+                if (test(features[tmp], position, 0)) {
+                    return features[tmp];
+                }
+                if (delta(features[tmp], position) < delta(candidateFeature, position)) {
+                    candidateFeature = features[tmp];
+                }
+
+                tmp = index;
+                while (tmp++ < features.length) {
+                    if (!test(features[tmp]), position, tolerance) {
+                        break;
+                    }
+                    if (test(features[tmp], position, 0)) {
+                        return features[tmp];
+                    }
+                    if (delta(features[tmp], position) < delta(candidateFeature, position)) {
+                        candidateFeature = features[tmp];
+                    }
+                }
+            }
+            return candidateFeature;
+
+        } else {
+            console.log(position + ' not found!');
+            return undefined;
+        }
+
+        function test(feature, position, tolerance) {
+            return position >= (feature.start - tolerance) && position <= (feature.end + tolerance);
+        }
+
+        function delta(feature, position) {
+            return Math.min(Math.abs(feature.start - position), Math.abs(feature.end - position));
+        }
+    }
 
     return igv;
 
@@ -38040,8 +38193,13 @@ var igv = (function (igv) {
         };
 
         igv.graphics.fillRect(ctx, 0, 0, pixelWidth, pixelHeight, {'fillStyle': "rgb(255, 255, 255)"});
+        
+        // Determine a tick spacing such that there is at least 10 pixels between ticks
+        
+        var n = Math.ceil((this.maxLogP - this.minLogP) * 10 / pixelHeight);
+        
 
-        for (var p = 4; p <= track.maxLogP; p += 2) {
+        for (var p = 4; p <= track.maxLogP; p += n) {
 
             var x1,
                 x2,
@@ -38059,7 +38217,9 @@ var igv = (function (igv) {
 
             igv.graphics.strokeLine(ctx, x1, y1, x2, y2, font); // Offset dashes up by 2 pixel
 
-            igv.graphics.fillText(ctx, p, x1 - 1, y1 + 2, font); // Offset numbers down by 2 pixels; TODO: error
+            if(y1 > 8) {
+                igv.graphics.fillText(ctx, p, x1 - 1, y1 + 2, font);
+            } // Offset numbers down by 2 pixels;
         }
 
         font['textAlign'] = 'center';
@@ -38104,56 +38264,83 @@ var igv = (function (igv) {
 
         }
 
+        function autoscale(featureList, start, end) {
+
+            var values = featureList
+                .filter(function (eqtl) {
+                    return eqtl.position >= start && eqtl.position <= end
+                })
+                .map(function (eqtl) {
+                    return -Math.log(eqtl[self.pValueField]) / Math.LN10
+                })
+
+            return igv.Math.percentile(values, self.percentile);
+            
+        }
+
         function drawEqtls(drawSelected) {
 
-            var radius = drawSelected ? 2 * track.dotSize : track.dotSize,
-                eqtl, i, px, py, color, isSelected, snp, geneName, selection;
-
-
-            //ctx.fillStyle = igv.selection.colorForGene(eqtl.geneName);
-            igv.graphics.setProperties(ctx, {
-                fillStyle: "rgb(180, 180, 180)",
-                strokeStyle: "rgb(180, 180, 180)"
-            });
+            var radius = drawSelected ? 2 * self.dotSize : self.dotSize,
+                eqtl,
+                i,
+                px,
+                py,
+                color,
+                isSelected,
+                snp,
+                geneName,
+                selection,
+                capped;
 
             for (i = 0; i < len; i++) {
 
                 eqtl = featureList[i];
-                snp = eqtl.snp.toUpperCase();
-                geneName = eqtl[track.geneField].toUpperCase();
-                selection = igv.browser.selection;
-                isSelected = selection &&
-                (selection.snp === snp || selection.gene === geneName);
-
-                if (drawSelected && !isSelected) continue;
-
-                // Add eqtl's gene to the selection if this is the selected snp.
-                // TODO -- this should not be done here in the rendering code.
-                if (selection && selection.snp === snp) {
-                    selection.addGene(geneName);
-                }
-
-                if (drawSelected && selection) {
-                    color = selection.colorForGene(geneName);
-                }
-
-                if (drawSelected && color === undefined) continue;   // This should be impossible
-
-
-                px = (Math.round(eqtl.position  - bpStart + 0.5)) / bpPerPixel;
+                px = (Math.round(eqtl.position - bpStart + 0.5)) / bpPerPixel;
                 if (px < 0) continue;
                 else if (px > pixelWidth) break;
 
-                var mLogP = -Math.log(eqtl[track.pValueField]) / Math.LN10;
-                if (mLogP < track.minLogP) continue;
 
-                py = Math.max(0 + radius, pixelHeight - Math.round((mLogP - track.minLogP) / yScale));
-                eqtl.px = px;
-                eqtl.py = py;
+                snp = eqtl.snp.toUpperCase();
+                geneName = eqtl[self.geneField].toUpperCase();
+                selection = options.genomicState.selection;
+                isSelected = selection &&
+                    (selection.snp === snp || selection.gene === geneName);
 
-                if (color) igv.graphics.setProperties(ctx, {fillStyle: color, strokeStyle: "black"});
-                igv.graphics.fillCircle(ctx, px, py, radius);
-                igv.graphics.strokeCircle(ctx, px, py, radius);
+                if (!drawSelected || isSelected) {
+
+                    // Add eqtl's gene to the selection if this is the selected snp.
+                    // TODO -- this should not be done here in the rendering code.
+                    if (selection && selection.snp === snp) {
+                        selection.addGene(geneName);
+                    }
+
+                    var mLogP = -Math.log(eqtl[self.pValueField]) / Math.LN10;
+                    if (mLogP >= self.minLogP) {
+
+                        if(mLogP > self.maxLogP) {
+                            mLogP = self.maxLogP;
+                            capped = true;
+                        } else {
+                            capped = false;
+
+                        }
+
+                        py = Math.max(0 + radius, pixelHeight - Math.round((mLogP - self.minLogP) / yScale));
+                        eqtl.px = px;
+                        eqtl.py = py;
+
+                        if (drawSelected && selection) {
+                            color = selection.colorForGene(geneName);
+                            igv.graphics.setProperties(ctx, {fillStyle: color, strokeStyle: "black"});
+                        } else {
+                            color = capped ? "rgb(150, 150, 150)" : "rgb(180, 180, 180)";
+                            igv.graphics.setProperties(ctx, {fillStyle: color, strokeStyle: color});
+                        }
+
+                        igv.graphics.fillCircle(ctx, px, py, radius);
+                        igv.graphics.strokeCircle(ctx, px, py, radius);
+                    }
+                }
             }
         }
 
@@ -38169,16 +38356,15 @@ var igv = (function (igv) {
         igv.browser.update();
     }
 
-
-    igv.EqtlTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame)
-    };
-
-
     /**
      * Return "popup data" for feature @ genomic location.  Data is an array of key-value pairs
      */
-    igv.EqtlTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
+    igv.EqtlTrack.prototype.popupData = function (config) {
+    
+        var genomicLocation = config.genomicLocation,
+            xOffset = config.x,
+            yOffset = config.y,
+            referenceFrame = config.viewport.genomicState.referenceFrame;
 
         // We use the featureCache property rather than method to avoid async load.  If the
         // feature is not already loaded this won't work,  but the user wouldn't be mousing over it either.
@@ -38989,14 +39175,13 @@ var igv = (function (igv) {
     };
 
 
-    igv.GWASTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame)
-    };
+    igv.GWASTrack.prototype.popupData = function (config) {
 
-
-    igv.GWASTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
-
-        var i,
+        var genomicLocation = config.genomicLocation,
+            xOffset = config.x,
+            yOffset = config.y,
+            referenceFrame = config.viewport.genomicState.referenceFrame,
+            i,
             len,
             p,
             dbSnp,
@@ -39045,10 +39230,6 @@ var igv = (function (igv) {
 
         }
         return data;
-    };
-
-    igv.GWASTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame);
     };
 
     return igv;
@@ -39160,7 +39341,7 @@ var igv = (function (igv) {
 
                         if (json.error_code) {
                             //alert("Error querying trait " + self.trait + "  (error_code=" + json.error_code + ")");
-                            igv.presentAlert("Error querying trait " + self.trait + "  (error_code=" + json.error_code + ")");
+                            igv.presentAlert("Error querying trait " + self.trait + "  (error_code=" + json.error_code + ")", undefined);
                             fulfill(null);
                         }
                         else {
@@ -41052,8 +41233,7 @@ var igv = (function (igv) {
      */
     igv.createBrowser = function (parentDiv, config) {
 
-        var $content,
-            $header,
+        var $header,
             browser;
 
         if (igv.browser) {
@@ -41080,23 +41260,23 @@ var igv = (function (igv) {
 
         setControls(browser, config);
 
-        $content = $('<div class="igv-content-div">');
-        browser.$root.append($content);
+        browser.$content = $('<div class="igv-content-div">');
+        browser.$root.append(browser.$content);
 
         $header = $('<div id="igv-content-header">');
-        $content.append($header);
+        browser.$content.append($header);
 
-        $content.append(browser.trackContainerDiv);
+        browser.$content.append(browser.trackContainerDiv);
 
         // user feedback
-        browser.userFeedback = new igv.UserFeedback($content);
+        browser.userFeedback = new igv.UserFeedback(browser.$content);
         browser.userFeedback.hide();
 
         // Popover object -- singleton shared by all components
-        igv.popover = new igv.Popover($content);
+        igv.popover = new igv.Popover(browser.$content);
 
         // alert object -- singleton shared by all components
-        igv.alert = new igv.AlertDialog(browser.$root, "igv-alert");
+        igv.alert = new igv.AlertDialog(browser.$content, "igv-alert");
         igv.alert.hide();
 
         // Dialog object -- singleton shared by all components
@@ -41209,12 +41389,12 @@ var igv = (function (igv) {
 
                 } else {
                     errorString = 'Unrecognized locus ' + config.locus;
-                    igv.presentAlert(errorString);
+                    igv.presentAlert(errorString, undefined);
                 }
 
             })
             .catch(function (error) {
-                igv.presentAlert(error);
+                igv.presentAlert(error, undefined);
                 console.log(error);
             });
 
@@ -41271,7 +41451,7 @@ var igv = (function (igv) {
 
         if (!(conf.reference && conf.reference.fastaURL)) {
             //alert("Fatal error:  reference must be defined");
-            igv.presentAlert("Fatal error:  reference must be defined");
+            igv.presentAlert("Fatal error:  reference must be defined", undefined);
             throw new Error("Fatal error:  reference must be defined");
         }
 
@@ -41286,7 +41466,7 @@ var igv = (function (igv) {
 
             var reference = igv.Genome.KnownGenomes[genomeId];
 
-            if (!reference)igv.presentAlert("Uknown genome id: " + genomeId);
+            if (!reference)igv.presentAlert("Uknown genome id: " + genomeId, undefined);
 
             return reference;
         }
@@ -41351,14 +41531,14 @@ var igv = (function (igv) {
             $searchContainer.append(browser.$searchInput);
 
             browser.$searchInput.change(function (e) {
-                browser.parseSearchInput($(this).val());
+                browser.search($(this).val());
             });
 
             $faSearch = $('<i class="fa fa-search">');
             $searchContainer.append($faSearch);
 
             $faSearch.click(function () {
-                browser.parseSearchInput(browser.$searchInput.val());
+                browser.search(browser.$searchInput.val());
             });
 
 
@@ -42278,18 +42458,18 @@ var igv = (function (igv) {
         return $button;
     };
 
-    igv.presentAlert = function (obj) {
+    igv.presentAlert = function (alert, $parent) {
 
-        //console.trace();
+        var string;
 
-        var string = obj.message || obj;
+        string = alert.message || alert;
 
         if(httpMessages.hasOwnProperty(string)) {
             string = httpMessages[string];
         }
         
         igv.alert.$dialogLabel.text(string);
-        igv.alert.show(undefined);
+        igv.alert.show($parent);
 
         igv.popover.hide();
 
@@ -42299,7 +42479,7 @@ var igv = (function (igv) {
         "401": "Access unauthorized",
         "403": "Access forbidden",
         "404": "Not found"
-    }
+    };
 
 
     igv.attachDialogCloseHandlerWithParent = function ($parent, closeHandler) {
@@ -43491,7 +43671,7 @@ var igv = (function (igv) {
             return (this.low <= other.high && other.low <= this.high);
         } catch (e) {
             //alert(e);
-            igv.presentAlert(e);
+            igv.presentAlert(e, undefined);
         }
     }
 
@@ -44575,7 +44755,7 @@ var igv = (function (igv) {
                         locusString = loci.join(' ');
                     }
 
-                    igv.browser.parseSearchInput(locusString);
+                    igv.browser.search(locusString);
                 });
             }
 
@@ -46540,8 +46720,8 @@ var igv = (function (igv) {
             return Promise.resolve(group);
         }
         else {
-
             return self.readHeader()
+
                 .then(function (reader) {
 
                     var indexEntry = self.groupIndex[name];
@@ -46702,14 +46882,16 @@ var igv = (function (igv) {
     igv.TDFReader.prototype.readTiles = function (tileIndeces, nTracks) {
 
         var self = this;
-        
+
         tileIndeces.sort(function (a, b) {
             return a.position - b.position;
         })
-        
-        tileIndeces = tileIndeces.filter(function (idx) {return idx.size > 0;});
 
-        if(tileIndeces.length === 0) {
+        tileIndeces = tileIndeces.filter(function (idx) {
+            return idx.size > 0;
+        });
+
+        if (tileIndeces.length === 0) {
             return Promise.resolve([]);
         }
 
@@ -46717,7 +46899,6 @@ var igv = (function (igv) {
         var lastEntry = tileIndeces[tileIndeces.length - 1];
         var position = firstEntry.position;
         var size = (lastEntry.position + lastEntry.size) - position;
-
 
 
         return igv.xhr.loadArrayBuffer(self.path, igv.buildOptions(self.config, {
@@ -46869,6 +47050,10 @@ var igv = (function (igv) {
             cache,
             genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd),
             i;
+
+        if(chr.toLowerCase() === "all") {
+            return Promise.resolve([]);      // Whole genome view not yet supported
+        }
 
         genomicInterval.bpPerPixel = bpPerPixel;
 
@@ -47475,26 +47660,20 @@ var igv = (function (igv) {
         var menuItems = [],
             all;
 
-        if (trackView.track.config.type != 'sequence') {
+        if (trackView.track.config.type !== 'sequence') {
 
             menuItems.push(igv.trackMenuItem(popover, trackView, "Set track name", function () {
                 return "Track Name"
             }, trackView.track.name, function () {
 
-                var alphanumeric = parseAlphanumeric(igv.dialog.$dialogInput.val());
+                var value;
 
-                if (undefined !== alphanumeric) {
-                    igv.setTrackLabel(trackView.track, alphanumeric);
-                    trackView.update();
-                }
+                value = igv.dialog.$dialogInput.val().trim();
+                value = ('' === value || undefined === value) ? 'untitled' : value;
 
-                function parseAlphanumeric(value) {
+                igv.setTrackLabel(trackView.track, value);
 
-                    var alphanumeric_re = /(?=.*[a-zA-Z].*)([a-zA-Z0-9 ]+)/,
-                        alphanumeric = alphanumeric_re.exec(value);
-
-                    return (null !== alphanumeric) ? alphanumeric[0] : "untitled";
-                }
+                trackView.update();
 
             }, undefined));
 
@@ -48826,6 +49005,7 @@ var igv = (function (igv) {
             $header,
             $headerBlurb;
 
+        this.$parent = $parent;
         this.$container = $('<div>', { "id": id, "class": "igv-grid-container-alert-dialog" });
         $parent.append(this.$container);
 
@@ -48899,38 +49079,21 @@ var igv = (function (igv) {
         this.$container.hide();
     };
 
-    igv.AlertDialog.prototype.show = function ($host) {
+    igv.AlertDialog.prototype.show = function ($alternativeParent) {
 
-        var body_scrolltop,
-            track_origin,
-            track_size,
-            offset,
-            _top,
-            _left;
+        var obj,
+            $p;
 
-        body_scrolltop = $('body').scrollTop();
+        $p = $alternativeParent || this.$parent;
+        obj =
+            {
+                left: ($p.width() - this.$container.width())/2,
+                top: ($p.height() - this.$container.height())/2
 
-        if (this.$container.hasClass('igv-grid-container-dialog')) {
-
-            offset = $host.offset();
-
-            _top = offset.top + body_scrolltop;
-            _left = $host.outerWidth() - 300;
-
-            this.$container.offset( { left: _left, top: _top } );
-
-            //track_origin = $host.offset();
-            //track_size =
-            //{
-            //    width: $host.outerWidth(),
-            //    height: $host.outerHeight()
-            //};
-            //this.$container.offset( { left: (track_size.width - 300), top: (track_origin.top + body_scrolltop) } );
-            //this.$container.offset( igv.constrainBBox(this.$container, $(igv.browser.trackContainerDiv)) );
-        }
+            };
+        this.$container.css(obj);
 
         this.$container.show();
-
     };
 
     return igv;
@@ -49078,7 +49241,7 @@ var igv = (function (igv) {
         this.$container.append(this.$select);
 
         this.$select.on('change', function () {
-            browser.parseSearchInput( $(this).val() );
+            browser.search($(this).val());
         });
 
     };
@@ -49288,7 +49451,7 @@ var igv = (function (igv) {
             min = parseFloat(self.minInput.val());
             max = parseFloat(self.maxInput.val());
             if(isNaN(min) || isNaN(max)) {
-                igv.presentAlert("Must input numeric values");
+                igv.presentAlert("Must input numeric values", undefined);
             } else {
 
                 if (true === trackView.track.autoscale) {
@@ -49769,7 +49932,7 @@ var igv = (function (igv) {
                 x: trackLocationState.x,
                 y: trackLocationState.y
             };
-        dataList = track.popupDataWithConfiguration(config);
+        dataList = track.popupData(config);
 
         popupClickHandlerResult = igv.browser.fireEvent('trackclick', [track, dataList]);
 
@@ -50711,14 +50874,15 @@ var igv = (function (igv) {
         }
     };
 
-    igv.VariantTrack.prototype.popupDataWithConfiguration = function (config) {
-        return this.popupData(config.genomicLocation, config.x, config.y, config.viewport.genomicState.referenceFrame)
-    };
-
     /**
      * Return "popup data" for feature @ genomic location.  Data is an array of key-value pairs
-     */
-    igv.VariantTrack.prototype.popupData = function (genomicLocation, xOffset, yOffset, referenceFrame) {
+     */   
+    igv.VariantTrack.prototype.popupData = function (config) {
+
+        var genomicLocation = config.genomicLocation,
+            xOffset = config.x,
+            yOffset = config.y,
+            referenceFrame = config.viewport.genomicState.referenceFrame;
 
         // We use the featureCache property rather than method to avoid async load.  If the
         // feature is not already loaded this won't work,  but the user wouldn't be mousing over it either.
@@ -51076,12 +51240,10 @@ var igv = (function (igv) {
 
     igv.VcfParser.prototype.parseHeader = function (data) {
 
-        var lines = data.splitLines(),
-            len = lines.length,
-            line,
-            i,
-            j,
+        var dataWrapper,
             tokens,
+            line,
+            j,
             header = {},
             id,
             values,
@@ -51089,16 +51251,19 @@ var igv = (function (igv) {
             gtIdx,
             type;
 
+        dataWrapper = igv.getDataWrapper(data);
+
         // First line must be file format
-        if (lines[0].startsWith("##fileformat")) {
-            header.version = lines[0].substr(13);
+        line = dataWrapper.nextLine();
+        if (line.startsWith("##fileformat")) {
+            header.version = line.substr(13);
         }
         else {
             throw new Error("Invalid VCF file: missing fileformat line");
         }
 
-        for (i = 1; i < len; i++) {
-            line = lines[i].trim();
+        while (line = dataWrapper.nextLine()) {
+
             if (line.startsWith("#")) {
 
                 id = null;
@@ -51196,17 +51361,20 @@ var igv = (function (igv) {
      */
     igv.VcfParser.prototype.parseFeatures = function (data) {
 
-        var lines = data.split("\n"),
+        var dataWrapper,
+            line,
             allFeatures = [],
-            callSets = this.header.callSets;
+            callSets = this.header.callSets,
+            variant,
+            tokens,
+            callFields,
+            index,
+            token;
 
-        lines.forEach(function (line) {
 
-            var variant,
-                tokens,
-                callFields,
-                index,
-                token;
+        dataWrapper = igv.getDataWrapper(data);
+
+        while (line = dataWrapper.nextLine()) {
 
             if (!line.startsWith("#")) {
 
@@ -51256,126 +51424,10 @@ var igv = (function (igv) {
 
                 }
             }
-        });
+        }
 
         return allFeatures;
-
     }
-
-    //  Variant class moved to variant.js
-    //
-    // function Variant(tokens) {
-    //
-    //     var self = this,
-    //         altTokens;
-    //
-    //     this.chr = tokens[0]; // TODO -- use genome aliases
-    //     this.pos = parseInt(tokens[1]);
-    //     this.names = tokens[2];    // id in VCF
-    //     this.referenceBases = tokens[3];
-    //     this.alternateBases = tokens[4];
-    //     this.quality = parseInt(tokens[5]);
-    //     this.filter = tokens[6];
-    //     this.info = tokens[7];
-    //
-    //     // "ids" ("names" in ga4gh)
-    //
-    //     //Alleles
-    //     altTokens = this.alternateBases.split(",");
-    //
-    //     if (altTokens.length > 0) {
-    //
-    //         this.alleles = [];
-    //
-    //         this.start = Number.MAX_VALUE;
-    //         this.end = 0;
-    //
-    //         altTokens.forEach(function (alt) {
-    //             var a, s, e, diff;
-    //             if (alt.length > 0) {
-    //
-    //                 diff = self.referenceBases.length - alt.length;
-    //
-    //                 if (diff > 0) {
-    //                     // deletion, assume left padded
-    //                     s = self.pos - 1 + alt.length;
-    //                     e = s + diff;
-    //                 } else if (diff < 0) {
-    //                     // Insertion, assume left padded, insertion begins to "right" of last ref base
-    //                     s = self.pos - 1 + self.referenceBases.length;
-    //                     e = s + 1;     // Insertion between s & 3
-    //                 }
-    //                 else {
-    //                     // Substitution, SNP if seq.length == 1
-    //                     s = self.pos - 1;
-    //                     e = s + alt.length;
-    //                 }
-    //                 self.alleles.push({allele: alt, start: s, end: e});
-    //                 self.start = Math.min(self.start, s);
-    //                 self.end = Math.max(self.end, e);
-    //             }
-    //
-    //         });
-    //     }
-    //     else {
-    //         // Is this even legal VCF?  (NO alt alleles)
-    //         this.start = this.pos - 1;
-    //         this.end = this.pos;
-    //     }
-    //
-    //     // TODO -- genotype fields
-    // }
-    //
-    // Variant.prototype.popupData = function (genomicLocation, type) {
-    //
-    //     var fields, infoFields, nameString;
-    //
-    //     //infoFields = this.info.split(";");
-    //     var info = this.getInfoObj(this.info);
-    //
-    //     fields = [
-    //         {name: "Names", value: this.names},
-    //         {name: "Ref", value: this.referenceBases},
-    //         {name: "Alt", value: this.alternateBases},
-    //         {name: "Qual", value: this.quality},
-    //         {name: "Filter", value: this.filter},
-    //     ];
-    //
-    //     if ('str' === type) {
-    //         fields.push({
-    //             name: "Heterozygosity",
-    //             value: (info.AC && info.AN) ? this.calcHeterozygosity(info.AC, info.AN).toFixed(3) : 1
-    //         });
-    //     }
-    //
-    //     Object.keys(info).forEach(function (key) {
-    //         fields.push({name: key, value: info[key]});
-    //     })
-    //
-    //
-    //     return fields;
-    //
-    // }
-    //
-    // Variant.prototype.getInfoObj = function (infoStr) {
-    //     var info = {};
-    //     infoStr.split(';').forEach(function (elem) {
-    //         var element = elem.split('=');
-    //         info[element[0]] = element[1];
-    //     });
-    //     return info;
-    // };
-    //
-    // Variant.prototype.calcHeterozygosity = function (ac, an) {
-    //     var sum = 0;
-    //     an = parseInt(an);
-    //     var altFreqs = ac.split(',');
-    //     altFreqs.forEach(function (altFreq) {
-    //         var altFrac = parseInt(altFreq) / an;
-    //         sum += altFrac * altFrac;
-    //     });
-    //     return 1 - sum;
-    // };
 
 
     return igv;
@@ -51629,7 +51681,7 @@ var igv = (function (igv) {
                             locusString = loci.join(' ');
                         }
 
-                        igv.browser.parseSearchInput(locusString);
+                        igv.browser.search(locusString);
 
                     } else {
                         self.genomicState.referenceFrame.bpPerPixel /= 2;
@@ -51656,7 +51708,7 @@ var igv = (function (igv) {
                         self.trackView.track.altClick(genomicLocation, referenceFrame, e);
                     }
 
-                } else if (Math.abs(canvasCoords.x - mouseDownX) <= igv.browser.constants.dragThreshold && self.trackView.track.popupDataWithConfiguration) {
+                } else if (Math.abs(canvasCoords.x - mouseDownX) <= igv.browser.constants.dragThreshold && self.trackView.track.popupData) {
 
                     popupTimer = window.setTimeout(function () {
 
@@ -51881,11 +51933,13 @@ var igv = (function (igv) {
 
                 .catch(function (error) {
 
+                    console.error(error);
+                    
                     self.stopSpinner();
 
                     self.loading = false;
 
-                    igv.presentAlert(error);
+                    igv.presentAlert(error, undefined);
               
                 });
 
