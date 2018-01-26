@@ -29818,20 +29818,14 @@ var igv = (function (igv) {
             locusObject = {};
             a = locus.split(':');
 
-            chr = a[0];
-
-
-            if (chr.toLowerCase() === 'all') {
-                locusObject.chr = 'all';
-            } else {
-                chromosome = genome.getChromosome(chr);  // Map chr to official name from (possible) alias
-                if (!chromosome) {
-                    return false;          // Unknown chromosome
-                }
-                locusObject.chromosome = chromosome;     // Map chr to offical name from possible alias
-                locusObject.start = 0;
-                locusObject.end = chromosome.bpLength;
+            chr = a[ 0 ];
+            chromosome = genome.getChromosome(chr.toLowerCase());  // Map chr to official name from (possible) alias
+            if (!chromosome) {
+                return false;          // Unknown chromosome
             }
+            locusObject.chromosome = chromosome;     // Map chr to offical name from possible alias
+            locusObject.start = 0;
+            locusObject.end = chromosome.bpLength;
 
             // if just a chromosome name we are done
             if (1 === a.length) {
@@ -36841,15 +36835,13 @@ var igv = (function (igv) {
      * @param options
      */
     igv.ga4ghGet = function (options) {
-
         var url = options.url + "/" + options.entity + "/" + options.entityId;
         options.headers = ga4ghHeaders();
-
+        options.oauthToken = ga4ghToken();
         return igv.xhr.loadJson(url, options);      // Returns a promise
     }
 
     igv.ga4ghSearch = function (options) {
-
         return new Promise(function (fulfill, reject) {
             var results = options.results ? options.results : [],
                 url = options.url,
@@ -36889,11 +36881,11 @@ var igv = (function (igv) {
 
                 var sendData = JSON.stringify(body);
 
-                igv.xhr.loadJson(url,
-                    {
+                igv.xhr.loadJson(url, {
                         sendData: sendData,
                         contentType: "application/json",
-                        headers: ga4ghHeaders()
+                        headers: ga4ghHeaders(),
+                        oauthToken: ga4ghToken()
                     })
                     .then(function (json) {
                         var nextPageToken, tmp;
@@ -37069,24 +37061,21 @@ var igv = (function (igv) {
 
     }
 
-
-    function ga4ghHeaders() {
-
-        var headers = {},
-            acToken = igv.oauth.google.access_token;
+    function ga4ghToken() {
+        var acToken = igv.oauth.google.access_token;
 
         if (!acToken && typeof oauth !== "undefined") {
             // Check legacy variable
             acToken = oauth.google.access_token;
         }
-
-        headers["Cache-Control"] = "no-cache";
-        if (acToken) {
-            headers["Authorization"] = "Bearer " + acToken;
-        }
-        return headers;
-
+        return acToken;
     }
+
+    function ga4ghHeaders() {
+        return {
+            "Cache-Control": "no-cache"
+        };
+	}
 
     return igv;
 
