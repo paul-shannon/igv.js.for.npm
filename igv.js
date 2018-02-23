@@ -23116,6 +23116,850 @@ function jszlib_inflate_buffer(buffer, start, length, afterUncOffset) {
 
 })(typeof window != 'undefined' ? window : typeof global != 'undefined' ? global : typeof self != 'undefined' ? self : this);
 
+// Source: https://github.com/vadimg/js_bintrees
+// MIT license
+
+
+function TreeBase() {
+}
+
+// removes all nodes from the tree
+TreeBase.prototype.clear = function () {
+    this._root = null;
+    this.size = 0;
+};
+
+// returns node data if found, null otherwise
+TreeBase.prototype.find = function (data) {
+    var res = this._root;
+
+    while (res !== null) {
+        var c = this._comparator(data, res.data);
+        if (c === 0) {
+            return res.data;
+        }
+        else {
+            res = res.get_child(c > 0);
+        }
+    }
+
+    return null;
+};
+
+// returns iterator to node if found, null otherwise
+TreeBase.prototype.findIter = function (data) {
+    var res = this._root;
+    var iter = this.iterator();
+
+    while (res !== null) {
+        var c = this._comparator(data, res.data);
+        if (c === 0) {
+            iter._cursor = res;
+            return iter;
+        }
+        else {
+            iter._ancestors.push(res);
+            res = res.get_child(c > 0);
+        }
+    }
+
+    return null;
+};
+
+// Returns an iterator to the tree node at or immediately after the item
+TreeBase.prototype.lowerBound = function (item) {
+    var cur = this._root;
+    var iter = this.iterator();
+    var cmp = this._comparator;
+
+    while (cur !== null) {
+        var c = cmp(item, cur.data);
+        if (c === 0) {
+            iter._cursor = cur;
+            return iter;
+        }
+        iter._ancestors.push(cur);
+        cur = cur.get_child(c > 0);
+    }
+
+    for (var i = iter._ancestors.length - 1; i >= 0; --i) {
+        cur = iter._ancestors[i];
+        if (cmp(item, cur.data) < 0) {
+            iter._cursor = cur;
+            iter._ancestors.length = i;
+            return iter;
+        }
+    }
+
+    iter._ancestors.length = 0;
+    return iter;
+};
+
+// Returns an iterator to the tree node immediately after the item
+TreeBase.prototype.upperBound = function (item) {
+    var iter = this.lowerBound(item);
+    var cmp = this._comparator;
+
+    while (iter.data() !== null && cmp(iter.data(), item) === 0) {
+        iter.next();
+    }
+
+    return iter;
+};
+
+// returns null if tree is empty
+TreeBase.prototype.min = function () {
+    var res = this._root;
+    if (res === null) {
+        return null;
+    }
+
+    while (res.left !== null) {
+        res = res.left;
+    }
+
+    return res.data;
+};
+
+// returns null if tree is empty
+TreeBase.prototype.max = function () {
+    var res = this._root;
+    if (res === null) {
+        return null;
+    }
+
+    while (res.right !== null) {
+        res = res.right;
+    }
+
+    return res.data;
+};
+
+// returns a null iterator
+// call next() or prev() to point to an element
+TreeBase.prototype.iterator = function () {
+    return new Iterator(this);
+};
+
+// calls cb on each node's data, in order
+TreeBase.prototype.each = function (cb) {
+    var it = this.iterator(), data;
+    while ((data = it.next()) !== null) {
+        cb(data);
+    }
+};
+
+// calls cb on each node's data, in reverse order
+TreeBase.prototype.reach = function (cb) {
+    var it = this.iterator(), data;
+    while ((data = it.prev()) !== null) {
+        cb(data);
+    }
+};
+
+
+function Iterator(tree) {
+    this._tree = tree;
+    this._ancestors = [];
+    this._cursor = null;
+}
+
+Iterator.prototype.data = function () {
+    return this._cursor !== null ? this._cursor.data : null;
+};
+
+// if null-iterator, returns first node
+// otherwise, returns next node
+Iterator.prototype.next = function () {
+    if (this._cursor === null) {
+        var root = this._tree._root;
+        if (root !== null) {
+            this._minNode(root);
+        }
+    }
+    else {
+        if (this._cursor.right === null) {
+            // no greater node in subtree, go up to parent
+            // if coming from a right child, continue up the stack
+            var save;
+            do {
+                save = this._cursor;
+                if (this._ancestors.length) {
+                    this._cursor = this._ancestors.pop();
+                }
+                else {
+                    this._cursor = null;
+                    break;
+                }
+            } while (this._cursor.right === save);
+        }
+        else {
+            // get the next node from the subtree
+            this._ancestors.push(this._cursor);
+            this._minNode(this._cursor.right);
+        }
+    }
+    return this._cursor !== null ? this._cursor.data : null;
+};
+
+// if null-iterator, returns last node
+// otherwise, returns previous node
+Iterator.prototype.prev = function () {
+    if (this._cursor === null) {
+        var root = this._tree._root;
+        if (root !== null) {
+            this._maxNode(root);
+        }
+    }
+    else {
+        if (this._cursor.left === null) {
+            var save;
+            do {
+                save = this._cursor;
+                if (this._ancestors.length) {
+                    this._cursor = this._ancestors.pop();
+                }
+                else {
+                    this._cursor = null;
+                    break;
+                }
+            } while (this._cursor.left === save);
+        }
+        else {
+            this._ancestors.push(this._cursor);
+            this._maxNode(this._cursor.left);
+        }
+    }
+    return this._cursor !== null ? this._cursor.data : null;
+};
+
+Iterator.prototype._minNode = function (start) {
+    while (start.left !== null) {
+        this._ancestors.push(start);
+        start = start.left;
+    }
+    this._cursor = start;
+};
+
+Iterator.prototype._maxNode = function (start) {
+    while (start.right !== null) {
+        this._ancestors.push(start);
+        start = start.right;
+    }
+    this._cursor = start;
+};
+
+
+function Node(data) {
+    this.data = data;
+    this.left = null;
+    this.right = null;
+    this.red = true;
+}
+
+Node.prototype.get_child = function (dir) {
+    return dir ? this.right : this.left;
+};
+
+Node.prototype.set_child = function (dir, val) {
+    if (dir) {
+        this.right = val;
+    }
+    else {
+        this.left = val;
+    }
+};
+
+function RBTree(comparator) {
+    this._root = null;
+    this._comparator = comparator;
+    this.size = 0;
+}
+
+RBTree.prototype = new TreeBase();
+
+// returns true if inserted, false if duplicate
+RBTree.prototype.insert = function (data) {
+    var ret = false;
+
+    if (this._root === null) {
+        // empty tree
+        this._root = new Node(data);
+        ret = true;
+        this.size++;
+    }
+    else {
+        var head = new Node(undefined); // fake tree root
+
+        var dir = 0;
+        var last = 0;
+
+        // setup
+        var gp = null; // grandparent
+        var ggp = head; // grand-grand-parent
+        var p = null; // parent
+        var node = this._root;
+        ggp.right = this._root;
+
+        // search down
+        while (true) {
+            if (node === null) {
+                // insert new node at the bottom
+                node = new Node(data);
+                p.set_child(dir, node);
+                ret = true;
+                this.size++;
+            }
+            else if (is_red(node.left) && is_red(node.right)) {
+                // color flip
+                node.red = true;
+                node.left.red = false;
+                node.right.red = false;
+            }
+
+            // fix red violation
+            if (is_red(node) && is_red(p)) {
+                var dir2 = ggp.right === gp;
+
+                if (node === p.get_child(last)) {
+                    ggp.set_child(dir2, single_rotate(gp, !last));
+                }
+                else {
+                    ggp.set_child(dir2, double_rotate(gp, !last));
+                }
+            }
+
+            var cmp = this._comparator(node.data, data);
+
+            // stop if found
+            if (cmp === 0) {
+                break;
+            }
+
+            last = dir;
+            dir = cmp < 0;
+
+            // update helpers
+            if (gp !== null) {
+                ggp = gp;
+            }
+            gp = p;
+            p = node;
+            node = node.get_child(dir);
+        }
+
+        // update root
+        this._root = head.right;
+    }
+
+    // make root black
+    this._root.red = false;
+
+    return ret;
+};
+
+// returns true if removed, false if not found
+RBTree.prototype.remove = function (data) {
+    if (this._root === null) {
+        return false;
+    }
+
+    var head = new Node(undefined); // fake tree root
+    var node = head;
+    node.right = this._root;
+    var p = null; // parent
+    var gp = null; // grand parent
+    var found = null; // found item
+    var dir = 1;
+
+    while (node.get_child(dir) !== null) {
+        var last = dir;
+
+        // update helpers
+        gp = p;
+        p = node;
+        node = node.get_child(dir);
+
+        var cmp = this._comparator(data, node.data);
+
+        dir = cmp > 0;
+
+        // save found node
+        if (cmp === 0) {
+            found = node;
+        }
+
+        // push the red node down
+        if (!is_red(node) && !is_red(node.get_child(dir))) {
+            if (is_red(node.get_child(!dir))) {
+                var sr = single_rotate(node, dir);
+                p.set_child(last, sr);
+                p = sr;
+            }
+            else if (!is_red(node.get_child(!dir))) {
+                var sibling = p.get_child(!last);
+                if (sibling !== null) {
+                    if (!is_red(sibling.get_child(!last)) && !is_red(sibling.get_child(last))) {
+                        // color flip
+                        p.red = false;
+                        sibling.red = true;
+                        node.red = true;
+                    }
+                    else {
+                        var dir2 = gp.right === p;
+
+                        if (is_red(sibling.get_child(last))) {
+                            gp.set_child(dir2, double_rotate(p, last));
+                        }
+                        else if (is_red(sibling.get_child(!last))) {
+                            gp.set_child(dir2, single_rotate(p, last));
+                        }
+
+                        // ensure correct coloring
+                        var gpc = gp.get_child(dir2);
+                        gpc.red = true;
+                        node.red = true;
+                        gpc.left.red = false;
+                        gpc.right.red = false;
+                    }
+                }
+            }
+        }
+    }
+
+    // replace and remove if found
+    if (found !== null) {
+        found.data = node.data;
+        p.set_child(p.right === node, node.get_child(node.left === null));
+        this.size--;
+    }
+
+    // update root and make it black
+    this._root = head.right;
+    if (this._root !== null) {
+        this._root.red = false;
+    }
+
+    return found !== null;
+};
+
+function is_red(node) {
+    return node !== null && node.red;
+}
+
+function single_rotate(root, dir) {
+    var save = root.get_child(!dir);
+
+    root.set_child(!dir, save.get_child(dir));
+    save.set_child(dir, root);
+
+    root.red = true;
+    save.red = false;
+
+    return save;
+}
+
+function double_rotate(root, dir) {
+    root.set_child(!dir, single_rotate(root.get_child(!dir), !dir));
+    return single_rotate(root, dir);
+}
+
+
+//  Source: https://github.com/welch/tdigest
+//  MIT License
+//
+// TDigest:
+//
+// approximate distribution percentiles from a stream of reals
+//
+
+
+function TDigest(delta, K, CX) {
+    // allocate a TDigest structure.
+    //
+    // delta is the compression factor, the max fraction of mass that
+    // can be owned by one centroid (bigger, up to 1.0, means more
+    // compression). delta=false switches off TDigest behavior and treats
+    // the distribution as discrete, with no merging and exact values
+    // reported.
+    //
+    // K is a size threshold that triggers recompression as the TDigest
+    // grows during input.  (Set it to 0 to disable automatic recompression)
+    //
+    // CX specifies how often to update cached cumulative totals used
+    // for quantile estimation during ingest (see cumulate()).  Set to
+    // 0 to use exact quantiles for each new point.
+    //
+    this.discrete = (delta === false);
+    this.delta = delta || 0.01;
+    this.K = (K === undefined) ? 25 : K;
+    this.CX = (CX === undefined) ? 1.1 : CX;
+    this.centroids = new RBTree(compare_centroid_means);
+    this.nreset = 0;
+    this.reset();
+}
+
+TDigest.prototype.reset = function () {
+    // prepare to digest new points.
+    //
+    this.centroids.clear();
+    this.n = 0;
+    this.nreset += 1;
+    this.last_cumulate = 0;
+};
+
+TDigest.prototype.size = function () {
+    return this.centroids.size;
+};
+
+TDigest.prototype.toArray = function (everything) {
+    // return {mean,n} of centroids as an array ordered by mean.
+    //
+    var result = [];
+    if (everything) {
+        this._cumulate(true); // be sure cumns are exact
+        this.centroids.each(function (c) {
+            result.push(c);
+        });
+    } else {
+        this.centroids.each(function (c) {
+            result.push({mean: c.mean, n: c.n});
+        });
+    }
+    return result;
+};
+
+TDigest.prototype.summary = function () {
+    var approx = (this.discrete) ? "exact " : "approximating ";
+    var s = [approx + this.n + " samples using " + this.size() + " centroids",
+        "min = " + this.percentile(0),
+        "Q1  = " + this.percentile(0.25),
+        "Q2  = " + this.percentile(0.5),
+        "Q3  = " + this.percentile(0.75),
+        "max = " + this.percentile(1.0)];
+    return s.join('\n');
+};
+
+function compare_centroid_means(a, b) {
+    // order two centroids by mean.
+    //
+    return (a.mean > b.mean) ? 1 : (a.mean < b.mean) ? -1 : 0;
+}
+
+function compare_centroid_mean_cumns(a, b) {
+    // order two centroids by mean_cumn.
+    //
+    return (a.mean_cumn - b.mean_cumn);
+}
+
+TDigest.prototype.push = function (x, n) {
+    // incorporate value or array of values x, having count n into the
+    // TDigest. n defaults to 1.
+    //
+    n = n || 1;
+    x = Array.isArray(x) ? x : [x];
+    for (var i = 0; i < x.length; i++) {
+        this._digest(x[i], n);
+    }
+};
+
+TDigest.prototype.push_centroid = function (c) {
+    // incorporate centroid or array of centroids c
+    //
+    c = Array.isArray(c) ? c : [c];
+    for (var i = 0; i < c.length; i++) {
+        this._digest(c[i].mean, c[i].n);
+    }
+};
+
+TDigest.prototype._cumulate = function (exact) {
+    // update cumulative counts for each centroid
+    //
+    // exact: falsey means only cumulate after sufficient
+    // growth. During ingest, these counts are used as quantile
+    // estimates, and they work well even when somewhat out of
+    // date. (this is a departure from the publication, you may set CX
+    // to 0 to disable).
+    //
+    if (this.n === this.last_cumulate ||
+        !exact && this.CX && this.CX > (this.n / this.last_cumulate)) {
+        return;
+    }
+    var cumn = 0;
+    this.centroids.each(function (c) {
+        c.mean_cumn = cumn + c.n / 2; // half of n at the mean
+        cumn = c.cumn = cumn + c.n;
+    });
+    this.n = this.last_cumulate = cumn;
+};
+
+TDigest.prototype.find_nearest = function (x) {
+    // find the centroid closest to x. The assumption of
+    // unique means and a unique nearest centroid departs from the
+    // paper, see _digest() below
+    //
+    if (this.size() === 0) {
+        return null;
+    }
+    var iter = this.centroids.lowerBound({mean: x}); // x <= iter || iter==null
+    var c = (iter.data() === null) ? iter.prev() : iter.data();
+    if (c.mean === x || this.discrete) {
+        return c; // c is either x or a neighbor (discrete: no distance func)
+    }
+    var prev = iter.prev();
+    if (prev && Math.abs(prev.mean - x) < Math.abs(c.mean - x)) {
+        return prev;
+    } else {
+        return c;
+    }
+};
+
+TDigest.prototype._new_centroid = function (x, n, cumn) {
+    // create and insert a new centroid into the digest (don't update
+    // cumulatives).
+    //
+    var c = {mean: x, n: n, cumn: cumn};
+    this.centroids.insert(c);
+    this.n += n;
+    return c;
+};
+
+TDigest.prototype._addweight = function (nearest, x, n) {
+    // add weight at location x to nearest centroid.  adding x to
+    // nearest will not shift its relative position in the tree and
+    // require reinsertion.
+    //
+    if (x !== nearest.mean) {
+        nearest.mean += n * (x - nearest.mean) / (nearest.n + n);
+    }
+    nearest.cumn += n;
+    nearest.mean_cumn += n / 2;
+    nearest.n += n;
+    this.n += n;
+};
+
+TDigest.prototype._digest = function (x, n) {
+    // incorporate value x, having count n into the TDigest.
+    //
+    var min = this.centroids.min();
+    var max = this.centroids.max();
+    var nearest = this.find_nearest(x);
+    if (nearest && nearest.mean === x) {
+        // accumulate exact matches into the centroid without
+        // limit. this is a departure from the paper, made so
+        // centroids remain unique and code can be simple.
+        this._addweight(nearest, x, n);
+    } else if (nearest === min) {
+        this._new_centroid(x, n, 0); // new point around min boundary
+    } else if (nearest === max) {
+        this._new_centroid(x, n, this.n); // new point around max boundary
+    } else if (this.discrete) {
+        this._new_centroid(x, n, nearest.cumn); // never merge
+    } else {
+        // conider a merge based on nearest centroid's capacity. if
+        // there's not room for all of n, don't bother merging any of
+        // it into nearest, as we'll have to make a new centroid
+        // anyway for the remainder (departure from the paper).
+        var p = nearest.mean_cumn / this.n;
+        var max_n = Math.floor(4 * this.n * this.delta * p * (1 - p));
+        if (max_n - nearest.n >= n) {
+            this._addweight(nearest, x, n);
+        } else {
+            this._new_centroid(x, n, nearest.cumn);
+        }
+    }
+    this._cumulate(false);
+    if (!this.discrete && this.K && this.size() > this.K / this.delta) {
+        // re-process the centroids and hope for some compression.
+        this.compress();
+    }
+};
+
+TDigest.prototype.bound_mean = function (x) {
+    // find centroids lower and upper such that lower.mean < x <
+    // upper.mean or lower.mean === x === upper.mean. Don't call
+    // this for x out of bounds.
+    //
+    var iter = this.centroids.upperBound({mean: x}); // x < iter
+    var lower = iter.prev();      // lower <= x
+    var upper = (lower.mean === x) ? lower : iter.next();
+    return [lower, upper];
+};
+
+TDigest.prototype.p_rank = function (x_or_xlist) {
+    // return approximate percentile-ranks (0..1) for data value x.
+    // or list of x.  calculated according to
+    // https://en.wikipedia.org/wiki/Percentile_rank
+    //
+    // (Note that in continuous mode, boundary sample values will
+    // report half their centroid weight inward from 0/1 as the
+    // percentile-rank. X values outside the observed range return
+    // 0/1)
+    //
+    // this triggers cumulate() if cumn's are out of date.
+    //
+    var xs = Array.isArray(x_or_xlist) ? x_or_xlist : [x_or_xlist];
+    var ps = xs.map(this._p_rank, this);
+    return Array.isArray(x_or_xlist) ? ps : ps[0];
+};
+
+TDigest.prototype._p_rank = function (x) {
+    if (this.size() === 0) {
+        return undefined;
+    } else if (x < this.centroids.min().mean) {
+        return 0.0;
+    } else if (x > this.centroids.max().mean) {
+        return 1.0;
+    }
+    // find centroids that bracket x and interpolate x's cumn from
+    // their cumn's.
+    this._cumulate(true); // be sure cumns are exact
+    var bound = this.bound_mean(x);
+    var lower = bound[0], upper = bound[1];
+    if (this.discrete) {
+        return lower.cumn / this.n;
+    } else {
+        var cumn = lower.mean_cumn;
+        if (lower !== upper) {
+            cumn += (x - lower.mean) * (upper.mean_cumn - lower.mean_cumn) / (upper.mean - lower.mean);
+        }
+        return cumn / this.n;
+    }
+};
+
+TDigest.prototype.bound_mean_cumn = function (cumn) {
+    // find centroids lower and upper such that lower.mean_cumn < x <
+    // upper.mean_cumn or lower.mean_cumn === x === upper.mean_cumn. Don't call
+    // this for cumn out of bounds.
+    //
+    // XXX because mean and mean_cumn give rise to the same sort order
+    // (up to identical means), use the mean rbtree for our search.
+    this.centroids._comparator = compare_centroid_mean_cumns;
+    var iter = this.centroids.upperBound({mean_cumn: cumn}); // cumn < iter
+    this.centroids._comparator = compare_centroid_means;
+    var lower = iter.prev();      // lower <= cumn
+    var upper = (lower && lower.mean_cumn === cumn) ? lower : iter.next();
+    return [lower, upper];
+};
+
+TDigest.prototype.percentile = function (p_or_plist) {
+    // for percentage p (0..1), or for each p in a list of ps, return
+    // the smallest data value q at which at least p percent of the
+    // observations <= q.
+    //
+    // for discrete distributions, this selects q using the Nearest
+    // Rank Method
+    // (https://en.wikipedia.org/wiki/Percentile#The_Nearest_Rank_method)
+    // (in scipy, same as percentile(...., interpolation='higher')
+    //
+    // for continuous distributions, interpolates data values between
+    // count-weighted bracketing means.
+    //
+    // this triggers cumulate() if cumn's are out of date.
+    //
+    var ps = Array.isArray(p_or_plist) ? p_or_plist : [p_or_plist];
+    var qs = ps.map(this._percentile, this);
+    return Array.isArray(p_or_plist) ? qs : qs[0];
+};
+
+TDigest.prototype._percentile = function (p) {
+    if (this.size() === 0) {
+        return undefined;
+    }
+    this._cumulate(true); // be sure cumns are exact
+    var h = this.n * p;
+    var bound = this.bound_mean_cumn(h);
+    var lower = bound[0], upper = bound[1];
+
+    if (upper === lower || lower === null || upper === null) {
+        return (lower || upper).mean;
+    } else if (!this.discrete) {
+        return lower.mean + (h - lower.mean_cumn) * (upper.mean - lower.mean) / (upper.mean_cumn - lower.mean_cumn);
+    } else if (h <= lower.cumn) {
+        return lower.mean;
+    } else {
+        return upper.mean;
+    }
+};
+
+function pop_random(choices) {
+    // remove and return an item randomly chosen from the array of choices
+    // (mutates choices)
+    //
+    var idx = Math.floor(Math.random() * choices.length);
+    return choices.splice(idx, 1)[0];
+}
+
+TDigest.prototype.compress = function () {
+    // TDigests experience worst case compression (none) when input
+    // increases monotonically.  Improve on any bad luck by
+    // reconsuming digest centroids as if they were weighted points
+    // while shuffling their order (and hope for the best).
+    //
+    if (this.compressing) {
+        return;
+    }
+    var points = this.toArray();
+    this.reset();
+    this.compressing = true;
+    while (points.length > 0) {
+        this.push_centroid(pop_random(points));
+    }
+    this._cumulate(true);
+    this.compressing = false;
+};
+
+function Digest(config) {
+    // allocate a distribution digest structure. This is an extension
+    // of a TDigest structure that starts in exact histogram (discrete)
+    // mode, and automatically switches to TDigest mode for large
+    // samples that appear to be from a continuous distribution.
+    //
+    this.config = config || {};
+    this.mode = this.config.mode || 'auto'; // disc, cont, auto
+    TDigest.call(this, this.mode === 'cont' ? config.delta : false);
+    this.digest_ratio = this.config.ratio || 0.9;
+    this.digest_thresh = this.config.thresh || 1000;
+    this.n_unique = 0;
+}
+Digest.prototype = Object.create(TDigest.prototype);
+Digest.prototype.constructor = Digest;
+
+Digest.prototype.push = function (x_or_xlist) {
+    TDigest.prototype.push.call(this, x_or_xlist);
+    this.check_continuous();
+};
+
+Digest.prototype._new_centroid = function (x, n, cumn) {
+    this.n_unique += 1;
+    TDigest.prototype._new_centroid.call(this, x, n, cumn);
+};
+
+Digest.prototype._addweight = function (nearest, x, n) {
+    if (nearest.n === 1) {
+        this.n_unique -= 1;
+    }
+    TDigest.prototype._addweight.call(this, nearest, x, n);
+};
+
+Digest.prototype.check_continuous = function () {
+    // while in 'auto' mode, if there are many unique elements, assume
+    // they are from a continuous distribution and switch to 'cont'
+    // mode (tdigest behavior). Return true on transition from
+    // disctete to continuous.
+    if (this.mode !== 'auto' || this.size() < this.digest_thresh) {
+        return false;
+    }
+    if (this.n_unique / this.size() > this.digest_ratio) {
+        this.mode = 'cont';
+        this.discrete = false;
+        this.delta = this.config.delta || 0.01;
+        this.compress();
+        return true;
+    }
+    return false;
+};
+
 /*
  * The MIT License (MIT)
  *
@@ -23180,11 +24024,17 @@ var igv = (function (igv) {
             return alignment.isMapped() && !alignment.isFailsVendorQualityCheck();
         }
 
+        this.pairedEndStats = new PairedEndStats();
+
     }
 
     igv.AlignmentContainer.prototype.push = function (alignment) {
 
         if (this.filter(alignment) === false) return;
+
+        if (alignment.isPaired()) {
+            this.pairedEndStats.push(alignment);
+        }
 
         this.coverageMap.incCounts(alignment);   // Count coverage before any downsampling
 
@@ -23212,7 +24062,7 @@ var igv = (function (igv) {
         }
 
         // Need to remove partial pairs whose mate was downsampled
-        if(this.pairsSupported) {
+        if (this.pairsSupported) {
             var tmp = [], ds = this.downsampledReads;
 
             this.alignments.forEach(function (a) {
@@ -23229,6 +24079,8 @@ var igv = (function (igv) {
 
         this.pairsCache = undefined;
         this.downsampledReads = undefined;
+
+        this.pairedEndStats.compute();
     }
 
     igv.AlignmentContainer.prototype.contains = function (chr, start, end) {
@@ -23300,7 +24152,7 @@ var igv = (function (igv) {
 
                 if (this.pairsSupported && canBePaired(alignment)) {
 
-                    if(this.pairsCache[replacedAlignment.readName] !== undefined) {
+                    if (this.pairsCache[replacedAlignment.readName] !== undefined) {
                         this.pairsCache[replacedAlignment.readName] = undefined;
                     }
 
@@ -23433,7 +24285,7 @@ var igv = (function (igv) {
 
     };
 
-    DownsampledInterval = function (start, end, counts) {
+    function DownsampledInterval(start, end, counts) {
         this.start = start;
         this.end = end;
         this.counts = counts;
@@ -23444,6 +24296,67 @@ var igv = (function (igv) {
             {name: "start", value: this.start + 1},
             {name: "end", value: this.end},
             {name: "# downsampled:", value: this.counts}]
+    }
+
+    function PairedEndStats(lowerPercentile, upperPercentile) {
+        this.totalCount = 0;
+        this.frCount = 0;
+        this.rfCount = 0;
+        this.ffCount = 0;
+        this.sumF = 0;
+        this.sumF2 = 0;
+        //this.lp = lowerPercentile === undefined ? 0.005 : lowerPercentile;
+        //this.up = upperPercentile === undefined ? 0.995 : upperPercentile;
+        //this.digest = new Digest();
+    }
+
+    PairedEndStats.prototype.push = function (alignment) {
+
+        if (alignment.isProperPair()) {
+
+            var fragmentLength = Math.abs(alignment.fragmentLength);
+            //this.digest.push(fragmentLength);
+            this.sumF += fragmentLength;
+            this.sumF2 += fragmentLength * fragmentLength;
+
+            var po = alignment.pairOrientation;
+
+            if (typeof po === "string" && po.length == 4) {
+                var tmp = '' + po.charAt(0) + po.charAt(2);
+                switch (tmp) {
+                    case 'FF':
+                    case 'RR':
+                        this.ffCount++;
+                        break;
+                    case "FR":
+                        this.frCount++;
+                        break;
+                    case"RF":
+                        this.rfCount++;
+                }
+            }
+            this.totalCount++;
+        }
+    }
+
+    PairedEndStats.prototype.compute = function () {
+
+        if (this.totalCount > 100) {
+            if (this.ffCount / this.totalCount > 0.9) this.orienation = "ff";
+            else if (this.frCount / this.totalCount > 0.9) this.orienation = "fr";
+            else if (this.rfCount / this.totalCount > 0.9) this.orienation = "rf";
+
+
+            var fMean = this.sumF / this.totalCount;
+            var stdDev = Math.sqrt((this.totalCount * this.sumF2 - this.sumF * this.sumF) / (this.totalCount * this.totalCount));
+            this.lowerFragmentLength = fMean - 3*stdDev;
+            this.upperFragmentLength = fMean + 3*stdDev;
+
+            //this.lowerFragmentLength = this.digest.percentile(this.lp);
+            //this.upperFragmentLength = this.digest.percentile(this.up);
+            //this.digest = undefined;
+        }
+
     }
 
 
@@ -23663,6 +24576,9 @@ var igv = (function (igv) {
             nameValues.push("<hr>");
             nameValues.push({ name: 'First in Pair', value: !this.isSecondOfPair(), borderTop: true });
             nameValues.push({ name: 'Mate is Mapped', value: yesNo(this.isMateMapped()) });
+            if(this.pairOrientation) {
+                nameValues.push({name: 'Pair Orientation', value: this.pairOrientation});
+            }
             if (this.isMateMapped()) {
                 nameValues.push({ name: 'Mate Chromosome', value: this.mate.chr });
                 nameValues.push({ name: 'Mate Start', value: (this.mate.position + 1)});
@@ -24622,7 +25538,10 @@ var igv = (function (igv) {
         this.alignmentContainer = undefined;
         this.maxRows = config.maxRows || 1000;
 
-        if (config.url && config.url.startsWith("data:")) {
+        if (igv.isFilePath(config.url)) {
+            // do nothing
+            console.log('ignore');
+        } else if (config.url && config.url.startsWith("data:")) {
             this.config.indexed = false;
         }
 
@@ -24693,7 +25612,7 @@ var igv = (function (igv) {
                     alignmentContainer.alignments = undefined;  // Don't need to hold onto these anymore
 
                     self.alignmentContainer = alignmentContainer;
-
+                    
                     if (!hasAlignments) {
                         return alignmentContainer;
                     }
@@ -24930,10 +25849,25 @@ var igv = (function (igv) {
         // filter alignments
         this.filterOption = config.filterOption || {name: "mappingQuality", params: [30, undefined]};
 
+        this.minFragmentLength = config.minFragmentLength;   // Optional, might be undefined
+        this.maxFragmentLength = config.maxFragmentLength;
+
     };
 
     igv.BAMTrack.prototype.getFeatures = function (chr, bpStart, bpEnd) {
-        return this.featureSource.getAlignments(chr, bpStart, bpEnd);
+        var self = this;
+        return this.featureSource.getAlignments(chr, bpStart, bpEnd)
+            .then(function (alignmentContainer) {
+
+                if (undefined === self.minFragmentLength) {
+                    self.minFragmentLength = alignmentContainer.pairedEndStats.lowerFragmentLength;
+                }
+                if (undefined === self.maxFragmentLength) {
+                    self.maxFragmentLength = alignmentContainer.pairedEndStats.upperFragmentLength;
+                }
+
+                return alignmentContainer;
+            });
     };
 
     igv.BAMTrack.filters = {
@@ -25011,7 +25945,7 @@ var igv = (function (igv) {
             self.alignmentTrack.sortAlignmentRows(config.genomicLocation, self.sortOption);
 
             self.trackView.update();
-            
+
             self.sortDirection = !(self.sortDirection);
 
             config.popover.hide();
@@ -25062,12 +25996,12 @@ var igv = (function (igv) {
 
         colorByMenuItems.push({key: 'none', label: 'track color'});
 
-        if (!self.viewAsPairs) {
-            colorByMenuItems.push({key: 'strand', label: 'read strand'});
-        }
+        colorByMenuItems.push({key: 'strand', label: 'read strand'});
 
-        if (self.pairsSupported && self.alignmentTrack.hasPairs) {
+        if (self.alignmentTrack.hasPairs) {
             colorByMenuItems.push({key: 'firstOfPairStrand', label: 'first-of-pair strand'});
+            colorByMenuItems.push({key: 'pairOrientation', label: 'pair orientation'});
+            colorByMenuItems.push({key: 'fragmentLength', label: 'fragment length'});
         }
 
         tagLabel = 'tag' + (self.alignmentTrack.colorByTag ? ' (' + self.alignmentTrack.colorByTag + ')' : '');
@@ -25348,7 +26282,7 @@ var igv = (function (igv) {
     };
 
     CoverageTrack.prototype.popupData = function (config) {
-        
+
         var genomicLocation = config.genomicLocation,
             xOffset = config.x,
             yOffset = config.y,
@@ -25416,7 +26350,16 @@ var igv = (function (igv) {
         this.deletionColor = config.deletionColor || "black";
         this.skippedColor = config.skippedColor || "rgb(150, 170, 170)";
 
-        this.colorBy = config.colorBy || "none";
+        this.smallFragmentLengthColor = config.smallFragmentLengthColor || "rgb(0, 0, 150)";
+        this.largeFragmentLengthColor = config.largeFragmentLengthColor || "rgb(200, 0, 0)";
+
+        this.pairOrientation = config.pairOrienation;
+        this.pairColors = {};
+        this.pairColors["RL"] = config.rlColor || "rgb(0, 150, 0)";
+        this.pairColors["RR"] = config.rrColor || "rgb(20, 50, 200)";
+        this.pairColors["LL"] = config.llColor || "rgb(0, 150, 150)";
+
+        this.colorBy = config.colorBy || "pairOrientation";
         this.colorByTag = config.colorByTag;
         this.bamColorTag = config.bamColorTag === undefined ? "YC" : config.bamColorTag;
 
@@ -25692,7 +26635,7 @@ var igv = (function (igv) {
                 if (sequence && blockSeq !== "*") {
                     for (i = 0, len = blockSeq.length; i < len; i++) {
 
-                        if(seqOffset + i < 0) continue;
+                        if (seqOffset + i < 0) continue;
 
                         readChar = blockSeq.charAt(i);
                         refChar = sequence.charAt(seqOffset + i);
@@ -25836,30 +26779,30 @@ var igv = (function (igv) {
 
     function getAlignmentColor(alignment) {
 
-        var alignmentTrack = this,
-            option = alignmentTrack.colorBy,
+        var self = this,
+            option = self.colorBy,
             tagValue, color,
             strand;
 
-        color = alignmentTrack.parent.color;
+        color = self.parent.color;
 
         switch (option) {
 
             case "strand":
-                color = alignment.strand ? alignmentTrack.posStrandColor : alignmentTrack.negStrandColor;
+                color = alignment.strand ? self.posStrandColor : self.negStrandColor;
                 break;
 
             case "firstOfPairStrand":
                 if (alignment instanceof igv.PairedAlignment) {
-                    color = alignment.firstOfPairStrand() ? alignmentTrack.posStrandColor : alignmentTrack.negStrandColor;
+                    color = alignment.firstOfPairStrand() ? self.posStrandColor : self.negStrandColor;
                 }
                 else if (alignment.isPaired()) {
 
                     if (alignment.isFirstOfPair()) {
-                        color = alignment.strand ? alignmentTrack.posStrandColor : alignmentTrack.negStrandColor;
+                        color = alignment.strand ? self.posStrandColor : self.negStrandColor;
                     }
                     else if (alignment.isSecondOfPair()) {
-                        color = alignment.strand ? alignmentTrack.negStrandColor : alignmentTrack.posStrandColor;
+                        color = alignment.strand ? self.negStrandColor : self.posStrandColor;
                     }
                     else {
                         console.log("ERROR. Paired alignments are either first or second.")
@@ -25867,26 +26810,92 @@ var igv = (function (igv) {
                 }
                 break;
 
+            case "pairOrientation":
+                if (alignment.pairOrientation) {
+                    var oTypes = orientationTypes[self.pairOrientation];
+                    var pairColor = self.pairColors[oTypes[alignment.pairOrientation]];
+                    if (pairColor) color = pairColor;
+                }
+                break;
+
+            case "fragmentLength":
+                if (alignment.pairOrientation) {
+                    if (self.parent.minFragmentLength && Math.abs(alignment.fragmentLength) < self.parent.minFragmentLength) {
+                        color = self.smallFragmentLengthColor;
+                    } else if (self.parent.maxFragmentLength && Math.abs(alignment.fragmentLength) > self.parent.maxFragmentLength) {
+                        color = self.largeFragmentLengthColor;
+                    }
+                }
+                break;
+
             case "tag":
-                tagValue = alignment.tags()[alignmentTrack.colorByTag];
+                tagValue = alignment.tags()[self.colorByTag];
                 if (tagValue !== undefined) {
 
-                    if (alignmentTrack.bamColorTag === alignmentTrack.colorByTag) {
+                    if (self.bamColorTag === self.colorByTag) {
                         // UCSC style color option
                         color = "rgb(" + tagValue + ")";
                     }
                     else {
-                        color = alignmentTrack.tagColors.getColor(tagValue);
+                        color = self.tagColors.getColor(tagValue);
                     }
                 }
                 break;
 
             default:
-                color = alignmentTrack.parent.color;
+                color = self.parent.color;
         }
 
         return color;
 
+    }
+
+    var orientationTypes = {
+
+        "fr": {
+
+            "F1R2": "LR",
+            "F2R1": "LR",
+
+            "F1F2": "LL",
+            "F2F1": "LL",
+
+            "R1R2": "RR",
+            "R2R1": "RR",
+
+            "R1F2": "RL",
+            "R2F1": "RL"
+        },
+
+        "rf": {
+
+            "R1F2": "LR",
+            "R2F1": "LR",
+
+            "R1R2": "LL",
+            "R2R1": "LL",
+
+            "F1F2": "RR",
+            "F2F1": "RR",
+
+            "F1R2": "RL",
+            "F2R1": "RL"
+        },
+
+        "ff": {
+
+            "F2F1": "LR",
+            "R1R2": "LR",
+
+            "F2R1": "LL",
+            "R1F2": "LL",
+
+            "R2F1": "RR",
+            "F1R2": "RR",
+
+            "R2R1": "RL",
+            "F1F2": "RL"
+        }
     }
 
     return igv;
@@ -26021,7 +27030,7 @@ var igv = (function (igv) {
 
         },
 
-        bam_tag2cigar: function(ba, block_end, seq_offset, lseq, al, cigarArray) {
+        bam_tag2cigar: function (ba, block_end, seq_offset, lseq, al, cigarArray) {
 
             function type2size(x) {
                 if (x == 'C' || x == 'c' || x == 'A') return 1;
@@ -26034,26 +27043,27 @@ var igv = (function (igv) {
             if (cigarArray.length != 1 || al.start < 0) return false;
             var p = seq_offset + ((lseq + 1) >> 1) + lseq;
             while (p + 4 < block_end) {
-                var tag = String.fromCharCode(ba[p]) + String.fromCharCode(ba[p+1]);
+                var tag = String.fromCharCode(ba[p]) + String.fromCharCode(ba[p + 1]);
                 if (tag == 'CG') break;
-                var type = String.fromCharCode(ba[p+2]);
+                var type = String.fromCharCode(ba[p + 2]);
                 if (type == 'B') { // the binary array type
-                    type = String.fromCharCode(ba[p+3]);
+                    type = String.fromCharCode(ba[p + 3]);
                     var size = type2size(type);
-                    var len = readInt(ba, p+4);
+                    var len = readInt(ba, p + 4);
                     p += 8 + size * len;
                 } else if (type == 'Z' || type == 'H') { // 0-terminated string
                     p += 3;
-                    while (ba[p++] != 0) {}
+                    while (ba[p++] != 0) {
+                    }
                 } else { // other atomic types
                     p += 3 + type2size(type);
                 }
             }
             if (p >= block_end) return false; // no CG tag
-            if (String.fromCharCode(ba[p+2]) != 'B' || String.fromCharCode(ba[p+3]) != 'I') return false; // not of type B,I
+            if (String.fromCharCode(ba[p + 2]) != 'B' || String.fromCharCode(ba[p + 3]) != 'I') return false; // not of type B,I
 
             // now we know the real CIGAR length and its offset in the binary array
-            var cigar_len = readInt(ba, p+4);
+            var cigar_len = readInt(ba, p + 4);
             var cigar_offset = p + 8; // 4 for "CGBI" and 4 for length
             if (cigar_offset + cigar_len * 4 > block_end) return false; // out of bound
 
@@ -26089,7 +27099,7 @@ var igv = (function (igv) {
          * @param chrNames            array of chromosome names
          * @param filter             a igv.BamFilter object
          */
-        decodeBamRecords: function (ba, offset, alignmentContainer,  chrNames, chrIdx, min, max,  filter) {
+        decodeBamRecords: function (ba, offset, alignmentContainer, chrNames, chrIdx, min, max, filter) {
 
             var blockSize, blockEnd, alignment, blocks, refID, pos, bin_mq_nl, bin, mq, nl, flag_nc, flag, nc, lseq, tlen,
                 mateChrIdx, matePos, readName, j, p, lengthOnRef, cigar, c, cigarArray, seq, seqBytes, qualArray;
@@ -26208,6 +27218,8 @@ var igv = (function (igv) {
                 alignment.qual = qualArray;
                 alignment.tagBA = new Uint8Array(ba.buffer.slice(p, blockEnd));  // decode these on demand
 
+                this.setPairOrientation(alignment);
+
                 if (!min || alignment.start <= max &&
                     alignment.start + alignment.lengthOnRef >= min &&
                     (undefined === filter || filter.pass(alignment))) {
@@ -26288,6 +27300,8 @@ var igv = (function (igv) {
                     };
                 }
 
+                this.setPairOrientation(alignment);
+
                 if (undefined === filter || filter.pass(alignment)) {
                     blocks = makeBlocks(alignment, cigarArray);
                     alignment.blocks = blocks.blocks;
@@ -26315,6 +27329,53 @@ var igv = (function (igv) {
             else {
                 reader.pairsSupported = config.pairsSupported === undefined ? true : config.pairsSupported;
             }
+        },
+
+        setPairOrientation: function (alignment) {
+
+            if (alignment.isMapped() && alignment.mate && alignment.isMateMapped() && alignment.mate.chr === alignment.chr) {
+                var s1 = alignment.strand ? 'F' : 'R';
+
+                var mate = alignment.mate;
+                var s2 = mate.strand ? 'F' : 'R';
+                var o1 = ' ';
+                var o2 = ' ';
+                if (alignment.isFirstOfPair()) {
+                    o1 = '1';
+                    o2 = '2';
+                } else if (alignment.isSecondOfPair()) {
+                    o1 = '2';
+                    o2 = '1';
+                }
+
+                var tmp = [];
+                var isize = alignment.fragmentLength;
+                var estReadLen = alignment.end - alignment.start;
+                if (isize == 0) {
+                    //isize not recorded.  Need to estimate.  This calculation was validated against an Illumina
+                    // -> <- library bam.
+                    var estMateEnd = alignment.start < mate.start ?
+                    mate.start + estReadLen : mate.start - estReadLen;
+                    isize = estMateEnd - alignment.start;
+                }
+
+                //if (isize > estReadLen) {
+                if (isize > 0) {
+                    tmp[0] = s1;
+                    tmp[1] = o1;
+                    tmp[2] = s2;
+                    tmp[3] = o2;
+
+                } else {
+                    tmp[2] = s1;
+                    tmp[3] = o1;
+                    tmp[0] = s2;
+                    tmp[1] = o2;
+                }
+                // }
+                alignment.pairOrientation = tmp.join('');
+            }
+
         }
     };
 
@@ -28935,11 +29996,13 @@ var igv = (function (igv) {
 
         // If defined, attempt to load the file header before adding the track.  This will catch some errors early
         if (typeof newTrack.getFileHeader === "function") {
-            newTrack.getFileHeader().then(function (header) {
-                self.addTrack(newTrack);
-            }).catch(function (error) {
-                igv.presentAlert(error, undefined);
-            });
+            newTrack.getFileHeader()
+                .then(function (header) {
+                    self.addTrack(newTrack);
+                })
+                .catch(function (error) {
+                    igv.presentAlert(error);
+                });
         } else {
             self.addTrack(newTrack);
         }
@@ -30030,7 +31093,7 @@ var igv = (function (igv) {
         var scope,
             results,
             eventHandler = this.eventHandlers[eventName];
-        
+
         if (undefined === eventHandler || eventHandler.length === 0) {
             return undefined;
         }
@@ -33275,9 +34338,12 @@ var igv = (function (igv) {
         var genomicInterval,
             featureCache,
             maxRows,
-            str;
+            str,
+            queryChr;
 
-        genomicInterval = new igv.GenomicInterval(chr, bpStart, bpEnd);
+        queryChr = (igv.browser && igv.browser.genome) ? igv.browser.genome.getChromosomeName(chr) : chr;
+
+        genomicInterval = new igv.GenomicInterval(queryChr, bpStart, bpEnd);
         featureCache = self.featureCache;
         maxRows = self.config.maxRows || 500;
         str = chr.toLowerCase();
@@ -33289,7 +34355,7 @@ var igv = (function (igv) {
                     return Promise.resolve(getWGFeatures(featureCache.allFeatures()));
                 }
                 else {
-                    return self.reader.readFeatures(chr)
+                    return self.reader.readFeatures(queryChr)
 
                         .then(function (featureList) {
 
@@ -33310,6 +34376,10 @@ var igv = (function (igv) {
             }
         }
 
+        else if (featureCache && (featureCache.range === undefined || featureCache.range.containsRange(genomicInterval))) {
+            return Promise.resolve(self.featureCache.queryFeatures(queryChr, bpStart, bpEnd));
+        }
+
         else {
 
             if (self.sourceType === 'file' && (self.visibilityWindow === undefined || self.visibilityWindow <= 0)) {
@@ -33319,7 +34389,7 @@ var igv = (function (igv) {
                 genomicInterval.end = (chromosome === undefined ? Number.MAX_VALUE : chromosome.bpLength);
             }
 
-            return self.reader.readFeatures(chr, genomicInterval.start, genomicInterval.end)
+            return self.reader.readFeatures(queryChr, genomicInterval.start, genomicInterval.end)
 
                 .then(
 
@@ -33578,7 +34648,7 @@ var igv = (function (igv) {
                 })
         }
         else {
-            return null;
+            return Promise.resolve(undefined);
         }
 
 
@@ -36188,6 +37258,8 @@ var igv = (function (igv) {
 
             this.info = json.info;
         }
+        
+        igv.BamUtils.setPairOrientation(this);
 
     }
 
@@ -36269,7 +37341,10 @@ var igv = (function (igv) {
             nameValues.push("<hr>");
             nameValues.push({name: 'First in Pair', value: !this.isSecondOfPair(), borderTop: true});
             nameValues.push({name: 'Mate is Mapped', value: yesNo(this.isMateMapped())});
-            if (this.isMapped()) {
+            if(this.pairOrientation) {
+                nameValues.push({name: 'Pair Orientation', value: this.pairOrientation});
+            }
+            if (this.isMateMapped()) {
                 nameValues.push({name: 'Mate Start', value: this.matePos});
                 nameValues.push({name: 'Mate Strand', value: (this.mateStrand() ? '(-)' : '(+)')});
                 nameValues.push({name: 'Insert Size', value: this.fragmentLength});
@@ -36279,7 +37354,6 @@ var igv = (function (igv) {
             }
             // First in Pair
             // Pair Orientation
-
         }
 
         nameValues.push("<hr>");
@@ -51349,7 +52423,7 @@ var igv = (function (igv) {
             this.$viewport.append($spinner);
             this.stopSpinner();
 
-            this.popover = new igv.Popover( igv.browser.$content );
+            this.popover = new igv.Popover(igv.browser.$content);
 
         }
 
@@ -51621,7 +52695,7 @@ var igv = (function (igv) {
             self.startSpinner();
 
             // console.log('get features');
-            getFeatures(referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel)
+            getFeatures.call(self, referenceFrame.chrName, bpStart, bpEnd, referenceFrame.bpPerPixel)
 
                 .then(function (features) {
 
@@ -51633,7 +52707,7 @@ var igv = (function (igv) {
                     self.loading = undefined;
 
                     self.stopSpinner();
-                    
+
                     if (features) {
 
                         if (typeof self.trackView.track.computePixelHeight === 'function') {
@@ -51665,7 +52739,7 @@ var igv = (function (igv) {
                         viewportContainerWidth: igv.browser.viewportContainerWidth()
                     };
 
-                    if(features) {
+                    if (features) {
 
                         drawConfiguration.features = features;
 
@@ -51743,12 +52817,12 @@ var igv = (function (igv) {
 
 
         function getFeatures(chr, start, end, bpPerPixel) {
-
+            var self = this;
             if (self.cachedFeatures && self.cachedFeatures.containsRange(chr, start, end, bpPerPixel)) {
                 return Promise.resolve(self.cachedFeatures.features)
             }
             else {
-                if(typeof self.trackView.track.getFeatures === "function") {
+                if (typeof self.trackView.track.getFeatures === "function") {
                     return self.trackView.track.getFeatures(chr, start, end, bpPerPixel)
                         .then(function (features) {
                             self.cachedFeatures = new CachedFeatures(chr, start, end, bpPerPixel, features);
