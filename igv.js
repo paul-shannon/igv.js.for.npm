@@ -24061,18 +24061,6 @@ var igv = (function (igv) {
             finishBucket.call(this);
         }
 
-        // Need to remove partial pairs whose mate was downsampled
-        if (this.pairsSupported) {
-            var tmp = [], ds = this.downsampledReads;
-
-            this.alignments.forEach(function (a) {
-                if (!ds.has(a.readName)) {
-                    tmp.push(a);
-                }
-            })
-            this.alignments = tmp;
-        }
-
         this.alignments.sort(function (a, b) {
             return a.start - b.start
         });
@@ -24118,24 +24106,28 @@ var igv = (function (igv) {
 
     DownsampleBucket.prototype.addAlignment = function (alignment) {
 
-        var samplingProb, idx, replacedAlignment, pairedAlignment;
+        var idx, replacedAlignment, pairedAlignment;
 
+        if (this.pairsSupported && canBePaired(alignment)) {
+            pairedAlignment = this.pairsCache[alignment.readName];
+            if (pairedAlignment) {
+                // Not subject to downsampling, just update the existing alignment
+                pairedAlignment.setSecondAlignment(alignment);
+                this.pairsCache[alignment.readName] = undefined;   // Don't need to track this anymore. NOTE: Don't "delete", causes runtime performance issues
+                return;
+            }
+        }
+        
         if (this.alignments.length < this.samplingDepth) {
 
             if (this.pairsSupported && canBePaired(alignment)) {
-                pairedAlignment = this.pairsCache[alignment.readName];
-                if (pairedAlignment) {
-                    //Not subject to downsampling, just update the existing alignment
-                    pairedAlignment.setSecondAlignment(alignment);
-                    this.pairsCache[alignment.readName] = undefined;   // Don't need to track this anymore. NOTE: Don't "delete", causes runtime performance issues
-                }
-                else {
-                    // First alignment in a pair
-                    pairedAlignment = new igv.PairedAlignment(alignment);
-                    this.paired = true;
-                    this.pairsCache[alignment.readName] = pairedAlignment;
-                    this.alignments.push(pairedAlignment);
-                }
+
+                // First alignment in a pair
+                pairedAlignment = new igv.PairedAlignment(alignment);
+                this.paired = true;
+                this.pairsCache[alignment.readName] = pairedAlignment;
+                this.alignments.push(pairedAlignment);
+
             }
             else {
                 this.alignments.push(alignment);
@@ -24143,11 +24135,12 @@ var igv = (function (igv) {
 
         } else {
 
-            samplingProb = this.samplingDepth / (this.samplingDepth + this.downsampledCount + 1);
+            idx = Math.floor(Math.random() * (this.samplingDepth + this.downsampledCount - 1));
 
-            if (Math.random() < samplingProb) {
-
-                idx = Math.floor(Math.random() * (this.alignments.length - 1));
+            if (idx < this.samplingDepth) {
+                console.log("Replace");
+                // Keep the new item
+                //  idx = Math.floor(Math.random() * (this.alignments.length - 1));
                 replacedAlignment = this.alignments[idx];   // To be replaced
 
                 if (this.pairsSupported && canBePaired(alignment)) {
@@ -24174,6 +24167,7 @@ var igv = (function (igv) {
 
             this.downsampledCount++;
         }
+
 
     }
 
@@ -24349,8 +24343,8 @@ var igv = (function (igv) {
 
             var fMean = this.sumF / this.totalCount;
             var stdDev = Math.sqrt((this.totalCount * this.sumF2 - this.sumF * this.sumF) / (this.totalCount * this.totalCount));
-            this.lowerFragmentLength = fMean - 3*stdDev;
-            this.upperFragmentLength = fMean + 3*stdDev;
+            this.lowerFragmentLength = fMean - 3 * stdDev;
+            this.upperFragmentLength = fMean + 3 * stdDev;
 
             //this.lowerFragmentLength = this.digest.percentile(this.lp);
             //this.upperFragmentLength = this.digest.percentile(this.up);
@@ -25911,7 +25905,8 @@ var igv = (function (igv) {
     igv.BAMTrack.prototype.computePixelHeight = function (alignmentContainer) {
 
         return this.coverageTrack.computePixelHeight(alignmentContainer) +
-            this.alignmentTrack.computePixelHeight(alignmentContainer);
+            this.alignmentTrack.computePixelHeight(alignmentContainer) +
+            15;
 
     };
 
@@ -48534,7 +48529,7 @@ var igv = (function (igv) {
                     if (trackView.track.maxHeight !== undefined && trackView.track.maxHeight < number) {
                         trackView.track.minHeight = number;
                     }
-                    trackView.setTrackHeight(number);
+                    trackView.setTrackHeight(number, true, true);
                     trackView.track.autoHeight = false;   // Explicitly setting track height turns off autoHeight
 
                 }
@@ -49734,14 +49729,15 @@ var igv = (function (igv) {
         this.update();
     };
 
-    igv.TrackView.prototype.setTrackHeight = function (newHeight, update) {
+    igv.TrackView.prototype.setTrackHeight = function (newHeight, update, force) {
+        if(!force) {
+            if (this.track.minHeight) {
+                newHeight = Math.max(this.track.minHeight, newHeight);
+            }
 
-        if (this.track.minHeight) {
-            newHeight = Math.max(this.track.minHeight, newHeight);
-        }
-
-        if (this.track.maxHeight) {
-            newHeight = Math.min(this.track.maxHeight, newHeight);
+            if (this.track.maxHeight) {
+                newHeight = Math.min(this.track.maxHeight, newHeight);
+            }
         }
 
         this.track.height = newHeight;
@@ -52878,14 +52874,6 @@ var igv = (function (igv) {
     igv.Viewport.prototype.setContentHeight = function (contentHeight) {
         // Maximum height of a canvas is ~32,000 pixels on Chrome, possibly smaller on other platforms
         contentHeight = Math.min(contentHeight, 32000);
-
-        if (this.trackView.track.minHeight) {
-            contentHeight = Math.max(this.trackView.track.minHeight, contentHeight);
-        }
-        if (this.trackView.track.maxHeight) {
-            contentHeight = Math.min(this.trackView.track.maxHeight, contentHeight);
-        }
-
         $(this.contentDiv).height(contentHeight);
         $(this.canvas).height(contentHeight);
         this.canvas.setAttribute("height", contentHeight);
@@ -53029,7 +53017,6 @@ var igv = (function (igv) {
         $(self.canvas).on('mousedown.viewport.canvas', function (e) {
             e.preventDefault();
             canvasMouseDownX = igv.translateMouseCoordinates(e, self.canvas).x;
-            console.log('canvas x ' + canvasMouseDownX);
         });
 
         lastClickTime = 0;
