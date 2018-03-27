@@ -1,6 +1,6 @@
 {
     "name": "igv.js.npm",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "date": "27mar2018",
     "description": "genome browser igv.js as a node module",
     "main": "igv.js",
