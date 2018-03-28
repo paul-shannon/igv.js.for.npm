@@ -1,12 +1,7 @@
 {
     "name": "igv.js.npm",
-<<<<<<< HEAD
-    "version": "1.0.16",
-    "date": "28mar2018",
-=======
     "version": "1.0.12",
     "data": "19mar2018",
->>>>>>> parent of cde4f79... added trailing comma in new date field
     "description": "genome browser igv.js as a node module",
     "main": "igv.js",
     "scripts": {
