@@ -23963,6 +23963,90 @@ Digest.prototype.check_continuous = function () {
 /*
  * The MIT License (MIT)
  *
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+/**
+ * Created by jrobinso on 4/5/18.
+ */
+
+
+var igv = (function (igv) {
+
+
+    igv.AlignmentBlock = function (b) {
+        this.start = b.start;
+        this.len = b.len;
+        this.seq = b.seq;
+        this.qual = b.qual;
+        this.gapType = b.gapType;
+    }
+
+    igv.AlignmentBlock.prototype.baseAt = function (genomicLocation) {
+
+        var idx;
+
+        if ("*" === this.seq) {
+            return "*";
+        } else {
+
+            idx = genomicLocation - this.start;
+            if (idx > 0 && idx < this.seq.length) {
+                return this.seq[idx];
+            }
+        }
+
+        // Should not be possible to get here
+        return undefined;
+
+    }
+
+    igv.AlignmentBlock.prototype.qualityAt = function (genomicLocation) {
+
+        var idx;
+
+        if ("*" === this.qual) {
+            return 30;
+        } else {
+
+            idx = genomicLocation - this.start;
+            if (idx > 0 && idx < this.qual.length) {
+                return this.qual[idx];
+            }
+        }
+
+        // Should not be possible to get here
+        return 0;
+
+    }
+
+
+    return igv;
+
+})(igv || {});
+/*
+ * The MIT License (MIT)
+ *
  * Copyright (c) 2016 University of California San Diego
  * Author: Jim Robinson
  *
@@ -24138,7 +24222,7 @@ var igv = (function (igv) {
             idx = Math.floor(Math.random() * (this.samplingDepth + this.downsampledCount - 1));
 
             if (idx < this.samplingDepth) {
-                console.log("Replace");
+                
                 // Keep the new item
                 //  idx = Math.floor(Math.random() * (this.alignments.length - 1));
                 replacedAlignment = this.alignments[idx];   // To be replaced
@@ -24537,47 +24621,47 @@ var igv = (function (igv) {
             isFirst,
             tagDict;
 
-        if(this.insertions) {
-            for(var i = 0; i < this.insertions.length; i += 1) {
+        if (this.insertions) {
+            for (var i = 0; i < this.insertions.length; i += 1) {
                 var ins_start = this.insertions[i].start;
-                if(genomicLocation == ins_start || genomicLocation == ins_start - 1) {
-                    nameValues.push({name: 'Insertion', value: this.insertions[i].seq });
-                    nameValues.push({name: 'Location', value: ins_start });
+                if (genomicLocation == ins_start || genomicLocation == ins_start - 1) {
+                    nameValues.push({name: 'Insertion', value: this.insertions[i].seq});
+                    nameValues.push({name: 'Location', value: ins_start});
                     return nameValues;
                 }
             }
         }
 
-        nameValues.push({ name: 'Read Name', value: this.readName });
+        nameValues.push({name: 'Read Name', value: this.readName});
 
         // Sample
         // Read group
         nameValues.push("<hr>");
 
         // Add 1 to genomic location to map from 0-based computer units to user-based units
-        nameValues.push({ name: 'Alignment Start', value: igv.numberFormatter(1 + this.start), borderTop: true });
+        nameValues.push({name: 'Alignment Start', value: igv.numberFormatter(1 + this.start), borderTop: true});
 
-        nameValues.push({ name: 'Read Strand', value: (true === this.strand ? '(+)' : '(-)'), borderTop: true });
-        nameValues.push({ name: 'Cigar', value: this.cigar });
-        nameValues.push({ name: 'Mapped', value: yesNo(this.isMapped()) });
-        nameValues.push({ name: 'Mapping Quality', value: this.mq });
-        nameValues.push({ name: 'Secondary', value: yesNo(this.isSecondary()) });
-        nameValues.push({ name: 'Supplementary', value: yesNo(this.isSupplementary()) });
-        nameValues.push({ name: 'Duplicate', value: yesNo(this.isDuplicate()) });
-        nameValues.push({ name: 'Failed QC', value: yesNo(this.isFailsVendorQualityCheck()) });
+        nameValues.push({name: 'Read Strand', value: (true === this.strand ? '(+)' : '(-)'), borderTop: true});
+        nameValues.push({name: 'Cigar', value: this.cigar});
+        nameValues.push({name: 'Mapped', value: yesNo(this.isMapped())});
+        nameValues.push({name: 'Mapping Quality', value: this.mq});
+        nameValues.push({name: 'Secondary', value: yesNo(this.isSecondary())});
+        nameValues.push({name: 'Supplementary', value: yesNo(this.isSupplementary())});
+        nameValues.push({name: 'Duplicate', value: yesNo(this.isDuplicate())});
+        nameValues.push({name: 'Failed QC', value: yesNo(this.isFailsVendorQualityCheck())});
 
         if (this.isPaired()) {
             nameValues.push("<hr>");
-            nameValues.push({ name: 'First in Pair', value: !this.isSecondOfPair(), borderTop: true });
-            nameValues.push({ name: 'Mate is Mapped', value: yesNo(this.isMateMapped()) });
-            if(this.pairOrientation) {
+            nameValues.push({name: 'First in Pair', value: !this.isSecondOfPair(), borderTop: true});
+            nameValues.push({name: 'Mate is Mapped', value: yesNo(this.isMateMapped())});
+            if (this.pairOrientation) {
                 nameValues.push({name: 'Pair Orientation', value: this.pairOrientation});
             }
             if (this.isMateMapped()) {
-                nameValues.push({ name: 'Mate Chromosome', value: this.mate.chr });
-                nameValues.push({ name: 'Mate Start', value: (this.mate.position + 1)});
-                nameValues.push({ name: 'Mate Strand', value: (true === this.mate.strand ? '(+)' : '(-)')});
-                nameValues.push({ name: 'Insert Size', value: this.fragmentLength });
+                nameValues.push({name: 'Mate Chromosome', value: this.mate.chr});
+                nameValues.push({name: 'Mate Start', value: (this.mate.position + 1)});
+                nameValues.push({name: 'Mate Strand', value: (true === this.mate.strand ? '(+)' : '(-)')});
+                nameValues.push({name: 'Insert Size', value: this.fragmentLength});
                 // Mate Start
                 // Mate Strand
                 // Insert Size
@@ -24595,20 +24679,50 @@ var igv = (function (igv) {
             if (tagDict.hasOwnProperty(key)) {
 
                 if (isFirst) {
-                    nameValues.push({ name: key, value: tagDict[key], borderTop: true });
+                    nameValues.push({name: key, value: tagDict[key], borderTop: true});
                     isFirst = false;
                 } else {
-                    nameValues.push({ name: key, value: tagDict[key] });
+                    nameValues.push({name: key, value: tagDict[key]});
                 }
 
             }
         }
+
+        nameValues.push("<hr>");
+        nameValues.push({name: 'Genomic Location: ', value: igv.numberFormatter(1 + genomicLocation)});
+        nameValues.push({name: 'Read Base:', value: this.readBaseAt(genomicLocation)});
 
         return nameValues;
 
 
         function yesNo(bool) {
             return bool ? 'Yes' : 'No';
+        }
+    }
+
+
+    igv.BamAlignment.prototype.readBaseAt = function (genomicLocation) {
+
+        var block;
+
+        block = blockAtGenomicLocation(this.blocks, genomicLocation);
+        if (block) {
+            return block.baseAt(genomicLocation);
+        }
+        else {
+            return undefined;
+        }
+
+        function blockAtGenomicLocation(blocks, genomicLocation) {
+
+            var i, block;
+            for (i = 0; i < blocks.length; i++) {
+                block = blocks[i];
+                if (genomicLocation >= block.start && genomicLocation <= block.start + block.len) {
+                    return block;
+                }
+            }
+            return undefined;
         }
     }
 
@@ -24629,8 +24743,6 @@ var igv = (function (igv) {
         return dataView.getFloat32(offset, littleEndian);
 
     }
-
-
 
 
     igv.BamFilter = function (options) {
@@ -24695,83 +24807,61 @@ var igv = (function (igv) {
         this.score = undefined;
     };
 
-    igv.BamAlignmentRow.prototype.findCenterAlignment = function (bpStart, bpEnd) {
+    igv.BamAlignmentRow.prototype.findCenterAlignment = function (genomicLocation) {
 
-        var centerAlignment = undefined;
+        var centerAlignment, a, i;
 
         // find single alignment that overlaps sort location
-        this.alignments.forEach(function(a){
 
-            if (undefined === centerAlignment) {
-
-                if ((a.start + a.lengthOnRef) < bpStart || a.start > bpEnd) {
-                    // do nothing
+        for (i = 0; i < this.alignments.length; i++) {
+            a = this.alignments[i];
+            if (alignmentContains(a, genomicLocation)) {
+                if (a.paired) {
+                    if (a.firstAlignment && alignmentContains(a.firstAlignment, genomicLocation)) {
+                        centerAlignment = a.firstAlignment;
+                    } else if (a.secondAlignment && alignmentContains(a.secondAlignment, genomicLocation)) {
+                        centerAlignment = a.secondAlignment;
+                    }
                 } else {
                     centerAlignment = a;
                 }
-
+                break;
             }
-
-        });
-
-        return centerAlignment;
-    };
-
-    igv.BamAlignmentRow.prototype.updateScore = function (genomicLocation, genomicInterval, sortOption) {
-
-        this.score = this.calculateScore(genomicLocation, (1 + genomicLocation), genomicInterval, sortOption);
-
-    };
-
-    igv.BamAlignmentRow.prototype.calculateScore = function (bpStart, bpEnd, interval, sortOption) {
-
-        var baseScore,
-            baseScoreFirst,
-            baseScoreSecond,
-            alignment,
-            blockFirst,
-            blockSecond,
-            block;
-
-        alignment = this.findCenterAlignment(bpStart, bpEnd);
-        if (undefined === alignment) {
-            return Number.MAX_VALUE;
         }
 
-        baseScoreFirst = baseScoreSecond = undefined;
+        return centerAlignment;
+
+        function alignmentContains(a, genomicLocation) {
+            return genomicLocation >= a.start && genomicLocation <= a.start + a.lengthOnRef
+        }
+    }
+
+    igv.BamAlignmentRow.prototype.updateScore = function (genomicLocation, genomicInterval, sortOption, sortDirection) {
+
+        this.score = this.calculateScore(genomicLocation, genomicInterval, sortOption, sortDirection);
+
+    };
+
+    igv.BamAlignmentRow.prototype.calculateScore = function (genomicLocation, interval, sortOption, sortDirection) {
+
+        var readBase,
+            alignment,
+            block;
+
+        alignment = this.findCenterAlignment(genomicLocation);
+        if (undefined === alignment) {
+            return sortDirection ? Number.MAX_VALUE : -Number.MAX_VALUE;
+        }
 
         if ("NUCLEOTIDE" === sortOption.sort) {
 
-            if (alignment.blocks && alignment.blocks.length > 0) {
-                blockFirst = blockAtGenomicLocation(alignment.blocks, bpStart, interval.start);
-                if (blockFirst) {
-                    baseScoreFirst = blockScoreWithObject(blockFirst, interval);
-                }
-                // baseScoreFirst = nucleotideBlockScores(alignment.blocks);
-            }
+            readBase = alignment.readBaseAt(genomicLocation);
+            return  calculateBaseScore(readBase, interval, genomicLocation);
 
-            if (alignment.firstAlignment && alignment.firstAlignment.blocks && alignment.firstAlignment.blocks.length > 0) {
-                blockFirst = blockAtGenomicLocation(alignment.firstAlignment.blocks, bpStart, interval.start);
-                if (blockFirst) {
-                    baseScoreFirst = blockScoreWithObject(blockFirst, interval);
-                }
-                // baseScoreFirst = nucleotideBlockScores(alignment.firstAlignment.blocks);
-            }
-
-            if (alignment.secondAlignment && alignment.secondAlignment.blocks && alignment.secondAlignment.blocks.length > 0) {
-                blockSecond = blockAtGenomicLocation(alignment.secondAlignment.blocks, bpStart, interval.start);
-                if (blockSecond) {
-                    baseScoreSecond = blockScoreWithObject(blockSecond, interval);
-                }
-                // baseScoreSecond = nucleotideBlockScores(alignment.secondAlignment.blocks);
-            }
-
-            baseScore = (undefined === baseScoreFirst) ? baseScoreSecond : baseScoreFirst;
-
-            return (undefined === baseScore) ? Number.MAX_VALUE : baseScore;
         } else if ("STRAND" === sortOption.sort) {
 
             return alignment.strand ? 1 : -1;
+
         } else if ("START" === sortOption.sort) {
 
             return alignment.start;
@@ -24779,118 +24869,43 @@ var igv = (function (igv) {
 
         return Number.MAX_VALUE;
 
-        function blockAtGenomicLocation(blocks, genomicLocation, genomicIntervalStart) {
 
-            var result = undefined;
 
-            blocks.forEach(function (block) {
-
-                for (var i = 0, genomicOffset = block.start - genomicIntervalStart, blockLocation = block.start, blockSequenceLength = block.seq.length;
-                     i < blockSequenceLength;
-                     i++, genomicOffset++, blockLocation++) {
-
-                    if (genomicLocation === blockLocation) {
-                        result = { block: block, blockSeqIndex: i, referenceSequenceIndex: genomicOffset, location: genomicLocation };
-                    }
-
-                }
-
-            });
-
-            return result;
-        }
-
-        function blockScoreWithObject(obj, interval) {
-
-            var reference,
-                base,
+        function calculateBaseScore(base, interval, genomicLocation)  {
+            var idx,
+                reference,
                 coverage,
                 count,
                 phred;
 
-            if ("*" === obj.block.seq) {
-                return 3;
-            }
 
-            reference = interval.sequence.charAt(obj.referenceSequenceIndex);
-            base = obj.block.seq.charAt(obj.blockSeqIndex);
 
-            if ("=" === base) {
-                base = reference;
+            idx = genomicLocation - interval.start;
+            if(idx < interval.sequence.length) {
+                reference = interval.sequence.charAt(idx);
             }
+            if(!reference) return undefined;
 
             if ('N' === base) {
                 return 2;
-            } else if (reference === base) {
+            } else if (reference === base || '=' === base) {
                 return 3;
-            } else if ("X" === base|| reference !== base) {
+            } else if ("X" === base || reference !== base) {
 
-                coverage = interval.coverageMap.coverage[ (obj.location - interval.coverageMap.bpStart) ];
-
-                count = coverage[ "pos" + base ] + coverage[ "neg" + base ];
-                phred = (coverage.qual) ? coverage.qual : 0;
-
-                return -(count + (phred / 1000.0));
+                idx = genomicLocation - interval.coverageMap.bpStart;
+                if(idx > 0 && idx < interval.coverageMap.coverage.length) {
+                    coverage = interval.coverageMap.coverage[idx];
+                    count = coverage["pos" + base] + coverage["neg" + base];
+                    phred = (coverage.qual) ? coverage.qual : 0;
+                    return -(count + (phred / 1000.0));
+                } else {
+                    return -1;
+                }
             }
 
-            return undefined;
+            return 0;
         }
 
-        function nucleotideBlockScores(blocks) {
-
-            var result = undefined;
-
-            blocks.forEach(function (block) {
-
-                var sequence = interval.sequence,
-                    coverageMap = interval.coverageMap,
-                    reference,
-                    base,
-                    coverage,
-                    count,
-                    phred;
-
-                if ("*" === block.seq) {
-                    result = 3;
-                }
-
-                for (var i = 0, indexReferenceSequence = block.start - interval.start, bpBlockSequence = block.start, lengthBlockSequence = block.seq.length;
-                     i < lengthBlockSequence;
-                     i++, indexReferenceSequence++, bpBlockSequence++) {
-
-                    if (bpStart !== bpBlockSequence) {
-                        continue;
-                    }
-
-                    reference = sequence.charAt(indexReferenceSequence);
-                    base = block.seq.charAt(i);
-
-                    if (base === "=") {
-                        base = reference;
-                    }
-
-                    if (base === 'N') {
-                        result = 2;
-                    }
-                    else if (base === reference) {
-                        result = 3;
-                    }
-                    else if (base === "X" || base !== reference){
-
-                        coverage = coverageMap.coverage[ (bpBlockSequence - coverageMap.bpStart) ];
-                        count = coverage[ "pos" + base ] + coverage[ "neg" + base ];
-                        phred = (coverage.qual) ? coverage.qual : 0;
-                        result = -(count + (phred / 1000.0));
-                    } else {
-                        console.log("BamAlignmentRow.caculateScore - huh?");
-                    }
-
-                } // for (i < lengthBlockSequence)
-
-            });
-
-            return result;
-        }
     };
 
     return igv;
@@ -25808,8 +25823,8 @@ var igv = (function (igv) {
 
     var alignmentStartGap = 5;
     var downsampleRowHeight = 5;
-    const DEFAULT_COVERAGE_TRACK_HEIGHT = 50;
-    const DEFAULT_TRACK_HEIGHT = 300;
+    var DEFAULT_COVERAGE_TRACK_HEIGHT = 50;
+    var DEFAULT_TRACK_HEIGHT = 300;
 
     igv.BAMTrack = function (config) {
 
@@ -25928,12 +25943,7 @@ var igv = (function (igv) {
 
     igv.BAMTrack.prototype.contextMenuItemList = function (config) {
 
-        if (config.y >= this.coverageTrack.top && config.y < this.coverageTrack.height) {
-            return [];
-        } else {
-            return this.alignmentTrack.contextMenuItemList(config);
-        }
-
+        return this.alignmentTrack.contextMenuItemList(config);
 
     };
 
@@ -25947,7 +25957,7 @@ var igv = (function (igv) {
 
     };
 
-    igv.BAMTrack.prototype.menuItemList = function (popover) {
+    igv.BAMTrack.prototype.menuItemList = function () {
 
         var self = this,
             $e,
@@ -25957,10 +25967,8 @@ var igv = (function (igv) {
             tagLabel,
             selected;
 
-        // sort by genomic location
-        menuItems.push(sortMenuItem(popover));
-
-        colorByMenuItems.push({key: 'none', label: 'track color'});
+        // sort by @ center line
+        //menuItems.push(sortMenuItem());
 
         colorByMenuItems.push({key: 'strand', label: 'read strand'});
 
@@ -25991,8 +25999,6 @@ var igv = (function (igv) {
                 click: function () {
                     var $fa = $(this).find('i');
 
-                    popover.hide();
-
                     self.viewAsPairs = !self.viewAsPairs;
 
                     if (true === self.viewAsPairs) {
@@ -26002,7 +26008,7 @@ var igv = (function (igv) {
                     }
 
                     self.featureSource.setViewAsPairs(self.viewAsPairs);
-                    self.trackView.update();
+                    self.trackView.repaint(true);
                 }
             });
         }
@@ -26017,31 +26023,51 @@ var igv = (function (igv) {
             $e = igv.createCheckbox(menuItem.label, showCheck);
 
             clickHandler = function () {
+                var labelHTMLFunction,
+                    inputValue,
+                    clickFunction;
 
-                igv.popover.hide();
+                if (menuItem.key === self.alignmentTrack.colorBy) {
+                    self.alignmentTrack.colorBy = 'none';
+                    self.trackView.repaint(true);
+                }
+                else {
+                    if ('tag' === menuItem.key) {
 
-                if ('tag' === menuItem.key) {
+                        labelHTMLFunction = function () {
+                            return "Tag Name"
+                        };
 
-                    igv.dialog.configure(function () {
-                        return "Tag Name"
-                    }, self.alignmentTrack.colorByTag ? self.alignmentTrack.colorByTag : '', function () {
-                        var tag = igv.dialog.$dialogInput.val().trim();
-                        self.alignmentTrack.colorBy = 'tag';
+                        inputValue = self.alignmentTrack.colorByTag ? self.alignmentTrack.colorByTag : '';
 
-                        if (tag !== self.alignmentTrack.colorByTag) {
-                            self.alignmentTrack.colorByTag = igv.dialog.$dialogInput.val().trim();
-                            self.alignmentTrack.tagColors = new igv.PaletteColorTable("Set1");
-                            $('#color-by-tag').text(self.alignmentTrack.colorByTag);
-                        }
+                        clickFunction = function () {
+                            var tag;
 
-                        self.trackView.update();
-                    }, undefined, undefined);
 
-                    igv.dialog.show($(self.trackView.trackDiv));
+                            tag = igv.inputDialog.$dialogInput.val().trim();
+                            self.alignmentTrack.colorBy = 'tag';
 
-                } else {
-                    self.alignmentTrack.colorBy = menuItem.key;
-                    self.trackView.update();
+                            if (tag !== self.alignmentTrack.colorByTag) {
+                                self.alignmentTrack.colorByTag = igv.inputDialog.$dialogInput.val().trim();
+
+                                self.alignmentTrack.tagColors = new igv.PaletteColorTable("Set1");
+                                $('#color-by-tag').text(self.alignmentTrack.colorByTag);
+                            }
+
+
+                            self.trackView.repaint(true);
+                        };
+
+
+                        igv.inputDialog.configure(labelHTMLFunction, inputValue, clickFunction);
+                        igv.inputDialog.show($(self.trackView.trackDiv));
+
+
+                    } else {
+                        self.alignmentTrack.colorBy = menuItem.key;
+                        self.trackView.repaint(true);
+                    }
+
                 }
             };
 
@@ -26049,7 +26075,7 @@ var igv = (function (igv) {
 
         }
 
-        function sortMenuItem(popover) {
+        function sortMenuItem() {
 
             var $e,
                 clickHandler;
@@ -26063,12 +26089,11 @@ var igv = (function (igv) {
                     genomicLocation,
                     viewportHalfWidth;
 
-                popover.hide();
-
                 viewportHalfWidth = Math.floor(0.5 * (igv.browser.viewportContainerWidth() / igv.browser.genomicStateList.length));
                 genomicLocation = Math.floor((referenceFrame.start) + referenceFrame.toBP(viewportHalfWidth));
 
-                self.altClick(genomicLocation, undefined, undefined);
+                self.sortOption = {sort: "NUCLEOTIDE"};
+                self.alignmentTrack.sortAlignmentRows(genomicLocation, sortOption);
 
                 if ("show center guide" === igv.browser.centerGuide.$centerGuideToggle.text()) {
                     igv.browser.centerGuide.$centerGuideToggle.trigger("click");
@@ -26113,6 +26138,13 @@ var igv = (function (igv) {
             color = "rgba(" + foregroundColor[0] + "," + foregroundColor[1] + "," + foregroundColor[2] + "," + alpha + ")";    //igv.getCompositeColor(backgroundColor, foregroundColor, alpha);
         }
         return color;
+    }
+
+    /**
+     * Called when the track is removed.  Do any needed cleanup here
+     */
+    igv.BAMTrack.prototype.dispose = function () {
+        this.trackView = undefined;
     }
 
     CoverageTrack = function (config, parent) {
@@ -26252,28 +26284,28 @@ var igv = (function (igv) {
 
             // A
             tmp = coverage.posA + coverage.negA;
-            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, "+coverage.posA+"+, "+coverage.negA+"- )";
+            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, " + coverage.posA + "+, " + coverage.negA + "- )";
             nameValues.push({name: 'A', value: tmp});
 
 
             // C
             tmp = coverage.posC + coverage.negC;
-            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, "+coverage.posC+"+, "+coverage.negC+"- )";
+            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, " + coverage.posC + "+, " + coverage.negC + "- )";
             nameValues.push({name: 'C', value: tmp});
 
             // G
             tmp = coverage.posG + coverage.negG;
-            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, "+coverage.posG+"+, "+coverage.negG+"- )";
+            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, " + coverage.posG + "+, " + coverage.negG + "- )";
             nameValues.push({name: 'G', value: tmp});
 
             // T
             tmp = coverage.posT + coverage.negT;
-            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, "+coverage.posT+"+, "+coverage.negT+"- )";
+            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, " + coverage.posT + "+, " + coverage.negT + "- )";
             nameValues.push({name: 'T', value: tmp});
 
             // N
             tmp = coverage.posN + coverage.negN;
-            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, "+coverage.posN+"+, "+coverage.negN+"- )";
+            if (tmp > 0)  tmp = tmp.toString() + " (" + Math.floor((tmp / coverage.total) * 100.0) + "%, " + coverage.posN + "+, " + coverage.negN + "- )";
             nameValues.push({name: 'N', value: tmp});
 
         }
@@ -26616,13 +26648,15 @@ var igv = (function (igv) {
         var self = this;
 
         this.featureSource.alignmentContainer.packedAlignmentRows.forEach(function (row) {
-            row.updateScore(genomicLocation, self.featureSource.alignmentContainer, sortOption);
+            row.updateScore(genomicLocation, self.featureSource.alignmentContainer, sortOption, self.sortDirection);
         });
 
         this.featureSource.alignmentContainer.packedAlignmentRows.sort(function (rowA, rowB) {
-            // return rowA.score - rowB.score;
             return true === self.sortDirection ? rowA.score - rowB.score : rowB.score - rowA.score;
         });
+
+        this.parent.trackView.repaint(true);
+        this.sortDirection = !(this.sortDirection);
 
     };
 
@@ -26641,20 +26675,18 @@ var igv = (function (igv) {
             clickHandler,
             list = [];
 
-        list.push({label: 'Sort by base', click: sortRows, init: undefined});
+        list.push({label: 'Sort by base', click: sortRows});
 
         var alignment = this.getClickedObject(config.viewport, config.y, config.genomicLocation);
-        if (alignment && alignment.isPaired() && alignment.isMateMapped()) {
+        if (alignment && !alignment.paired && alignment.isPaired() && alignment.isMateMapped()) {
             list.push({label: 'View mate in split screen', click: viewMateInSplitScreen, init: undefined});
         }
 
         return list;
 
         function sortRows() {
+            self.sortOption = {sort: "NUCLEOTIDE"};
             self.sortAlignmentRows(config.genomicLocation, self.sortOption);
-            self.parent.trackView.update();
-            self.sortDirection = !(self.sortDirection);
-
         }
 
         function viewMateInSplitScreen() {
@@ -26664,6 +26696,7 @@ var igv = (function (igv) {
             }
         }
     };
+
 
     function parse(locusString) {
         return locusString.split(/[^a-zA-Z0-9]/).map(function (value, index) {
@@ -27371,7 +27404,7 @@ var igv = (function (igv) {
 
                     blockSeq = record.seq === '*' ? '*' : record.seq.substr(seqOffset, c.len);
                     blockQuals = record.qual ? record.qual.slice(seqOffset, c.len) : undefined;
-                    blocks.push({start: pos, len: c.len, seq: blockSeq, qual: blockQuals, gapType: gapType});
+                    blocks.push(new igv.AlignmentBlock({start: pos, len: c.len, seq: blockSeq, qual: blockQuals, gapType: gapType}));
                     seqOffset += c.len;
                     pos += c.len;
 
@@ -27446,10 +27479,8 @@ var igv = (function (igv) {
         });
 
         return tagDict;
-
     }
-
-
+    
     return igv;
 
 })
@@ -28178,6 +28209,7 @@ var igv = (function (igv) {
 
     igv.PairedAlignment = function (firstAlignment) {
 
+        this.paired = true;
         this.firstAlignment = firstAlignment;
         this.chr = firstAlignment.chr;
         this.readName = firstAlignment.readName;
@@ -29976,10 +30008,6 @@ var igv = (function (igv) {
 
         var trackView;
 
-        if (typeof igv.popover !== "undefined") {
-            igv.popover.hide();
-        }
-
         trackView = new igv.TrackView(this, $(this.trackContainerDiv), track);
         this.trackViews.push(trackView);
         this.reorderTracks();
@@ -30028,12 +30056,26 @@ var igv = (function (igv) {
         }
 
         if (trackPanelRemoved) {
+            trackPanelRemoved.dispose();
             this.trackViews.splice(i, 1);
             this.trackContainerDiv.removeChild(trackPanelRemoved.trackDiv);
             this.fireEvent('trackremoved', [trackPanelRemoved.track]);
         }
 
     };
+
+    /**
+     * API function
+     */
+    igv.Browser.prototype.removeAllTracks = function () {
+        var self = this;
+        this.trackViews.forEach(function (tv) {
+            self.trackContainerDiv.removeChild(tv.trackDiv);
+            self.fireEvent('trackremoved', [tv.track]);
+            tv.dispose();
+        });
+        this.trackViews = [];
+    }
 
     /**
      *
@@ -30381,10 +30423,6 @@ var igv = (function (igv) {
             referenceFrame,
             width,
             maxBpPerPixel;
-
-        if (igv.popover) {
-            igv.popover.hide();
-        }
 
         // Translate chr to official name
         if (undefined === this.genome) {
@@ -30753,6 +30791,8 @@ var igv = (function (igv) {
         var self = this,
             loci;
 
+        if(string && string.trim().toLowerCase() === "all") string = "all";
+
         loci = string.split(' ');
 
         this.getGenomicStateList(loci)
@@ -30787,24 +30827,7 @@ var igv = (function (igv) {
                     panelWidth = self.viewportContainerWidth() / genomicStateList.length;
                     self.ideoPanel.buildPanels($('#igv-content-header'), panelWidth);
                 }
-
-
-                // // multi-locus mode
-                // if (genomicStateList.length > 1) {
-                //     self.centerGuide.disable();
-                //     self.enableZoomWidget();
-                // }
-                // // whole-genome
-                // else if ('all' === genomicStateList[ 0 ].locusSearchString) {
-                //     self.centerGuide.disable();
-                //     self.disableZoomWidget();
-                // }
-                // // single locus
-                // else {
-                //     self.centerGuide.enable();
-                //     self.enableZoomWidget();
-                // }
-
+                
                 self.updateUIWithGenomicStateListChange(genomicStateList);
 
                 self.update();
@@ -30827,40 +30850,57 @@ var igv = (function (igv) {
             searchConfig = igv.browser.searchConfig,
             geneNameLoci,
             genomicState,
-            locusGenomicStates = [],
-            promises;
+            result,
+            unique,
+            promises,
+            ordered,
+            dictionary;
 
+        ordered = {};
+        unique = [];
+        // prune duplicates as the order list is built
+        loci.forEach(function (locus, index) {
+
+            if (undefined === ordered[ locus ]) {
+                unique.push(locus);
+                ordered[ locus ] = unique.indexOf(locus);
+            }
+
+        });
+
+        result = [];
         geneNameLoci = [];
-
+        dictionary = {};
         // Try locus string first  (e.g.  chr1:100-200)
-        loci.forEach(function (locus) {
+        unique.forEach(function (locus) {
             genomicState = isLocusChrNameStartEnd(locus, self.genome);
             if (genomicState) {
                 genomicState.locusSearchString = locus;
-                locusGenomicStates.push(genomicState);
+                result.push(genomicState);
+                dictionary[ locus ] = genomicState;
             }
             else {
                 geneNameLoci.push(locus);
             }
         });
 
-        if (geneNameLoci.length === 0)
-            return Promise.resolve(locusGenomicStates);
-
-        else {
+        if (geneNameLoci.length === 0) {
+            return Promise.resolve(result);
+        } else {
             // Search based on feature symbol
 
             // Try local feature cache first.  This is created from feature tracks tagged "searchable"
             promises = [];
             geneNameLoci.forEach(function (locus) {
-                var result,
+                var feature,
                     genomicState;
 
-                result = self.featureDB[locus.toLowerCase()];
-                if (result) {
-                    genomicState = processSearchResult(result, locus);
+                feature = self.featureDB[locus.toLowerCase()];
+                if (feature) {
+                    genomicState = processSearchResult(feature, locus);
                     if (genomicState) {
-                        locusGenomicStates.push(genomicState);
+                        result.push(genomicState);
+                        dictionary[ locus ] = genomicState;
                     }
                 } else {
                     promises.push(searchPromise(locus));  // Not found, create promise to search via webservice
@@ -30874,20 +30914,51 @@ var igv = (function (igv) {
                     .all(promises)
 
                     .then(function (searchResponses) {
+                        var cooked;
 
                         searchResponses.forEach(function (response) {
                             var genomicState = processSearchResult(response.result, response.locusSearchString);
                             if (genomicState) {
-                                locusGenomicStates.push(genomicState);
+                                result.push(genomicState);
+                                dictionary[ genomicState.locusSearchString ] = genomicState;
                             }
                         });
 
-                        return locusGenomicStates;
+                        cooked = Array(Object.keys(dictionary).length);
+                        result.forEach(function (r) {
+                            var key,
+                                index;
+                            key = r.locusSearchString;
+                            index = ordered[ key ];
+                            cooked[ index ] = r;
+                        });
+
+                        return preserveOrder(result, dictionary, ordered);
                     });
+            } else {
+
+                return Promise.resolve( preserveOrder(result, dictionary, ordered) );
             }
         }
 
         /* End of function  */
+        function preserveOrder(list, dictionary, indexDictionary) {
+            var orderedList;
+
+            orderedList = Array(Object.keys(dictionary).length);
+
+            list.forEach(function (g) {
+                var key,
+                    index;
+                key = g.locusSearchString;
+                index = indexDictionary[ key ];
+                orderedList[ index ] = g;
+            });
+
+            return orderedList;
+            // return list;
+
+        }
 
         function searchPromise(locus) {
 
@@ -31202,6 +31273,10 @@ var igv = (function (igv) {
 
         $(window).off('resize.browser');
         $(document).off('click.browser');
+
+        this.trackViews.forEach(function (tv) {
+            tv.dispose();
+        })
 
     }
 
@@ -34839,7 +34914,7 @@ var igv = (function (igv) {
         return data;
     }
 
-    igv.FeatureTrack.prototype.menuItemList = function (popover) {
+    igv.FeatureTrack.prototype.menuItemList = function () {
 
         var self = this,
             menuItems = [];
@@ -34849,15 +34924,14 @@ var igv = (function (igv) {
                 menuItems.push({
                     object: igv.createCheckbox('Color by ' + colorScheme, colorScheme === self.colorBy),
                     click: function () {
-                        popover.hide();
                         self.colorBy = colorScheme;
-                        self.trackView.update();
+                        self.trackView.repaint(true);
                     }
                 });
             });
         }
 
-        menuItems.push({object: $('<div class="igv-track-menu-border-top">')});
+        menuItems.push({ object: $('<div class="igv-track-menu-border-top">') });
 
         ["COLLAPSED", "SQUISHED", "EXPANDED"].forEach(function (displayMode) {
             var lut =
@@ -34871,9 +34945,9 @@ var igv = (function (igv) {
                 {
                     object: igv.createCheckbox(lut[displayMode], displayMode === self.displayMode),
                     click: function () {
-                        popover.hide();
+                        igv.popover.hide();
                         self.displayMode = displayMode;
-                        self.trackView.update();
+                        self.trackView.repaint(true);
                     }
                 });
         });
@@ -34911,7 +34985,7 @@ var igv = (function (igv) {
 
         function setColorBy(value) {
             self.colorBy = value;
-            self.trackView.update();
+            self.trackView.repaint(true);
         }
     };
 
@@ -34941,6 +35015,13 @@ var igv = (function (igv) {
         }
 
     };
+
+    /**
+     * Called when the track is removed.  Do any needed cleanup here
+     */
+    igv.FeatureTrack.prototype.dispose = function () {
+        this.trackView = undefined;
+    }
 
     /**
      * @param feature
@@ -36119,7 +36200,7 @@ var igv = (function (igv) {
 
         igv.configTrack(this, config);
 
-        this.isLog = config.isLog === undefined ? false : config.isLog;
+        this.isLog = config.isLog;
 
         this.displayMode = config.displayMode || "SQUISHED"; // EXPANDED | SQUISHED
 
@@ -36167,7 +36248,7 @@ var igv = (function (igv) {
 
     };
 
-    igv.SegTrack.prototype.menuItemList = function (popover) {
+    igv.SegTrack.prototype.menuItemList = function () {
 
         var self = this;
 
@@ -36175,7 +36256,6 @@ var igv = (function (igv) {
             {
                 name: ("SQUISHED" === this.displayMode) ? "Expand sample hgt" : "Squish sample hgt",
                 click: function () {
-                    popover.hide();
                     self.toggleSampleHeight();
                 }
             }
@@ -36187,7 +36267,7 @@ var igv = (function (igv) {
 
         this.displayMode = ("SQUISHED" === this.displayMode) ? "EXPANDED" : "SQUISHED";
 
-        this.trackView.update();
+        this.trackView.repaint(true);
     };
 
     igv.SegTrack.prototype.getFeatures = function (chr, bpStart, bpEnd) {
@@ -36219,7 +36299,7 @@ var igv = (function (igv) {
 
     igv.SegTrack.prototype.draw = function (options) {
 
-        var myself = this,
+        var self = this,
             featureList,
             ctx,
             bpPerPixel,
@@ -36252,6 +36332,8 @@ var igv = (function (igv) {
         featureList = options.features;
         if (featureList) {
 
+            checkForLog(featureList);
+
             bpPerPixel = options.bpPerPixel;
             bpStart = options.bpStart;
             bpEnd = bpStart + pixelWidth * bpPerPixel + 1;
@@ -36260,7 +36342,7 @@ var igv = (function (igv) {
             for (i = 0, len = featureList.length; i < len; i++) {
                 sample = featureList[i].sample;
                 if (!this.samples.hasOwnProperty(sample)) {
-                    this.samples[sample] = myself.sampleCount;
+                    this.samples[sample] = self.sampleCount;
                     this.sampleNames.push(sample);
                     this.sampleCount++;
                 }
@@ -36273,18 +36355,18 @@ var igv = (function (igv) {
                 if (segment.end < bpStart) continue;
                 if (segment.start > bpEnd) break;
 
-                y = myself.samples[segment.sample] * sampleHeight + border;
+                y = self.samples[segment.sample] * sampleHeight + border;
 
                 value = segment.value;
-                if (!myself.isLog) {
+                if (!self.isLog) {
                     value = Math.log2(value / 2);
                 }
 
                 if (value < -0.1) {
-                    color = myself.negColorScale.getColor(value);
+                    color = self.negColorScale.getColor(value);
                 }
                 else if (value > 0.1) {
-                    color = myself.posColorScale.getColor(value);
+                    color = self.posColorScale.getColor(value);
                 }
                 else {
                     color = "white";
@@ -36300,6 +36382,20 @@ var igv = (function (igv) {
         }
         else {
             console.log("No feature list");
+        }
+
+
+        function checkForLog(featureList) {
+            var i;
+            if (self.isLog === undefined) {
+                self.isLog = false;
+                for (i = 0; i < featureList.length; i++) {
+                    if (featureList[i].value < 0) {
+                        self.isLog = true;
+                        return;
+                    }
+                }
+            }
         }
 
     };
@@ -36388,7 +36484,7 @@ var igv = (function (igv) {
                 }
                 self.sampleNames = sampleNames;
 
-                self.trackView.update();
+                self.trackView.repaint(true);
                 // self.trackView.$viewport.scrollTop(0);
 
 
@@ -36810,19 +36906,17 @@ var igv = (function (igv) {
         return this.featureSource.getFeatures(chr, bpStart, bpEnd, bpPerPixel, this.windowFunction);
     };
 
-    igv.WIGTrack.prototype.menuItemList = function (popover) {
+    igv.WIGTrack.prototype.menuItemList = function () {
 
         var self = this,
             menuItems = [];
 
-        menuItems.push(igv.dataRangeMenuItem(popover, this.trackView));
+        menuItems.push(igv.dataRangeMenuItem(this.trackView));
 
         menuItems.push({
             object: igv.createCheckbox("Autoscale", self.autoscale),  
             click: function () {
                 var $fa = $(this).find('i');
-
-                popover.hide();
 
                 self.autoscale = !self.autoscale;
 
@@ -37019,6 +37113,13 @@ var igv = (function (igv) {
         else {
             return null;
         }
+    }
+
+    /**
+     * Called when the track is removed.  Do any needed cleanup here
+     */
+    igv.WIGTrack.prototype.dispose = function () {
+        this.trackView = undefined;
     }
 
     function autoscale(features) {
@@ -37430,7 +37531,7 @@ var igv = (function (igv) {
                 case 'X' :
                     blockSeq = record.seq === "*" ? "*" : record.seq.substr(seqOffset, c.len);
                     blockQuals = record.qual === "*" ? "*" : record.qual.slice(seqOffset, c.len);
-                    blocks.push({start: pos, len: c.len, seq: blockSeq, qual: blockQuals, gapType: gapType});
+                    blocks.push(new igv.AlignmentBlock({start: pos, len: c.len, seq: blockSeq, qual: blockQuals, gapType: gapType}));
                     seqOffset += c.len;
                     pos += c.len;
                     break;
@@ -37803,7 +37904,7 @@ var igv = (function (igv) {
                                 blockSeq = record.seq === "*" ? "*" : record.seq.substr(seqOffset, c.len);
                                 blockQuals = record.qual ? record.qual.slice(seqOffset, c.len) : undefined;
                                 if (insertions === undefined) insertions = [];
-                                insertions.push({start: pos, len: c.len, seq: blockSeq, qual: blockQuals});
+                                insertions.push(new igv.AlignmentBlock({start: pos, len: c.len, seq: blockSeq, qual: blockQuals}));
                                 seqOffset += c.len;
                                 break;
                             case 'M' :
@@ -42076,20 +42177,15 @@ var igv = (function (igv) {
         browser.userFeedback = new igv.UserFeedback(browser.$content);
         browser.userFeedback.hide();
 
-        // Popover object -- singleton shared by all components
         igv.popover = new igv.Popover(browser.$content);
 
-        // alert object -- singleton shared by all components
-        igv.alert = new igv.AlertDialog(browser.$content, "igv-alert");
-        igv.alert.hide();
+        igv.alertDialog = new igv.AlertDialog(browser.$content);
 
-        // Dialog object -- singleton shared by all components
-        igv.dialog = new igv.Dialog(browser.$root, igv.Dialog.dialogConstructor);
-        igv.dialog.hide();
+        igv.inputDialog = new igv.InputDialog(browser.$root);
 
-        // Data Range Dialog object -- singleton shared by all components
+        igv.trackRemovalDialog = new igv.TrackRemovalDialog(browser.$root);
+
         igv.dataRangeDialog = new igv.DataRangeDialog(browser.$root);
-        igv.dataRangeDialog.hide();
 
         // TODO fix this
         // if (!config.showNavigation) {
@@ -42577,8 +42673,7 @@ var igv = (function (igv) {
     igv.removeBrowser = function () {
         igv.browser.$root.remove();
         igv.browser.dispose();
-        $(".igv-grid-container-dialog").remove();
-        // $(".igv-grid-container-dialog").remove();
+        $(".igv-generic-dialog-container").remove();
     };
 
 
@@ -44065,8 +44160,6 @@ var igv = (function (igv) {
 
     igv.presentAlert = function (alert, $parent) {
 
-        console.error(alert);
-
         var string;
 
         string = alert.message || alert;
@@ -44075,11 +44168,8 @@ var igv = (function (igv) {
             string = httpMessages[string];
         }
 
-        igv.alert.$dialogLabel.text(string);
-        igv.alert.show($parent);
-
-        igv.popover.hide();
-
+        igv.alertDialog.configure({ label: string });
+        igv.alertDialog.present($parent);
     };
 
     var httpMessages = {
@@ -44091,13 +44181,16 @@ var igv = (function (igv) {
 
     igv.attachDialogCloseHandlerWithParent = function ($parent, closeHandler) {
 
-        var $container = $('<div>'),
-            $fa = igv.createIcon("times");
+        var $container,
+            $fa;
 
-        $container.append($fa);
+        $container = $('<div>');
         $parent.append($container);
 
-        $container.click(closeHandler);
+        $fa = igv.createIcon("times");
+        $container.append($fa);
+
+        $fa.click(closeHandler);
 
     };
 
@@ -46533,49 +46626,6 @@ var igv = (function (igv) {
 
 var igv = (function (igv) {
 
-    var TickSeparationThreshold,
-        tickNumbers,
-        tickKeys,
-        tickDivisors,
-        tickUnits,
-        tickValues;
-
-    TickSeparationThreshold = 50;
-
-    tickNumbers =
-        [
-            1e8,
-
-            5e7,
-            1e7,
-
-            5e6,
-            1e6,
-
-            5e5,
-            1e5,
-
-            5e4,
-            1e4,
-
-            5e3,
-            1e3,
-
-            5e2,
-            1e2,
-
-            5e1,
-            1e1
-        ].reverse();
-
-    tickKeys = _.map(tickNumbers, function (number) {
-        return number.toString()
-    });
-    tickDivisors = createTickDivisiors();
-    tickUnits = createTickUnits();
-    tickValues = createTickValues();
-
-    //
     igv.RulerTrack = function () {
 
         this.height = 40;
@@ -46633,24 +46683,18 @@ var igv = (function (igv) {
     };
 
     igv.RulerTrack.prototype.draw = function (options) {
-
         var self = this,
-            pixel,
-            shim,
-            tickHeight,
+            key,
             rulerSweeper,
             $viewportContent,
-            index,
-            tickSeparationPixel,
-            tickLabelNumber,
-            tickLabelText,
-            toggle,
-            rect,
+            pixelWidthBP,
+            tick,
+            label,
+            shim,
             center,
             size,
-            maximumLabelWidthPixel,
-            key,
-            bp;
+            rect,
+            tickHeight;
 
         key = igv.browser.genomicStateList.indexOf(options.genomicState).toString();
         rulerSweeper = this.rulerSweepers[ key ];
@@ -46668,37 +46712,13 @@ var igv = (function (igv) {
             $viewportContent.find('canvas').show();
             rulerSweeper.addMouseHandlers();
 
-            index = 0;
-            for (var i = 0; i < tickKeys.length; i++) {
-                tickSeparationPixel = options.referenceFrame.toPixels(tickValues[tickKeys[i]]);
-                if (tickSeparationPixel > TickSeparationThreshold) {
-                    index = i;
-                    break;
-                }
-            }
-
-            shim = 2;
             tickHeight = 6;
-            bp = options.bpStart + options.referenceFrame.toBP(options.pixelWidth);
-            bp = Math.min(options.genomicState.chromosome.bpLength, bp);
-            maximumLabelWidthPixel = options.context.measureText(tickLabelString(bp, index)).width;
+            shim = 2;
 
-            for (pixel = 0, toggle = 0, tickLabelNumber = options.bpStart; pixel < options.pixelWidth; pixel += tickSeparationPixel, toggle++, tickLabelNumber += tickValues[tickKeys[index]]) {
+            pixelWidthBP = 1 + Math.floor(options.referenceFrame.toBP(options.pixelWidth));
+            tick = new igv.Tick(pixelWidthBP, options);
 
-                if (0 === toggle % 2 || maximumLabelWidthPixel < tickSeparationPixel) {
-
-                    tickLabelText = tickLabelString(tickLabelNumber, index);
-
-                    center = {x: Math.round(pixel), y: self.height - (tickHeight / 0.75)};
-                    size = {width: options.context.measureText(tickLabelText).width, height: 2};
-
-                    rect = igv.Rect.makeWithCenterAndSize(center, size);
-
-                    igv.graphics.fillText(options.context, tickLabelText, Math.round(pixel - rect.size.width / 2), self.height - (tickHeight / 0.75));
-                }
-
-                igv.graphics.strokeLine(options.context, Math.round(pixel), this.height - tickHeight, Math.round(pixel), this.height - shim);
-            }
+            tick.drawTicks(options, tickHeight, shim, this.height);
 
             igv.graphics.strokeLine(options.context, 0, this.height - shim, options.pixelWidth, this.height - shim);
 
@@ -46706,76 +46726,125 @@ var igv = (function (igv) {
 
     };
 
-    function tickLabelString(tickLabelNumber, index) {
-        var tickUnit,
-            tickDivisor,
-            string,
-            number;
+    igv.Tick = function (pixelWidthBP, options) {
 
-        tickUnit = tickUnits[tickKeys[index]];
-        tickDivisor = tickDivisors[tickKeys[index]];
+        initialize.call(this, pixelWidthBP, options);
 
-        number = Math.round(tickLabelNumber / tickDivisor);
-        string = igv.numberFormatter(number) + ' ' + tickUnit;
+        function initialize(pixelWidthBP, options) {
 
-        return string;
-    }
+            var numberOfZeroes,
+                majorUnit,
+                unitMultiplier,
+                numberOfMajorTicks,
+                str,
+                labelWidthBP;
 
-    function createTickDivisiors() {
-        var tickDivisiors = {};
-        tickDivisiors[1e8.toString()] = 1e6;
-        tickDivisiors[5e7.toString()] = 1e6;
-        tickDivisiors[1e7.toString()] = 1e6;
-        tickDivisiors[5e6.toString()] = 1e6;
-        tickDivisiors[1e6.toString()] = 1e6;
+            if (pixelWidthBP < 10) {
+                set.call(this, 1, "bp", 1);
+            }
 
-        tickDivisiors[5e5.toString()] = 1e3;
-        tickDivisiors[1e5.toString()] = 1e3;
-        tickDivisiors[5e4.toString()] = 1e3;
-        tickDivisiors[1e4.toString()] = 1e3;
-        tickDivisiors[5e3.toString()] = 1e3;
-        tickDivisiors[1e3.toString()] = 1e3;
+            numberOfZeroes = Math.floor(Math.log10(pixelWidthBP));
 
-        tickDivisiors[5e2.toString()] = 1;
-        tickDivisiors[1e2.toString()] = 1;
-        tickDivisiors[5e1.toString()] = 1;
-        tickDivisiors[1e1.toString()] = 1;
+            if (numberOfZeroes > 9) {
+                majorUnit = "gb";
+                unitMultiplier = 1e9;
+            } else if (numberOfZeroes > 6) {
+                majorUnit = "mb";
+                unitMultiplier = 1e6;
+            } else if (numberOfZeroes > 3) {
+                majorUnit = "kb";
+                unitMultiplier = 1e3;
+            } else {
+                majorUnit = "bp";
+                unitMultiplier = 1;
+            }
 
-        return tickDivisiors;
-    }
+            str = igv.numberFormatter(Math.floor(pixelWidthBP / unitMultiplier)) + " " + majorUnit;
+            this.labelWidthBP = Math.round(options.referenceFrame.toBP(options.context.measureText( str ).width));
 
-    function createTickValues() {
-        var tickValues = {};
+            numberOfMajorTicks = pixelWidthBP / Math.pow(10, numberOfZeroes - 1);
 
-        _.each(tickNumbers, function (number) {
-            tickValues[number.toString()] = number;
-        });
+            if (numberOfMajorTicks < 25) {
+                set.call(this, Math.pow(10, numberOfZeroes - 1), majorUnit, unitMultiplier);
+            } else {
+                set.call(this, Math.pow(10, numberOfZeroes) / 2, majorUnit, unitMultiplier);
+            }
 
-        return tickValues;
-    }
+            // this.description( (Math.floor(numberOfMajorTicks)) );
+        }
 
-    function createTickUnits() {
-        var tickUnits = {};
-        tickUnits[1e8.toString()] = 'mb';
-        tickUnits[5e7.toString()] = 'mb';
-        tickUnits[1e7.toString()] = 'mb';
-        tickUnits[5e6.toString()] = 'mb';
-        tickUnits[1e6.toString()] = 'mb';
+        function set(majorTick, majorUnit, unitMultiplier) {
 
-        tickUnits[5e5.toString()] = 'kb';
-        tickUnits[1e5.toString()] = 'kb';
-        tickUnits[5e4.toString()] = 'kb';
-        tickUnits[1e4.toString()] = 'kb';
-        tickUnits[5e3.toString()] = 'kb';
-        tickUnits[1e3.toString()] = 'kb';
+            this.majorTick = majorTick;
+            this.majorUnit = majorUnit;
 
-        tickUnits[5e2.toString()] = '';
-        tickUnits[1e2.toString()] = '';
-        tickUnits[5e1.toString()] = '';
-        tickUnits[1e1.toString()] = '';
+            this.halfTick = majorTick / 2;
+            this.quarterTick = majorTick / 4;
 
-        return tickUnits;
-    }
+            this.minorTick = majorTick / 10.0;
+
+            this.unitMultiplier = unitMultiplier;
+        }
+
+    };
+
+    igv.Tick.prototype.drawTicks = function (options, tickHeight, shim, height) {
+
+        var numberOfTicks,
+            bp,
+            pixel,
+            label,
+            labelWidth,
+            labelX,
+            numer,
+            floored;
+
+        // major ticks
+        numberOfTicks = Math.floor(options.bpStart/this.majorTick) - 1;
+        pixel = 0;
+        while (pixel < options.pixelWidth) {
+
+            bp = Math.floor(numberOfTicks * this.majorTick);
+            pixel = Math.round(options.referenceFrame.toPixels((bp - 1) - options.bpStart + 0.5));
+
+            label = igv.numberFormatter(Math.floor(bp / this.unitMultiplier)) + " " + this.majorUnit;
+            labelWidth = options.context.measureText(label).width;
+            labelX = pixel - labelWidth / 2;
+            igv.graphics.fillText(options.context, label, labelX, height - (tickHeight / 0.75));
+
+            igv.graphics.strokeLine(options.context, pixel, height - tickHeight, pixel, height - shim);
+
+            ++numberOfTicks;
+        }
+
+        // major ticks
+        numberOfTicks = Math.floor(options.bpStart/this.halfTick) - 1;
+        pixel = 0;
+        while (pixel < options.pixelWidth) {
+
+            bp = Math.floor(numberOfTicks * this.halfTick);
+            pixel = Math.round(options.referenceFrame.toPixels((bp - 1) - options.bpStart + 0.5));
+            numer = bp / this.unitMultiplier;
+            floored = Math.floor(numer);
+            // console.log(numer - floored);
+            if (numer === floored && (this.majorTick / this.labelWidthBP) > 8) {
+                label = igv.numberFormatter(Math.floor(numer)) + " " + this.majorUnit;
+                labelWidth = options.context.measureText(label).width;
+                labelX = pixel - labelWidth / 2;
+                igv.graphics.fillText(options.context, label, labelX, height - (tickHeight / 0.75));
+            }
+
+            igv.graphics.strokeLine(options.context, pixel, height - tickHeight, pixel, height - shim);
+
+            ++numberOfTicks;
+        }
+
+
+    };
+
+    igv.Tick.prototype.description = function (blurb) {
+        console.log((blurb || '') + ' tick ' + igv.numberFormatter(this.majorTick) + ' label width ' + igv.numberFormatter(this.labelWidthBP) + ' multiplier ' + this.unitMultiplier);
+    };
 
     return igv;
 })(igv || {});
@@ -47001,7 +47070,7 @@ var igv = (function (igv) {
         };
     };
 
-    igv.SequenceTrack.prototype.menuItemList = function(popover) {
+    igv.SequenceTrack.prototype.menuItemList = function () {
         var self = this;
 
         return [
@@ -47009,16 +47078,13 @@ var igv = (function (igv) {
                 name: self.reversed ? "Forward" : "Reverse",
                 click: function () {
                     self.reversed = !self.reversed;
-                    popover.hide();
-                    igv.browser.update();
+                    self.trackView.repaint(true); 
                 }
             },
             {
                 name: self.frameTranslate ? "Close Translation" : "Three-frame Translate",
                 click: function(){
                     self.frameTranslate = !self.frameTranslate;
-                    popover.hide();
-
                     if (self.frameTranslate) {
                         self.trackView.viewports.forEach(function (vp) {
                             vp.setContentHeight(115);
@@ -49240,7 +49306,6 @@ var igv = (function (igv) {
 
     /**
      * Configure item list for contextual (right-click) track popup menu.
-     * @param popover
      * @param viewport
      * @param genomicLocation - (bp)
      * @param xOffset - (pixels) within track extent
@@ -49262,7 +49327,7 @@ var igv = (function (igv) {
 
         menuItems = [];
         if (typeof viewport.trackView.track.contextMenuItemList === "function") {
-            menuItems = igv.trackMenuItemListHelper(viewport.trackView.track.contextMenuItemList(config));
+            menuItems = viewport.trackView.track.contextMenuItemList(config);
         }
 
         return menuItems;
@@ -49279,64 +49344,21 @@ var igv = (function (igv) {
             all;
 
         if (trackView.track.config.type !== 'sequence') {
-
-            menuItems.push(igv.trackMenuItem(popover, trackView, "Set track name", function () {
-                return "Track Name"
-            }, trackView.track.name, function () {
-
-                var value;
-
-                value = igv.dialog.$dialogInput.val().trim();
-                value = ('' === value || undefined === value) ? 'untitled' : value;
-
-                igv.setTrackLabel(trackView.track, value);
-
-                trackView.update();
-
-            }, undefined));
-
-            menuItems.push(igv.trackMenuItem(popover, trackView, "Set track height", function () {
-                return "Track Height"
-            }, trackView.trackDiv.clientHeight, function () {
-
-                var number = parseFloat(igv.dialog.$dialogInput.val(), 10);
-
-                if (undefined !== number) {
-
-                    // If explicitly setting the height adust min or max, if neccessary.
-                    if (trackView.track.minHeight !== undefined && trackView.track.minHeight > number) {
-                        trackView.track.minHeight = number;
-                    }
-                    if (trackView.track.maxHeight !== undefined && trackView.track.maxHeight < number) {
-                        trackView.track.minHeight = number;
-                    }
-                    trackView.setTrackHeight(number, true, true);
-                    trackView.track.autoHeight = false;   // Explicitly setting track height turns off autoHeight
-
-                }
-
-            }, undefined));
+            menuItems.push(igv.trackRenameMenuItem(trackView));
+            menuItems.push(igv.trackHeightMenuItem(trackView));
         }
+
         if (igv.doProvideColoSwatchWidget(trackView.track)) {
-            menuItems.push(igv.colorPickerMenuItem(popover, trackView))
+            menuItems.push(igv.colorPickerMenuItem(trackView))
         }
 
         all = [];
         if (trackView.track.menuItemList) {
-            all = menuItems.concat(igv.trackMenuItemListHelper(trackView.track.menuItemList(popover)));
+            all = menuItems.concat(trackView.track.menuItemList());
         }
-        if (trackView.track.removable !== false) {
 
-            all.push(
-                igv.trackMenuItem(popover, trackView, "Remove track", function () {
-                    var label = "Remove " + trackView.track.name;
-                    return '<div class="igv-dialog-label-centered">' + label + '</div>';
-                }, undefined, function () {
-                    popover.hide();
-                    trackView.browser.removeTrack(trackView.track);
-                    // trackView.browser.removeTrackByName(trackView.track.name);
-                }, true)
-            );
+        if (trackView.track.removable !== false) {
+            all.push(igv.trackRemovalMenuItem(trackView));
         }
 
         return all;
@@ -49346,7 +49368,7 @@ var igv = (function (igv) {
         return (track instanceof igv.BAMTrack || track instanceof igv.FeatureTrack || track instanceof igv.VariantTrack || track instanceof igv.WIGTrack);
     };
 
-    igv.trackMenuItemListHelper = function (itemList, callback) {
+    igv.trackMenuItemListHelper = function (itemList, $popover) {
 
         var list = [];
 
@@ -49377,7 +49399,7 @@ var igv = (function (igv) {
                 if (item.click) {
                     $e.click(function () {
                         item.click();
-                        if(typeof callback === "function") callback();
+                        $popover.hide();
                     });
                 }
 
@@ -49390,41 +49412,56 @@ var igv = (function (igv) {
 
     /**
      * Configure item for track "gear" menu.
-     * @param popover - passed to allow menu-item handler to close popup
      * @param trackView
      * @param menuItemLabel - menu item string
      * @param dialogLabelHandler - dialog label creation handler
      * @param dialogInputValue
      * @param dialogClickHandler
-     * @param doAddTopBorder
      */
-    igv.trackMenuItem = function (popover, trackView, menuItemLabel, dialogLabelHandler, dialogInputValue, dialogClickHandler, doAddTopBorder) {
+    igv.trackMenuItem = function (trackView, menuItemLabel, dialogLabelHandler, dialogInputValue, dialogClickHandler) {
 
         var $e,
             clickHandler;
 
         $e = $('<div>');
 
-        if (true === doAddTopBorder) {
-            $e.addClass('igv-track-menu-border-top');
-        }
-
         $e.text(menuItemLabel);
 
-
         clickHandler = function () {
-            var $element = $(trackView.trackDiv);
-            igv.dialog.configure(dialogLabelHandler, dialogInputValue, dialogClickHandler, undefined, undefined);
-            igv.dialog.show($element);
-            popover.hide();
+          
+            igv.inputDialog.configure(dialogLabelHandler, dialogInputValue, dialogClickHandler, undefined, undefined);
+            igv.inputDialog.show( $(trackView.trackDiv) );
+
         };
 
-        $e.click(clickHandler);
-
-        return {object: $e, init: undefined};
+        return {object: $e, click: clickHandler};
     };
 
-    igv.dataRangeMenuItem = function (popover, trackView) {
+    igv.trackRemovalMenuItem = function (trackView) {
+
+        var $e,
+            menuClickHandler;
+
+        $e = $('<div>');
+        $e.addClass('igv-track-menu-border-top');
+        $e.text('Remove track');
+
+        menuClickHandler = function () {
+            var dialogClickHandler;
+
+            dialogClickHandler = function () {
+                trackView.browser.removeTrack(trackView.track);
+            };
+
+            igv.trackRemovalDialog.configure({ name: trackView.track.name, click: dialogClickHandler });
+            igv.trackRemovalDialog.present($(trackView.trackDiv));
+        };
+
+        return { object: $e, click: menuClickHandler };
+
+    };
+
+    igv.dataRangeMenuItem = function (trackView) {
 
         var $e,
             clickHandler;
@@ -49433,28 +49470,108 @@ var igv = (function (igv) {
         $e.text('Set data range');
 
         clickHandler = function () {
-            igv.dataRangeDialog.configureWithTrackView(trackView);
-            igv.dataRangeDialog.show();
-            popover.hide();
+            // igv.dataRangeDialog.configureWithTrackView(trackView);
+            igv.dataRangeDialog.configure({ trackView: trackView });
+            igv.dataRangeDialog.present($(trackView.trackDiv));
         };
 
-        $e.click(clickHandler);
-
-        return {object: $e, init: undefined};
+        return {object: $e, click: clickHandler};
     };
 
-    igv.colorPickerMenuItem = function (popover, trackView) {
-        var $e;
+    igv.colorPickerMenuItem = function (trackView) {
+        var $e,
+            clickHandler;
 
         $e = $('<div>');
         $e.text('Set track color');
 
-        $e.click(function () {
+        clickHandler = function () {
             trackView.$colorpicker_container.toggle();
-            popover.hide();
-        });
+        };
 
-        return {object: $e};
+        return {object: $e, click: clickHandler};
+
+    };
+
+    igv.trackRenameMenuItem = function (trackView) {
+
+        var $e,
+            menuClickHandler;
+
+        $e = $('<div>');
+        $e.text('Set track name');
+
+        menuClickHandler = function () {
+
+            var dialogClickHandler;
+
+            dialogClickHandler = function () {
+                var value;
+
+                value = igv.inputDialog.$input.val().trim();
+
+                value = ('' === value || undefined === value) ? 'untitled' : value;
+
+                igv.setTrackLabel(trackView.track, value);
+            };
+
+            igv.inputDialog.configure({ label:'Track Name', input:(trackView.track.name || 'unnamed'), click:dialogClickHandler });
+            igv.inputDialog.present( $(trackView.trackDiv) );
+
+        };
+
+        return { object: $e, click: menuClickHandler };
+
+
+    };
+
+    igv.trackHeightMenuItem = function (trackView) {
+
+        var $e,
+            menuClickHandler;
+
+        $e = $('<div>');
+        $e.text('Set track height');
+
+        menuClickHandler = function () {
+            var dialogLabelHandler,
+                dialogClickHandler;
+
+            dialogLabelHandler = function () {
+                return "Track Height"
+            };
+
+            dialogClickHandler = function () {
+
+                var number;
+
+                number = parseFloat(igv.inputDialog.$input.val(), 10);
+
+                if (undefined !== number) {
+
+                    // If explicitly setting the height adust min or max, if neccessary.
+                    if (trackView.track.minHeight !== undefined && trackView.track.minHeight > number) {
+                        trackView.track.minHeight = number;
+                    }
+                    if (trackView.track.maxHeight !== undefined && trackView.track.maxHeight < number) {
+                        trackView.track.minHeight = number;
+                    }
+                    trackView.setTrackHeight(number, true, true);
+
+                    // Explicitly setting track height turns off autoHeight
+                    trackView.track.autoHeight = false;
+                }
+
+            };
+
+
+            igv.inputDialog.configure({ label:'Track Height', input:trackView.trackDiv.clientHeight, click:dialogClickHandler });
+            igv.inputDialog.present( $(trackView.trackDiv) );
+
+        };
+
+        return { object: $e, click: menuClickHandler };
+
 
     };
 
@@ -49505,9 +49622,9 @@ var igv = (function (igv) {
         this.$presentationButton.on('click', function () {
 
             if (self.$container.is(':visible')) {
-                doDismiss(self);
+                doDismiss.call(self);
             } else {
-                doPresent(self);
+                doPresent.call(self);
             }
 
         });
@@ -49517,7 +49634,7 @@ var igv = (function (igv) {
         $widgetParent.append(this.$container);
 
         // drag & drop surface
-        drag_drop_surface(this, this.$container);
+        drag_drop_surface.call(this, this.$container);
 
         // warning
         this.$warning = createWarning();
@@ -49540,7 +49657,7 @@ var igv = (function (igv) {
             $container.append($fa);
 
             $container.on('click', function () {
-                doDismiss(self);
+                doDismiss.call(self);
             });
 
 
@@ -49556,11 +49673,11 @@ var igv = (function (igv) {
     };
 
     igv.TrackFileLoad.keyToIndexExtension =
-    {
-        bam: {extension: 'bai', optional: false},
-        any: {extension: 'idx', optional: true},
-        gz: {extension: 'tbi', optional: true}
-    };
+        {
+            bam: {extension: 'bai', optional: false},
+            any: {extension: 'idx', optional: true},
+            gz: {extension: 'tbi', optional: true}
+        };
 
     igv.TrackFileLoad.indexExtensionToKey = _.invert(_.mapObject(igv.TrackFileLoad.keyToIndexExtension, function (val) {
         return val.extension;
@@ -49586,123 +49703,22 @@ var igv = (function (igv) {
 
     };
 
-    igv.TrackFileLoad.prototype.loadLocalFiles = function (files) {
+    function ingestDragDropData (dataTransfer) {
+        var url,
+            files;
 
-        var dataFiles,
-            indexFiles,
-            missing,
-            configurations,
-            ifMissingDf,
-            dfMissingIf,
-            dataF,
-            indexF,
-            keysMissing,
-            keysPresent,
-            filenames,
-            str,
-            blurb_0,
-            blurb_1;
+        url = dataTransfer.getData('text/uri-list');
+        files = dataTransfer.files;
 
-        dataFiles = extractDataFiles(files);
-
-        indexFiles = extractIndexFiles(files);
-
-        if (undefined === dataFiles && undefined === indexFiles) {
-            this.warnWithMessage('ERROR: ' + 'No data or index file(s) provided.');
-        }
-        // if there are no index files
-        else if (undefined === indexFiles) {
-
-            keysMissing = [];
-            _.each(dataFiles, function (dataFile, key) {
-                // if data file requires an associated index file
-                if (false === igv.TrackFileLoad.keyToIndexExtension[dataFile.indexExtensionLookup].optional) {
-                    keysMissing.push(key);
-                }
-            });
-
-            // render files that don't require and index file
-            keysPresent = _.difference(_.keys(dataFiles), keysMissing);
-            dataF = (_.size(keysPresent) > 0) ? _.pick(dataFiles, keysPresent) : undefined;
-
-            if (dataF) {
-                configurations = _.map(_.pluck(dataF, 'file'), function (f) {
-                    return {url: f, indexed: false}
-                });
-                igv.browser.loadTrackList(configurations);
-            }
-
-            // notify user about missing index files
-            if (_.size(keysMissing) > 0) {
-
-                filenames = _.map(keysMissing, function (key) {
-                    return dataFiles[key].file.name;
-                });
-
-                str = filenames.join(' and ');
-                this.warnWithMessage('ERROR: ' + str + ' require an associated index file.');
-            } else {
-                doDismiss(this);
-            }
-
-        }
-        // No data files present. All index files are missing their associated data files
-        else if (undefined === dataFiles) {
-
-            blurb_0 = _.map(indexFiles, function (m) {
-                return m.name;
-            }).join(' and ');
-
-            blurb_0 += ' require an associated data file.';
-
-            this.warnWithMessage('ERROR: ' + blurb_0);
-        }
-        // We have a mix of data and index files.
-        else {
-
-            dfMissingIf = dataFilesMissingAssociatedIndexFilesAndWarningBlurb(dataFiles, indexFiles);
-            ifMissingDf = indexFilesMissingAssociatedDataFilesAndWarningBlurb(dataFiles, indexFiles);
-
-            str = undefined;
-            blurb_0 = (dfMissingIf) ? dfMissingIf.blurb : undefined;
-            blurb_1 = ( ifMissingDf) ? ifMissingDf.blurb : undefined;
-            if (blurb_0 && blurb_1) {
-                str = blurb_0 + ' ' + blurb_1;
-            } else if (blurb_0) {
-                str = blurb_0;
-            } else if (blurb_1) {
-                str = blurb_1;
-            }
-
-            keysPresent = (dfMissingIf) ? _.difference(_.keys(dataFiles), dfMissingIf.missing) : _.keys(dataFiles);
-            dataF = (_.size(keysPresent) > 0) ? _.pick(dataFiles, keysPresent) : undefined;
-
-            keysPresent = (ifMissingDf) ? _.difference(_.keys(indexFiles), ifMissingDf.missing) : _.keys(indexFiles);
-            indexF = (_.size(keysPresent) > 0) ? _.pick(indexFiles, keysPresent) : undefined;
-
-            if (dataF) {
-                configurations = _.map(_.keys(dataF), function (key) {
-
-                    if (indexF && indexF[key]) {
-                        return {url: dataF[key].file, indexURL: indexF[key]}
-                    } else {
-                        return {url: dataF[key].file, indexed: false}
-                    }
-
-                });
-
-                igv.browser.loadTrackList(configurations);
-            }
-
-            if (str) {
-                this.warnWithMessage('ERROR: ' + str);
-            } else {
-                doDismiss(this);
-            }
-
+        if (files.length > 0) {
+            loadLocalFiles.call(this, files);
+        } else if ('' !== url) {
+            processURL.call(this, url, this.$index_url_input.val());
+        } else {
+            console.log('whah?');
         }
 
-    };
+    }
 
     function indexFilesMissingAssociatedDataFilesAndWarningBlurb(dataFiles, indexFiles) {
         var keysMissing,
@@ -49841,16 +49857,17 @@ var igv = (function (igv) {
 
     }
 
-    function drag_drop_surface(trackFileLoader, $parent) {
+    function drag_drop_surface($parent) {
 
-        var $e,
+        var self = this,
+            $e,
             $ok,
             $cancel;
 
-        trackFileLoader.$drag_drop_surface = $('<div class="igv-drag-drop-surface">');
-        $parent.append(trackFileLoader.$drag_drop_surface);
+        this.$drag_drop_surface = $('<div class="igv-drag-drop-surface">');
+        $parent.append(this.$drag_drop_surface);
 
-        trackFileLoader.$drag_drop_surface
+        this.$drag_drop_surface
             .on('drag dragstart dragend dragover dragenter dragleave drop', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -49862,27 +49879,27 @@ var igv = (function (igv) {
                 $('.igv-drag-drop-container').removeClass('is-dragover');
             })
             .on('drop', function (e) {
-                trackFileLoader.loadLocalFiles(e.originalEvent.dataTransfer.files);
+                ingestDragDropData.call(self, e.originalEvent.dataTransfer);
             });
 
         // load local file container
-        trackFileLoader.$file_input_container = $('<div class="igv-drag-drop-file-input">');
-        trackFileLoader.$drag_drop_surface.append(trackFileLoader.$file_input_container);
+        this.$file_input_container = $('<div class="igv-drag-drop-file-input">');
+        this.$drag_drop_surface.append(this.$file_input_container);
 
         // load local file
-        trackFileLoader.$file_input = $('<input id="igv-track-file-input" class="igv-track-file-input-css" type="file" name="files[]" data-multiple-caption="{count} files selected" multiple="">');
-        trackFileLoader.$file_input_container.append(trackFileLoader.$file_input);
+        this.$file_input = $('<input id="igv-track-file-input" class="igv-track-file-input-css" type="file" name="files[]" data-multiple-caption="{count} files selected" multiple="">');
+        this.$file_input_container.append(this.$file_input);
 
-        trackFileLoader.$file_input.on('change', function (e) {
-            trackFileLoader.loadLocalFiles(e.target.files)
+        this.$file_input.on('change', function (e) {
+            loadLocalFiles.call(self, e.target.files)
         });
 
-        blurb(trackFileLoader.$file_input_container, 'Choose file(s)', 'igv-track-file-input', 'load-file-blurb');
-        trackFileLoader.$file_input_blurb = trackFileLoader.$file_input_container.find('#load-file-blurb');
+        blurb(this.$file_input_container, 'Choose file(s)', 'igv-track-file-input', 'load-file-blurb');
+        this.$file_input_blurb = this.$file_input_container.find('#load-file-blurb');
 
         // ok
         $ok = $('<div id="file_input_ok" class="igv-drag-drop-ok">');
-        trackFileLoader.$drag_drop_surface.append($ok);
+        this.$drag_drop_surface.append($ok);
         $ok.text('ok');
         $ok.hide();
 
@@ -49890,30 +49907,30 @@ var igv = (function (igv) {
 
             var extension;
 
-            extension = igv.getExtension({url: trackFileLoader.file});
-            if (undefined === trackFileLoader.indexFile && false === igv.TrackFileLoad.keyToIndexExtension[extension].optional) {
-                trackFileLoader.warnWithMessage('ERROR. ' + extension + ' files require an index file.');
-            } else if (undefined === trackFileLoader.indexFile && true === igv.TrackFileLoad.keyToIndexExtension[extension].optional) {
-                igv.browser.loadTrack({url: trackFileLoader.file, indexURL: undefined, indexed: false});
-                doDismiss(trackFileLoader);
+            extension = igv.getExtension({url: self.file});
+            if (undefined === self.indexFile && false === igv.TrackFileLoad.keyToIndexExtension[extension].optional) {
+                self.warnWithMessage('ERROR. ' + extension + ' files require an index file.');
+            } else if (undefined === self.indexFile && true === igv.TrackFileLoad.keyToIndexExtension[extension].optional) {
+                igv.browser.loadTrack({url: self.file, indexURL: undefined, indexed: false});
+                doDismiss.call(self);
             } else {
-                igv.browser.loadTrack({url: trackFileLoader.file, indexURL: trackFileLoader.indexFile});
-                doDismiss(trackFileLoader);
+                igv.browser.loadTrack({url: self.file, indexURL: self.indexFile});
+                doDismiss.call(self);
             }
         });
 
         // cancel
         $cancel = $('<div id="file_input_cancel" class="igv-drag-drop-cancel">');
-        trackFileLoader.$drag_drop_surface.append($cancel);
+        this.$drag_drop_surface.append($cancel);
         $cancel.text('cancel');
         $cancel.hide();
 
         $cancel.on('click', function (e) {
-            doDismiss(trackFileLoader);
+            doDismiss.call(self);
         });
 
         // load URL
-        url_input_container(trackFileLoader, trackFileLoader.$drag_drop_surface);
+        url_input_container.call(this, this.$drag_drop_surface);
 
         function blurb($parent, phrase, input_id, label_id) {
             var $label,
@@ -49967,43 +49984,42 @@ var igv = (function (igv) {
         return $warning;
     }
 
-    function url_input_container(trackFileLoader, $parent) {
+    function url_input_container($parent) {
 
-        var $ok,
+        var self = this,
+            $ok,
             $cancel;
 
         // url input container
-        trackFileLoader.$url_input_container = $('<div class="igv-drag-and-drop-url-input-container">');
-        $parent.append(trackFileLoader.$url_input_container);
+        this.$url_input_container = $('<div class="igv-drag-and-drop-url-input-container">');
+        $parent.append(this.$url_input_container);
 
-        trackFileLoader.$or = $('<div>');
-        trackFileLoader.$url_input_container.append(trackFileLoader.$or);
-        trackFileLoader.$or.text('or');
+        this.$or = $('<div>');
+        this.$url_input_container.append(this.$or);
+        this.$or.text('or');
 
         // url input
-        trackFileLoader.$url_input = $('<input class="igv-drag-and-drop-url-input" placeholder="enter data file URL">');
-        trackFileLoader.$url_input_container.append(trackFileLoader.$url_input);
+        this.$url_input = $('<input class="igv-drag-and-drop-url-input" placeholder="enter data file URL">');
+        this.$url_input_container.append(this.$url_input);
 
-        trackFileLoader.$url_input.on('change', function (e) {
-            var _url,
-                extension,
-                str;
+        this.$url_input.on('change', function (e) {
+            var _url;
 
             _url = $(this).val();
             if (igv.TrackFileLoad.isIndexFile(_url)) {
-                trackFileLoader.warnWithMessage('Error. Must enter data URL.');
+                self.warnWithMessage('Error. Must enter data URL.');
                 $(this).val(undefined);
             } else if (false === igv.TrackFileLoad.isIndexable(_url)) {
                 igv.browser.loadTrack({url: _url, indexed: false});
                 $(this).val(undefined);
-                doDismiss(trackFileLoader);
+                doDismiss.call(self);
             } else {
 
-                trackFileLoader.$file_input_container.hide();
-                trackFileLoader.$or.hide();
+                self.$file_input_container.hide();
+                self.$or.hide();
 
-                trackFileLoader.$url_input_feedback.text((_url.split("/").pop()));
-                trackFileLoader.$url_input_feedback.show();
+                self.$url_input_feedback.text((_url.split("/").pop()));
+                self.$url_input_feedback.show();
                 $(this).hide();
 
                 $ok.show();
@@ -50013,112 +50029,238 @@ var igv = (function (igv) {
         });
 
         // visual feedback that url was successfully input
-        trackFileLoader.$url_input_feedback = $('<div class="igv-drag-and-drop-url-input-feedback" >');
-        trackFileLoader.$url_input_container.append(trackFileLoader.$url_input_feedback);
-        trackFileLoader.$url_input_feedback.hide();
+        this.$url_input_feedback = $('<div class="igv-drag-and-drop-url-input-feedback" >');
+        this.$url_input_container.append(this.$url_input_feedback);
+        this.$url_input_feedback.hide();
 
 
         // index url input
-        trackFileLoader.$index_url_input = $('<input class="igv-drag-and-drop-url-input" placeholder="enter associated index file URL">');
-        trackFileLoader.$url_input_container.append(trackFileLoader.$index_url_input);
+        this.$index_url_input = $('<input class="igv-drag-and-drop-url-input" placeholder="enter associated index file URL">');
+        this.$url_input_container.append(this.$index_url_input);
 
-        trackFileLoader.$index_url_input.on('change', function (e) {
+        this.$index_url_input.on('change', function (e) {
             var _url;
 
             _url = $(this).val();
             if (false === igv.TrackFileLoad.isIndexFile(_url)) {
-                trackFileLoader.warnWithMessage('ERROR. Must enter index URL.');
+                self.warnWithMessage('ERROR. Must enter index URL.');
                 $(this).val(undefined);
             } else {
-                trackFileLoader.$index_url_input_feedback.text((_url.split("/").pop()));
-                trackFileLoader.$index_url_input_feedback.show();
+                self.$index_url_input_feedback.text((_url.split("/").pop()));
+                self.$index_url_input_feedback.show();
                 $(this).hide();
             }
         });
 
         // visual feedback that index url was successfully input
-        trackFileLoader.$index_url_input_feedback = $('<div class="igv-drag-and-drop-url-input-feedback" >');
-        trackFileLoader.$url_input_container.append(trackFileLoader.$index_url_input_feedback);
-        trackFileLoader.$index_url_input_feedback.hide();
+        this.$index_url_input_feedback = $('<div class="igv-drag-and-drop-url-input-feedback" >');
+        this.$url_input_container.append(this.$index_url_input_feedback);
+        this.$index_url_input_feedback.hide();
 
         // ok
         $ok = $('<div  id="url_input_ok" class="igv-drag-drop-ok">');
-        trackFileLoader.$url_input_container.append($ok);
+        this.$url_input_container.append($ok);
         $ok.text('ok');
         $ok.hide();
 
         $ok.on('click', function (e) {
-            var _url,
-                _indexURL,
-                extension,
-                key;
-
-            _url = ("" === trackFileLoader.$url_input.val()      ) ? undefined : trackFileLoader.$url_input.val();
-            _indexURL = ("" === trackFileLoader.$index_url_input.val()) ? undefined : trackFileLoader.$index_url_input.val();
-
-            extension = igv.getExtension({url: _url});
-            key = (igv.TrackFileLoad.keyToIndexExtension[extension]) ? extension : 'any';
-            if (undefined === _indexURL && false === igv.TrackFileLoad.keyToIndexExtension[key].optional) {
-                trackFileLoader.warnWithMessage('ERROR. A ' + extension + ' data URL requires an associated index URL.');
-            } else if (undefined === _url) {
-                trackFileLoader.warnWithMessage('ERROR. A data URL must be entered.');
-            } else if (undefined === _indexURL && true === igv.TrackFileLoad.keyToIndexExtension[key].optional) {
-                igv.browser.loadTrack({url: _url, indexURL: undefined, indexed: false});
-                doDismiss(trackFileLoader);
-            } else {
-                igv.browser.loadTrack({url: _url, indexURL: _indexURL});
-                doDismiss(trackFileLoader);
-            }
-
+            processURL.call(self, self.$url_input.val(), self.$index_url_input.val());
         });
 
         // cancel
         $cancel = $('<div  id="url_input_cancel" class="igv-drag-drop-cancel">');
-        trackFileLoader.$url_input_container.append($cancel);
+        this.$url_input_container.append($cancel);
         $cancel.text('cancel');
         $cancel.hide();
 
         $cancel.on('click', function (e) {
-            doDismiss(trackFileLoader);
+            doDismiss.call(self);
         });
     }
 
-    function doDismiss(trackFileLoader) {
+    function loadLocalFiles(files) {
+
+        var dataFiles,
+            indexFiles,
+            configurations,
+            ifMissingDf,
+            dfMissingIf,
+            dataF,
+            indexF,
+            keysMissing,
+            keysPresent,
+            filenames,
+            str,
+            blurb_0,
+            blurb_1;
+
+        dataFiles = extractDataFiles(files);
+
+        indexFiles = extractIndexFiles(files);
+
+        if (undefined === dataFiles && undefined === indexFiles) {
+            this.warnWithMessage('ERROR: ' + 'No data or index file(s) provided.');
+        }
+        // if there are no index files
+        else if (undefined === indexFiles) {
+
+            keysMissing = [];
+            _.each(dataFiles, function (dataFile, key) {
+                // if data file requires an associated index file
+                if (false === igv.TrackFileLoad.keyToIndexExtension[dataFile.indexExtensionLookup].optional) {
+                    keysMissing.push(key);
+                }
+            });
+
+            // render files that don't require and index file
+            keysPresent = _.difference(_.keys(dataFiles), keysMissing);
+            dataF = (_.size(keysPresent) > 0) ? _.pick(dataFiles, keysPresent) : undefined;
+
+            if (dataF) {
+                configurations = _.map(_.pluck(dataF, 'file'), function (f) {
+                    return {url: f, indexed: false}
+                });
+                igv.browser.loadTrackList(configurations);
+            }
+
+            // notify user about missing index files
+            if (_.size(keysMissing) > 0) {
+
+                filenames = _.map(keysMissing, function (key) {
+                    return dataFiles[key].file.name;
+                });
+
+                str = filenames.join(' and ');
+                this.warnWithMessage('ERROR: ' + str + ' require an associated index file.');
+            } else {
+                doDismiss.call(this);
+            }
+
+        }
+        // No data files present. All index files are missing their associated data files
+        else if (undefined === dataFiles) {
+
+            blurb_0 = _.map(indexFiles, function (m) {
+                return m.name;
+            }).join(' and ');
+
+            blurb_0 += ' require an associated data file.';
+
+            this.warnWithMessage('ERROR: ' + blurb_0);
+        }
+        // We have a mix of data and index files.
+        else {
+
+            dfMissingIf = dataFilesMissingAssociatedIndexFilesAndWarningBlurb(dataFiles, indexFiles);
+            ifMissingDf = indexFilesMissingAssociatedDataFilesAndWarningBlurb(dataFiles, indexFiles);
+
+            str = undefined;
+            blurb_0 = (dfMissingIf) ? dfMissingIf.blurb : undefined;
+            blurb_1 = ( ifMissingDf) ? ifMissingDf.blurb : undefined;
+            if (blurb_0 && blurb_1) {
+                str = blurb_0 + ' ' + blurb_1;
+            } else if (blurb_0) {
+                str = blurb_0;
+            } else if (blurb_1) {
+                str = blurb_1;
+            }
+
+            keysPresent = (dfMissingIf) ? _.difference(_.keys(dataFiles), dfMissingIf.missing) : _.keys(dataFiles);
+            dataF = (_.size(keysPresent) > 0) ? _.pick(dataFiles, keysPresent) : undefined;
+
+            keysPresent = (ifMissingDf) ? _.difference(_.keys(indexFiles), ifMissingDf.missing) : _.keys(indexFiles);
+            indexF = (_.size(keysPresent) > 0) ? _.pick(indexFiles, keysPresent) : undefined;
+
+            if (dataF) {
+                configurations = _.map(_.keys(dataF), function (key) {
+
+                    if (indexF && indexF[key]) {
+                        return {url: dataF[key].file, indexURL: indexF[key]}
+                    } else {
+                        return {url: dataF[key].file, indexed: false}
+                    }
+
+                });
+
+                igv.browser.loadTrackList(configurations);
+            }
+
+            if (str) {
+                this.warnWithMessage('ERROR: ' + str);
+            } else {
+                doDismiss.call(this);
+            }
+
+        }
+
+    }
+
+    function processURL(url, indexURL) {
+        var self = this,
+            _url,
+            _indexURL,
+            extension,
+            key;
+
+        _url = ('' === url) ? undefined : url;
+        _indexURL = ('' === indexURL) ? undefined : indexURL;
+
+        extension = igv.getExtension({ url: _url });
+        key = (igv.TrackFileLoad.keyToIndexExtension[ extension ]) ? extension : 'any';
+
+        if (undefined === _indexURL && false === igv.TrackFileLoad.keyToIndexExtension[key].optional) {
+            this.warnWithMessage('ERROR. A ' + extension + ' data URL requires an associated index URL.');
+        }
+        else if (undefined === _url) {
+            this.warnWithMessage('ERROR. A data URL must be entered.');
+        }
+        else if (undefined === _indexURL && true === igv.TrackFileLoad.keyToIndexExtension[key].optional) {
+            igv.browser.loadTrack({ url: _url, indexURL: undefined, indexed: false });
+            doDismiss.call(self);
+        }
+        else {
+            igv.browser.loadTrack({ url: _url, indexURL: _indexURL });
+            doDismiss.call(self);
+        }
+
+    }
+
+    function doDismiss() {
 
         $('#file_input_ok').hide();
         $('#file_input_cancel').hide();
 
-        trackFileLoader.$file_input.show();
-        trackFileLoader.$file_input_blurb.show();
+        this.$file_input.show();
+        this.$file_input_blurb.show();
 
-        trackFileLoader.$file_input_container.show();
+        this.$file_input_container.show();
 
-        trackFileLoader.file = undefined;
-        trackFileLoader.indexFile = undefined;
+        this.file = undefined;
+        this.indexFile = undefined;
 
-        trackFileLoader.$or.show();
+        this.$or.show();
 
         // url show/hide
-        trackFileLoader.$url_input_container.show();
+        this.$url_input_container.show();
 
         $('#url_input_ok').hide();
         $('#url_input_cancel').hide();
 
-        trackFileLoader.$url_input.show();
-        trackFileLoader.$url_input.val(undefined);
-        trackFileLoader.$url_input_feedback.hide();
+        this.$url_input.show();
+        this.$url_input.val(undefined);
+        this.$url_input_feedback.hide();
 
-        trackFileLoader.$index_url_input.show();
-        trackFileLoader.$index_url_input.val(undefined);
-        trackFileLoader.$index_url_input_feedback.hide();
+        this.$index_url_input.show();
+        this.$index_url_input.val(undefined);
+        this.$index_url_input_feedback.hide();
 
-        trackFileLoader.$warning.hide();
+        this.$warning.hide();
 
-        trackFileLoader.$container.hide();
+        this.$container.hide();
     }
 
-    function doPresent(trackFileLoader) {
-        trackFileLoader.$container.show();
+    function doPresent() {
+        this.$container.show();
     }
 
     return igv;
@@ -50151,6 +50293,9 @@ var igv = (function (igv) {
 
 
 var igv = (function (igv) {
+    
+    var dragged,
+        dragDestination;
 
     igv.TrackView = function (browser, $container, track) {
 
@@ -50203,7 +50348,11 @@ var igv = (function (igv) {
             appendRightHandGutter.call(this, $(this.trackDiv));
         }
 
-        attachDragWidget.call(this, $(this.trackDiv), this.$viewportContainer);
+        if (this.track instanceof igv.RulerTrack) {
+            // do nuthin
+        } else {
+            attachDragWidget.call(this, $(this.trackDiv), this.$viewportContainer);
+        }
 
         if (igv.doProvideColoSwatchWidget(this.track)) {
 
@@ -50307,8 +50456,9 @@ var igv = (function (igv) {
         if (this.track.dataRange) {
 
             $leftHandGutter.click(function (e) {
-                igv.dataRangeDialog.configureWithTrackView(self);
-                igv.dataRangeDialog.show();
+                // igv.dataRangeDialog.configureWithTrackView(self);
+                igv.dataRangeDialog.configure({ trackView: self });
+                igv.dataRangeDialog.present($(self.trackDiv));
             });
 
             $leftHandGutter.addClass('igv-clickable');
@@ -50358,7 +50508,7 @@ var igv = (function (igv) {
         self.$trackManipulationHandle.on('mousedown.trackview', function (e) {
             e.preventDefault();
             self.isMouseDown = true;
-            igv.dragged = self;
+            dragged = self;
         });
 
         self.$trackManipulationHandle.on('mouseup.trackview', function (e) {
@@ -50369,26 +50519,26 @@ var igv = (function (igv) {
         self.$trackManipulationHandle.on('mouseenter.trackview', function (e) {
             e.preventDefault();
             self.isMouseIn = true;
-            igv.dragDestination = self;
+            dragDestination = self;
 
-            if (undefined === igv.dragged) {
+            if (undefined === dragged) {
                 self.$trackDragScrim.show();
-            } else if (self === igv.dragged) {
+            } else if (self === dragged) {
                 self.$trackDragScrim.show();
             }
 
-            if ((igv.dragDestination && igv.dragged) && (igv.dragDestination !== igv.dragged)) {
+            if ((dragDestination && dragged) && (dragDestination !== dragged)) {
 
-                indexDestination = igv.browser.trackViews.indexOf(igv.dragDestination);
-                indexDragged = igv.browser.trackViews.indexOf(igv.dragged);
+                indexDestination = igv.browser.trackViews.indexOf(dragDestination);
+                indexDragged = igv.browser.trackViews.indexOf(dragged);
 
-                igv.browser.trackViews[indexDestination] = igv.dragged;
-                igv.browser.trackViews[indexDragged] = igv.dragDestination;
+                igv.browser.trackViews[indexDestination] = dragged;
+                igv.browser.trackViews[indexDragged] = dragDestination;
 
                 if (indexDestination < indexDragged) {
-                    $(igv.dragged.trackDiv).insertBefore($(igv.dragDestination.trackDiv));
+                    $(dragged.trackDiv).insertBefore($(dragDestination.trackDiv));
                 } else {
-                    $(igv.dragged.trackDiv).insertAfter($(igv.dragDestination.trackDiv));
+                    $(dragged.trackDiv).insertAfter($(dragDestination.trackDiv));
                 }
 
             }
@@ -50398,9 +50548,9 @@ var igv = (function (igv) {
         self.$trackManipulationHandle.on('mouseleave.trackview', function (e) {
             e.preventDefault();
             self.isMouseIn = undefined;
-            igv.dragDestination = undefined;
+            dragDestination = undefined;
 
-            if (self !== igv.dragged) {
+            if (self !== dragged) {
                 self.$trackDragScrim.hide();
             }
 
@@ -50408,11 +50558,11 @@ var igv = (function (igv) {
 
         $(document).on('mouseup.document.trackview', function (e) {
 
-            if (igv.dragged) {
-                igv.dragged.$trackDragScrim.hide();
+            if (dragged) {
+                dragged.$trackDragScrim.hide();
             }
 
-            igv.dragged = undefined;
+            dragged = undefined;
         });
 
     }
@@ -50433,17 +50583,17 @@ var igv = (function (igv) {
 
         this.track.autoscale = autoscale;
 
-        this.update();
+        this.repaint(true);
     };
 
     igv.TrackView.prototype.setColor = function (color) {
         this.track.color = color;
-        this.update();
+        this.repaint(true);
     };
 
     igv.TrackView.prototype.setTrackHeight = function (newHeight, update, force) {
 
-        if(!force) {
+        if (!force) {
             if (this.track.minHeight) {
                 newHeight = Math.max(this.track.minHeight, newHeight);
             }
@@ -50469,10 +50619,9 @@ var igv = (function (igv) {
             this.controlCanvas.setAttribute('height', $(this.trackDiv).height());
         }
 
-        if (update === undefined || update === true) {
-            this.update();
+        if (this.scrollbar) {
+            this.scrollbar.update();
         }
-
     }
 
     igv.TrackView.prototype.isLoading = function () {
@@ -50495,7 +50644,7 @@ var igv = (function (igv) {
 
         width = igv.browser.viewportContainerWidth() / igv.browser.genomicStateList.length;
 
-        if(width === 0) return;
+        if (width === 0) return;
         this.viewports.forEach(function (viewport) {
             viewport.setWidth(width);
         });
@@ -50544,14 +50693,58 @@ var igv = (function (igv) {
     /**
      * Repaint existing features (e.g. a color, resort, or display mode change).
      */
-    igv.TrackView.prototype.repaint = function () {
-        var self = this;
+    igv.TrackView.prototype.repaint = function (force) {
 
         this.viewports.forEach(function (viewport) {
-            viewport.repaint();
+            viewport.repaint(force);
         });
 
     };
+
+    /**
+     * Do any cleanup here
+     */
+    igv.TrackView.prototype.dispose = function () {
+
+        if(this.$trackManipulationHandle) {
+            this.$trackManipulationHandle.off();
+        }
+
+        if(this.$innerScroll) {
+            this.$innerScroll.off();
+        }
+
+        $(window).off("mousemove.igv");
+        $(window).off("mouseup.igv");
+
+        if (typeof this.track.dispose === "function") {
+            this.track.dispose();
+        }
+
+        var track = this.track;
+        Object.keys(track).forEach(function (key) {
+            track[key] = undefined;
+        })
+
+        this.viewports.forEach(function (viewport) {
+            viewport.dispose();
+        })
+
+        
+        if(dragged === this) {
+            dragged = undefined;
+        }
+        
+        if(dragDestination === this) {
+            dragDestination = undefined;
+        }
+
+        Object.keys(this).forEach(function (key) {
+            this[key] = undefined;
+        })
+
+
+    }
 
     igv.TrackScrollbar = function ($viewportContainer, viewports) {
 
@@ -50569,25 +50762,25 @@ var igv = (function (igv) {
         this.$viewportContainer = $viewportContainer;
         this.viewports = viewports;
 
-        this.$innerScroll.mousedown(function (event) {
+        this.$innerScroll.on("mousedown", function (event) {
 
             event.preventDefault();
 
             offY = event.pageY - $(this).position().top;
 
-            $(window).on("mousemove .igv", null, null, mouseMove);
+            $(window).on("mousemove.igv", null, null, mouseMove);
 
-            $(window).on("mouseup .igv", null, null, mouseUp);
+            $(window).on("mouseup.igv", null, null, mouseUp);
 
             // <= prevents start of horizontal track panning)
             event.stopPropagation();
         });
 
-        this.$innerScroll.click(function (event) {
+        this.$innerScroll.on("click", function (event) {
             event.stopPropagation();
         });
 
-        this.$outerScroll.click(function (event) {
+        this.$outerScroll.on("click", function (event) {
             moveScrollerTo(event.offsetY - self.$innerScroll.height() / 2);
             event.stopPropagation();
 
@@ -50596,14 +50789,13 @@ var igv = (function (igv) {
         function mouseMove(event) {
 
             event.preventDefault();
-
             moveScrollerTo(event.pageY - offY);
             event.stopPropagation();
         }
 
         function mouseUp(event) {
-            $(window).off("mousemove .igv", null, mouseMove);
-            $(window).off("mouseup .igv", null, mouseUp);
+            $(window).off("mousemove.igv", null, mouseMove);
+            $(window).off("mouseup.igv", null, mouseUp);
         }
 
         function moveScrollerTo(y) {
@@ -50697,87 +50889,57 @@ var igv = (function (igv) {
  */
 var igv = (function (igv) {
 
-    igv.AlertDialog = function ($parent, id) {
-
+    igv.AlertDialog = function ($parent) {
         var self = this,
             $header,
-            $headerBlurb;
+            $ok_container;
 
         this.$parent = $parent;
-        this.$container = $('<div>', { "id": id, "class": "igv-grid-container-alert-dialog" });
+
+        // dialog container
+        this.$container = $("<div>", { class:'igv-generic-dialog-container' });
         $parent.append(this.$container);
+        this.$container.offset( { left:0, top:0 } );
 
-        $header = $('<div class="igv-grid-header">');
-        $headerBlurb = $('<div class="igv-grid-header-blurb">');
-        $header.append($headerBlurb);
-        igv.attachDialogCloseHandlerWithParent($header, function () {
-            self.hide();
-        });
+        // dialog header
+        $header = $("<div>", { class:'igv-generic-dialog-header' });
         this.$container.append($header);
-
-        this.$container.append(this.alertTextContainer());
-
-        this.$container.append(this.rowOfOk());
-
-    };
-
-    igv.AlertDialog.prototype.alertTextContainer = function() {
-
-        var $rowContainer,
-            $col;
-
-        $rowContainer = $('<div class="igv-grid-rect">');
-
-        this.$dialogLabel = $('<div>', { "class": "igv-col igv-col-4-4 igv-alert-dialog-text" });
-
-        // $col = $('<div class="igv-col igv-col-4-4">');
-        // $col.append(this.$dialogLabel);
-        // $rowContainer.append($col);
-
-        $rowContainer.append(this.$dialogLabel);
-
-        return $rowContainer;
-
-    };
-
-    igv.AlertDialog.prototype.rowOfOk = function() {
-
-        var self = this,
-            $rowContainer,
-            $col;
-
-        $rowContainer = $('<div class="igv-grid-rect">');
-
-        // shim
-        $col = $('<div class="igv-col igv-col-1-4">');
-        $rowContainer.append( $col );
-
-        // ok button
-        $col = $('<div class="igv-col igv-col-2-4">');
-        this.$ok = $('<div class="igv-col-button igv-col-filler-ok-button">');
-        this.$ok.text("OK");
-
-        this.$ok.unbind();
-        this.$ok.click(function() {
-            self.hide();
+        igv.attachDialogCloseHandlerWithParent($header, function () {
+            self.$label.text('');
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
         });
 
-        $col.append( this.$ok );
-        $rowContainer.append( $col );
+        // dialog label
+        this.$label = $("<div>", { class:'igv-generic-dialog-one-liner'});
+        this.$container.append(this.$label);
+        self.$label.text('');
 
-        return $rowContainer;
+        // ok container
+        $ok_container = $("<div>", { class:'igv-generic-dialog-ok' });
+        this.$container.append($ok_container);
 
-    };
+        // ok
+        this.$ok = $("<div>");
+        $ok_container.append(this.$ok);
+        this.$ok.text('OK');
 
-    igv.AlertDialog.prototype.hide = function () {
+        this.$ok.on('click', function () {
+            self.$label.text('');
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
 
-        if (this.$container.hasClass('igv-grid-container-dialog')) {
-            this.$container.offset( { left: 0, top: 0 } );
-        }
+        this.$container.draggable({ handle:$header.get(0) });
+
         this.$container.hide();
     };
 
-    igv.AlertDialog.prototype.show = function ($alternativeParent) {
+    igv.AlertDialog.prototype.configure = function (config) {
+        this.$label.text(config.label);
+    };
+
+    igv.AlertDialog.prototype.present = function ($alternativeParent) {
 
         var obj,
             $p;
@@ -51126,7 +51288,8 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Broad Institute
+ * Copyright (c) 2016-2017 The Regents of the University of California 
+ * Author: Jim Robinson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -51148,142 +51311,87 @@ var igv = (function (igv) {
  * THE SOFTWARE.
  */
 
-/**
- * Created by turner on 4/29/15.
- */
 var igv = (function (igv) {
 
     igv.DataRangeDialog = function ($parent) {
+        var self = this,
+            $header,
+            $buttons,
+            $div;
 
-        var self = this;
+        // dialog container
+        this.$container = $("<div>", { class:'igv-generic-dialog-container' });
+        $parent.append(this.$container);
+        this.$container.offset( { left:0, top:0 } );
 
-        this.container = $('<div class="igv-grid-container-dialog">');
-        $parent.append(this.container);
-
-        this.header = $('<div class="igv-grid-header">');
-        this.container.append(this.header);
-
-        this.headerBlurb = $('<div class="igv-grid-header-blurb">');
-        this.header.append(this.headerBlurb);
-
-        igv.attachDialogCloseHandlerWithParent(this.header, function () {
-            self.hide();
+        // dialog header
+        $header = $("<div>", { class:'igv-generic-dialog-header' });
+        this.$container.append($header);
+        igv.attachDialogCloseHandlerWithParent($header, function () {
+            self.$minimum_input.val(undefined);
+            self.$maximum_input.val(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
         });
 
 
-        self.container.append(doLayout());
-
-        self.container.append(doOKCancel());
-
-        this.container.draggable({ handle:this.header.get(0) });
-
-        function doOKCancel() {
-
-            var rowContainer,
-                row,
-                column,
-                columnFiller;
+        // minimun
+        this.$minimum = $("<div>", { class:'igv-generic-dialog-label-input'});
+        this.$container.append(this.$minimum);
+        //
+        $div = $('<div>');
+        $div.text('Minimum');
+        this.$minimum.append($div);
+        //
+        this.$minimum_input = $("<input>");
+        this.$minimum.append(this.$minimum_input);
 
 
-            row = $('<div class="igv-grid-dialog">');
+        // maximum
+        this.$maximum = $("<div>", { class:'igv-generic-dialog-label-input'});
+        this.$container.append(this.$maximum);
+        //
+        $div = $('<div>');
+        $div.text('Maximum');
+        this.$maximum.append($div);
+        //
+        this.$maximum_input = $("<input>");
+        this.$maximum.append(this.$maximum_input);
 
+        // ok | cancel
+        $buttons = $("<div>", { class:'igv-generic-dialog-ok-cancel' });
+        this.$container.append($buttons);
 
-            // shim
-            column = $('<div class="igv-col igv-col-1-8">');
-            //
-            row.append( column );
+        // ok
+        this.$ok = $("<div>");
+        $buttons.append(this.$ok);
+        this.$ok.text('OK');
 
+        // cancel
+        this.$cancel = $("<div>");
+        $buttons.append(this.$cancel);
+        this.$cancel.text('Cancel');
 
-            // ok button
-            column = $('<div class="igv-col igv-col-3-8">');
-            self.ok = $('<div class="igv-col-button igv-col-filler-ok-button">');
-            self.ok.text("OK");
-            column.append( self.ok );
-            //
-            row.append( column );
+        this.$cancel.on('click', function () {
+            self.$minimum_input.val(undefined);
+            self.$maximum_input.val(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
 
+        this.$container.draggable({ handle:$header.get(0) });
 
-            // cancel button
-            column = $('<div class="igv-col igv-col-3-8">');
-            columnFiller = $('<div class="igv-col-button igv-col-filler-cancel-button">');
-            columnFiller.text("Cancel");
-            columnFiller.click(function() { self.hide(); });
-            column.append( columnFiller );
-            //
-            row.append( column );
-
-
-            // shim
-            column = $('<div class="igv-col igv-col-1-8">');
-            //
-            row.append( column );
-
-
-            rowContainer = $('<div class="igv-grid-rect">');
-            rowContainer.append( row );
-
-            return rowContainer;
-        }
-
-        function doLayout() {
-
-            var rowContainer = $('<div class="igv-grid-rect">'),
-                row,
-                column;
-
-            // minimum
-            row = $('<div class="igv-grid-dialog">');
-
-            // vertical spacer
-            column = $('<div class="igv-spacer-10">');
-            row.append( column );
-
-
-            column = $('<div class="igv-col igv-col-3-8">');
-            self.minLabel = $('<div class="igv-data-range-input-label">');
-            self.minLabel.text("Minimum");
-            column.append( self.minLabel );
-            row.append( column );
-
-            column = $('<div class="igv-col igv-col-3-8">');
-            self.minInput = $('<input class="igv-data-range-input" type="text" value="125">');
-            column.append( self.minInput );
-            row.append( column );
-
-            rowContainer.append( row );
-
-
-            // maximum
-            row = $('<div class="igv-grid-dialog">');
-
-            column = $('<div class="igv-col igv-col-3-8">');
-            self.maxLabel = $('<div class="igv-data-range-input-label">');
-            self.maxLabel.text("Maximum");
-            column.append( self.maxLabel );
-            row.append( column );
-
-            column = $('<div class="igv-col igv-col-3-8">');
-            self.maxInput = $('<input class="igv-data-range-input" type="text" value="250">');
-            column.append( self.maxInput );
-            row.append( column );
-            rowContainer.append( row );
-
-            return rowContainer;
-
-        }
-
+        this.$container.hide();
     };
 
-    igv.DataRangeDialog.prototype.configureWithTrackView = function (trackView) {
+    igv.DataRangeDialog.prototype.configure = function (config) {
 
         var self = this,
             dataRange,
             min,
             max;
 
-        this.trackView = trackView;
-
-        dataRange = this.trackView.dataRange();
+        dataRange = config.trackView.dataRange();
 
         if(dataRange) {
             min = dataRange.min;
@@ -51293,48 +51401,43 @@ var igv = (function (igv) {
             max = 100;
         }
 
-        this.minInput.val(min);
-        this.maxInput.val(max);
+        this.$minimum_input.val(min);
+        this.$maximum_input.val(max);
 
-        this.ok.unbind();
-        this.ok.click(function() {
 
-            min = parseFloat(self.minInput.val());
-            max = parseFloat(self.maxInput.val());
+        this.$ok.unbind();
+        this.$ok.on('click', function () {
+
+            min = parseFloat(self.$minimum_input.val());
+            max = parseFloat(self.$maximum_input.val());
             if(isNaN(min) || isNaN(max)) {
                 igv.presentAlert("Must input numeric values", undefined);
             } else {
 
-                if (true === trackView.track.autoscale) {
+                if (true === config.trackView.track.autoscale) {
                     $('#datarange-autoscale').trigger('click');
                 }
 
-                trackView.setDataRange(min, max, false);
+                config.trackView.setDataRange(min, max, false);
             }
 
-            self.hide();
-
+            self.$minimum_input.val(undefined);
+            self.$maximum_input.val(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
         });
-
     };
 
-    igv.DataRangeDialog.prototype.hide = function () {
-        this.container.offset( { left: 0, top: 0 } );
-        this.container.hide();
-    };
+    igv.DataRangeDialog.prototype.present = function ($parent) {
 
-    igv.DataRangeDialog.prototype.show = function () {
+        var offset_top,
+            scroll_top;
 
-        var body_scrolltop = $("body").scrollTop(),
-            track_origin = $(this.trackView.trackDiv).offset(),
-            track_size = { width: $(this.trackView.trackDiv).outerWidth(), height: $(this.trackView.trackDiv).outerHeight()};
+        offset_top = $parent.offset().top;
+        scroll_top = $('body').scrollTop();
 
-        this.container.show();
-
-        this.container.offset( { left: (track_size.width - 300), top: (track_origin.top + body_scrolltop) } );
-
-        this.container.offset( igv.constrainBBox(this.container, $(igv.browser.trackContainerDiv)) );
-
+        this.$container.offset( { left: $parent.width() - this.$container.width(), top: (offset_top + scroll_top) } );
+        this.$container.show();
     };
 
     return igv;
@@ -51344,7 +51447,8 @@ var igv = (function (igv) {
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2014 Broad Institute
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -51366,261 +51470,106 @@ var igv = (function (igv) {
  * THE SOFTWARE.
  */
 
-/**
- * Created by turner on 4/29/15.
- */
 var igv = (function (igv) {
 
-    igv.Dialog = function ($parent, constructorHelper) {
-
+    igv.InputDialog = function ($parent) {
         var self = this,
             $header,
-            $headerBlurb;
+            $buttons,
+            $div;
 
-        this.$container = $('<div class="igv-grid-container-dialog">');
+        // dialog container
+        this.$container = $("<div>", { class:'igv-generic-dialog-container' });
+        $parent.append(this.$container);
+        this.$container.offset( { left:0, top:0 } );
 
-        $parent.append( this.$container[ 0 ] );
+        // dialog header
+        $header = $("<div>", { class:'igv-generic-dialog-header' });
+        this.$container.append($header);
+        igv.attachDialogCloseHandlerWithParent($header, function () {
+            self.$input.val(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
 
-        $header = $('<div class="igv-grid-header">');
-        $headerBlurb = $('<div class="igv-grid-header-blurb">');
-        $header.append($headerBlurb[ 0 ]);
+        // dialog label
+        this.$label = $("<div>", { class:'igv-generic-dialog-one-liner'});
+        this.$container.append(this.$label);
+        this.$label.text('Unlabeled');
 
-        this.$container.append($header[ 0 ]);
+        // input container
+        this.$input_container = $("<div>", { class:'igv-generic-dialog-input'});
+        this.$container.append(this.$input_container);
+        //
+        this.$input = $("<input>");
+        this.$input_container.append(this.$input);
 
-        constructorHelper(this);
+
+        // ok | cancel
+        $buttons = $("<div>", { class:'igv-generic-dialog-ok-cancel' });
+        this.$container.append($buttons);
+
+        // ok
+        this.$ok = $("<div>");
+        $buttons.append(this.$ok);
+        this.$ok.text('OK');
+
+        // cancel
+        this.$cancel = $("<div>");
+        $buttons.append(this.$cancel);
+        this.$cancel.text('Cancel');
+
+        this.$cancel.on('click', function () {
+            self.$input.val(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
 
         this.$container.draggable({ handle:$header.get(0) });
 
-        igv.attachDialogCloseHandlerWithParent($header, function () {
-            self.hide();
-        });
-
-    };
-
-    igv.Dialog.dialogConstructor = function (dialog) {
-
-        dialog.$container.append(dialog.rowOfLabel()[ 0 ]);
-
-        dialog.$container.append(dialog.rowOfInput()[ 0 ]);
-
-        dialog.$container.append(dialog.rowOfOkCancel()[ 0 ]);
-
-
-    };
-
-    igv.Dialog.prototype.rowOfOk = function() {
-
-        var $rowContainer,
-            $row,
-            $column,
-            $columnFiller;
-
-        $row = $('<div class="igv-grid-dialog">');
-
-        // shim
-        $column = $('<div class="igv-col igv-col-1-4">');
-        //
-        $row.append( $column[ 0 ] );
-
-
-        // ok button
-        $column = $('<div class="igv-col igv-col-2-4">');
-        $columnFiller = $('<div class="igv-col-button igv-col-filler-ok-button">');
-        $columnFiller.text("OK");
-
-        this.$ok = $columnFiller;
-
-        $column.append( $columnFiller[ 0 ] );
-        //
-        $row.append( $column[ 0 ] );
-
-        //
-        $rowContainer = $('<div class="igv-grid-rect">');
-        $rowContainer.append( $row[ 0 ]);
-
-        return $rowContainer;
-
-    };
-
-    igv.Dialog.prototype.rowOfOkCancel = function() {
-
-        var self = this,
-            $rowContainer,
-            $row,
-            $column,
-            $columnFiller;
-
-        $row = $('<div class="igv-grid-dialog">');
-
-        // shim
-        $column = $('<div class="igv-col igv-col-1-8">');
-        //
-        $row.append( $column[ 0 ] );
-
-
-        // ok button
-        $column = $('<div class="igv-col igv-col-3-8">');
-        $columnFiller = $('<div class="igv-col-button igv-col-filler-ok-button">');
-        $columnFiller.text("OK");
-
-        this.$ok = $columnFiller;
-
-        $column.append( $columnFiller[ 0 ] );
-        //
-        $row.append( $column[ 0 ] );
-
-
-        // cancel button
-        $column = $('<div class="igv-col igv-col-3-8">');
-        $columnFiller = $('<div class="igv-col-button igv-col-filler-cancel-button">');
-        $columnFiller.text("Cancel");
-        $columnFiller.click(function() {
-            self.$dialogInput.val(undefined);
-            self.hide();
-        });
-        $column.append( $columnFiller[ 0 ] );
-        //
-        $row.append( $column[ 0 ] );
-
-        // shim
-        $column = $('<div class="igv-col igv-col-1-8">');
-        //
-        $row.append( $column[ 0 ] );
-
-        $rowContainer = $('<div class="igv-grid-rect">');
-        $rowContainer.append( $row[ 0 ]);
-
-        return $rowContainer;
-
-    };
-
-    igv.Dialog.prototype.rowOfLabel = function() {
-
-        var rowContainer,
-            row,
-            column;
-
-        // input
-        row = $('<div class="igv-grid-dialog">');
-
-        column = $('<div class="igv-col igv-col-4-4">');
-        this.$dialogLabel = $('<div class="igv-user-input-label">');
-
-        column.append( this.$dialogLabel[ 0 ] );
-        row.append( column[ 0 ] );
-
-        rowContainer = $('<div class="igv-grid-rect">');
-        rowContainer.append( row[ 0 ]);
-
-        return rowContainer;
-
-    };
-
-    igv.Dialog.prototype.rowOfInput = function() {
-
-        var rowContainer,
-            row,
-            column;
-
-        // input
-        row = $('<div class="igv-grid-dialog">');
-
-        column = $('<div class="igv-col igv-col-4-4">');
-        this.$dialogInput = $('<input class="igv-user-input-dialog" type="text" value="#000000">');
-
-        column.append( this.$dialogInput[ 0 ] );
-        row.append( column[ 0 ] );
-
-        rowContainer = $('<div class="igv-grid-rect">');
-        rowContainer.append( row[ 0 ]);
-
-        return rowContainer;
-
-    };
-
-    igv.Dialog.prototype.configure = function (labelHTMLFunction, inputValue, clickFunction) {
-
-        var self = this,
-            clickOK;
-
-        if (labelHTMLFunction) {
-            self.$dialogLabel.html(labelHTMLFunction());
-            self.$dialogLabel.show();
-        } else {
-            self.$dialogLabel.hide();
-        }
-
-        if (inputValue !== undefined) {
-
-            self.$dialogInput.val(inputValue);
-
-            self.$dialogInput.unbind();
-            self.$dialogInput.change(function(){
-
-                if (clickFunction) {
-                    clickFunction();
-                }
-
-                self.hide();
-            });
-
-            self.$dialogInput.show();
-        } else {
-            self.$dialogInput.hide();
-        }
-
-        self.$ok.unbind();
-        self.$ok.click(function() {
-
-            if (clickFunction) {
-                clickFunction();
-            }
-
-            self.hide();
-        });
-
-    };
-
-    igv.Dialog.prototype.hide = function () {
-
-        if (this.$container.hasClass('igv-grid-container-dialog')) {
-            this.$container.offset( { left: 0, top: 0 } );
-        }
         this.$container.hide();
     };
 
-    igv.Dialog.prototype.show = function ($host) {
+    igv.InputDialog.prototype.configure = function (config) {
 
-        var body_scrolltop,
-            track_origin,
-            track_size,
-            offset,
-            _top,
-            _left;
+        var self = this;
 
-        body_scrolltop = $('body').scrollTop();
+        this.$label.text(config.label);
+        
+        this.$input.val(config.input);
 
-        if (this.$container.hasClass('igv-grid-container-dialog')) {
+        this.$input.unbind();
+        this.$input.on('keyup', function (e) {
+            if (13 === e.keyCode) {
+                config.click();
+                self.$input.val(undefined);
+                self.$container.offset( { left:0, top:0 } );
+                self.$container.hide();
+            }
+        });
 
-            offset = $host.offset();
+        this.$ok.unbind();
+        this.$ok.on('click', function () {
 
-            _top = offset.top + body_scrolltop;
-            _left = $host.outerWidth() - 300;
+            config.click();
 
-            this.$container.offset( { left: _left, top: _top } );
+            self.$input.val(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
 
-            //track_origin = $host.offset();
-            //track_size =
-            //{
-            //    width: $host.outerWidth(),
-            //    height: $host.outerHeight()
-            //};
-            //this.$container.offset( { left: (track_size.width - 300), top: (track_origin.top + body_scrolltop) } );
-            //this.$container.offset( igv.constrainBBox(this.$container, $(igv.browser.trackContainerDiv)) );
-        }
+    };
 
+    igv.InputDialog.prototype.present = function ($parent) {
+
+        var offset_top,
+            scroll_top;
+
+        offset_top = $parent.offset().top;
+        scroll_top = $('body').scrollTop();
+
+        this.$container.offset( { left: $parent.width() - this.$container.width(), top: (offset_top + scroll_top) } );
         this.$container.show();
-
     };
 
     return igv;
@@ -51658,10 +51607,10 @@ var igv = (function (igv) {
 var igv = (function (igv) {
 
     igv.Popover = function ($parent) {
-        this.$parent = this.initializationHelper($parent);
+        this.$parent = initializationHelper.call(this, $parent);
     };
 
-    igv.Popover.prototype.initializationHelper = function ($parent) {
+    function initializationHelper($parent) {
 
         var self = this,
             $popoverHeader;
@@ -51688,7 +51637,7 @@ var igv = (function (igv) {
 
         return $parent;
 
-    };
+    }
 
     igv.Popover.prototype.hide = function () {
         this.$popover.hide();
@@ -51696,11 +51645,14 @@ var igv = (function (igv) {
 
     igv.Popover.prototype.presentTrackGearMenu = function (pageX, pageY, trackView) {
 
-        var $container,
-            items;
+        var self = this,
+            $container,
+            menuItems;
 
-        items = igv.trackMenuItemList(this, trackView);
-        if (_.size(items) > 0) {
+        menuItems = igv.trackMenuItemList(this, trackView);
+        if (menuItems.length > 0) {
+
+            menuItems = igv.trackMenuItemListHelper(menuItems, self.$popover);
 
             this.$popoverContent.empty();
             this.$popoverContent.removeClass("igv-popover-track-popup-content");
@@ -51708,14 +51660,13 @@ var igv = (function (igv) {
             $container = $('<div class="igv-track-menu-container">');
             this.$popoverContent.append($container);
 
-            _.each(items, function (item) {
+            menuItems.forEach(function (item) {
 
                 if (item.init) {
                     item.init();
                 }
 
                 $container.append(item.object);
-
             });
 
             this.$popover.css(clampPopoverLocation(pageX, pageY, this));
@@ -51732,9 +51683,7 @@ var igv = (function (igv) {
 
         if (menuItems.length > 0) {
             
-            menuItems = igv.trackMenuItemListHelper(menuItems, function () {
-                $popover.hide();
-            });
+            menuItems = igv.trackMenuItemListHelper(menuItems, $popover);
             
             this.$popoverContent.empty();
             this.$popoverContent.removeClass("igv-popover-track-popup-content");
@@ -51777,6 +51726,13 @@ var igv = (function (igv) {
 
     };
 
+    igv.Popover.prototype.dispose = function () {
+        this.$popover.empty();
+        this.$popoverContent.empty();
+        Object.keys(this).forEach(function (key) {
+            this[key] = undefined;
+        })
+    }
 
     function clampPopoverLocation(pageX, pageY, popover) {
 
@@ -51986,6 +51942,118 @@ var igv = (function (igv) {
         setTimeout(function() {
             myself.tips.removeClass( "ui-state-highlight", 1500 );
         }, 500 );
+    };
+
+    return igv;
+
+})(igv || {});
+
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2016-2017 The Regents of the University of California
+ * Author: Jim Robinson
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+var igv = (function (igv) {
+
+    igv.TrackRemovalDialog = function ($parent) {
+        var self = this,
+            $header,
+            $buttons;
+
+        // dialog container
+        this.$container = $("<div>", { class:'igv-generic-dialog-container' });
+        $parent.append(this.$container);
+        this.$container.offset( { left:0, top:0 } );
+
+        // dialog header
+        $header = $("<div>", { class:'igv-generic-dialog-header' });
+        this.$container.append($header);
+        igv.attachDialogCloseHandlerWithParent($header, function () {
+            self.$track_name.text(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
+
+        // dialog label
+        this.$label = $("<div>", { class:'igv-generic-dialog-one-liner'});
+        this.$container.append(this.$label);
+        this.$label.text('Remove track:');
+
+        // track name
+        this.$track_name = $("<div>", { class:'igv-generic-dialog-one-liner igv-ellipsis' });
+        this.$container.append(this.$track_name);
+        // this.$track_name.text('this is a really long track name so I better make it interesting');
+
+        // ok | cancel
+        $buttons = $("<div>", { class:'igv-generic-dialog-ok-cancel' });
+        this.$container.append($buttons);
+
+        // ok
+        this.$ok = $("<div>");
+        $buttons.append(this.$ok);
+        this.$ok.text('OK');
+
+        // cancel
+        this.$cancel = $("<div>");
+        $buttons.append(this.$cancel);
+        this.$cancel.text('Cancel');
+
+        this.$cancel.on('click', function () {
+            self.$track_name.text(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
+
+        this.$container.draggable({ handle:$header.get(0) });
+
+        this.$container.hide();
+    };
+
+    igv.TrackRemovalDialog.prototype.configure = function (config) {
+
+        var self = this;
+
+        this.$track_name.text(config.name || 'unnamed');
+
+        this.$ok.unbind();
+        this.$ok.on('click', function () {
+            config.click();
+            self.$track_name.text(undefined);
+            self.$container.offset( { left:0, top:0 } );
+            self.$container.hide();
+        });
+    };
+
+    igv.TrackRemovalDialog.prototype.present = function ($parent) {
+
+        var offset_top,
+            scroll_top;
+
+        offset_top = $parent.offset().top;
+        scroll_top = $('body').scrollTop();
+
+        this.$container.offset( { left: $parent.width() - this.$container.width(), top: (offset_top + scroll_top) } );
+        this.$container.show();
     };
 
     return igv;
@@ -52430,6 +52498,8 @@ var igv = (function (igv) {
 
         this.nRows = 1;  // Computed dynamically
         this.groupBy = "NONE";
+        this.filterBy = undefined;
+        this.filters = [];
     };
 
 
@@ -52473,7 +52543,7 @@ var igv = (function (igv) {
 
     function getCallsetsLength() {
         var length = 0,
-            callSets = this.callSets;
+            callSets = (this.filterBy) ? this.filteredCallSets : this.callSets;
         Object.keys(callSets).forEach(function (key) {
             if (callSets[key]) length += callSets[key].length;
         });
@@ -52515,7 +52585,7 @@ var igv = (function (igv) {
      */
     igv.VariantTrack.prototype.computePixelHeight = function (features) {
 
-        var callSets = this.callSets,
+        var callSets = (this.filterBy) ? this.filteredCallSets : this.callSets,
             nCalls = callSets ? getCallsetsLength.call(this) : 0,
             callHeight = (this.displayMode === "EXPANDED" ? this.expandedCallHeight : this.squishedCallHeight),
             vGap = (this.displayMode === 'EXPANDED') ? this.expandedVGap : this.squishedVGap,
@@ -52573,8 +52643,8 @@ var igv = (function (igv) {
 
         this.variantBandHeight = 10 + this.nRows * (this.variantHeight + vGap);
 
-        callSets = this.callSets;
-        callSetGroups = this.callSetGroups;
+        callSets = (this.filterBy) ? this.filteredCallSets : this.callSets;
+        callSetGroups = (this.filterBy) ? this.filteredCallSetGroups : this.callSetGroups;
         nCalls = getCallsetsLength.call(this);
 
         igv.graphics.fillRect(ctx, 0, 0, pixelWidth, pixelHeight, {'fillStyle': "rgb(255, 255, 255)"});
@@ -52780,9 +52850,12 @@ var igv = (function (igv) {
                     // var content = igv.formatPopoverText(['Ascending', 'Descending', 'Repeat Number']);
                     //igv.popover.presentContent(event.pageX, event.pageY, [$asc, $desc]);
 
-                    sortCallSets(self.callSets, variant, sortDirection);
+                    sortCallSets(this.callSets, variant, sortDirection);
+                    if (self.filterBy) {
+                        sortCallSets(self.filteredCallSets, variant, sortDirection);
+                    }
                     sortDirection = (sortDirection === "ASC") ? "DESC" : "ASC";
-                    self.trackView.update();
+                    self.trackView.repaint(true);
                 }
             });
         }
@@ -52814,7 +52887,7 @@ var igv = (function (igv) {
 
                 featureList.forEach(function (variant) {
 
-                    var row, callHeight, callSets, cs, call;
+                    var row, callHeight, callSets, callSetGroups, cs, call;
 
                     if ((variant.start <= genomicLocation + tolerance) &&
                         (variant.end > genomicLocation - tolerance)) {
@@ -52836,14 +52909,15 @@ var igv = (function (igv) {
                             }
                             else {
                                 // Call
-                                callSets = self.callSets;
+                                callSets = (self.filterBy) ? self.filteredCallSets : self.callSets;
+                                callSetGroups = (self.filterBy) ? self.filteredCallSetGroups : self.callSetGroups;
                                 if (callSets && variant.calls) {
                                     callHeight = ("SQUISHED" === self.displayMode ? self.squishedCallHeight : self.expandedCallHeight);
                                     // console.log("call height: ", callHeight);
                                     // console.log("nRows: ", self.nRows);
                                     var totalCalls = 0;
-                                    for (group = 0; group < self.callSetGroups.length; group++) {
-                                        var groupName = self.callSetGroups[group];
+                                    for (group = 0; group < callSetGroups.length; group++) {
+                                        var groupName = callSetGroups[group];
                                         var groupCalls = callSets[groupName].length;
                                         if (yOffset <= self.variantBandHeight + vGap + (totalCalls + groupCalls) *
                                             (callHeight + vGap) + (group * groupGap)) {
@@ -52965,7 +53039,7 @@ var igv = (function (igv) {
                     } catch (err) {
                         self.callSetGroups.sort();
                     }
-                    self.trackView.update();
+                    self.trackView.repaint(true);
                 }
             })
         }
@@ -52990,8 +53064,11 @@ var igv = (function (igv) {
                             label: 'Sort by allele length',
                             click: function () {
                                 sortCallSets(self.callSets, variant, sortDirection);
+                                if (this.filterBy) {
+                                    sortCallSets(self.filteredCallSets, variant, sortDirection)
+                                }
                                 sortDirection = (sortDirection === "ASC") ? "DESC" : "ASC";
-                                self.trackView.update();
+                                self.trackView.repaint(true);
                             }
                         });
 
@@ -53006,43 +53083,72 @@ var igv = (function (igv) {
 
     igv.VariantTrack.prototype.groupCallSets = function (attribute) {
 
-        var self = this,
-            groupedCallSets = {},
-            callSetGroups = [],
-            group, attr, key;
+        var self = this;
 
-        Object.keys(this.callSets).forEach(function (i) {
+        if (this.filterBy) {
+            var filteredCallSetResults = createGroups(attribute, this.filteredCallSets);
+            this.filteredCallSets = filteredCallSetResults[0];
+            this.filteredCallSetGroups = filteredCallSetResults[1];
+        }
+        var callSetResults = createGroups(attribute, this.callSets);
+        this.callSets = callSetResults[0];
+        this.callSetGroups = callSetResults[1];
 
-            group = self.callSets[i];
-            group.forEach(function (callSet) {
+        this.groupBy = attribute;
+        this.trackView.update();
 
-                key = 'NONE';
+        function createGroups(attribute, callSets) {
+            var groupedCallSets = {}, callSetGroups = [], group, attr, key,
+                result = [];
+            Object.keys(callSets).forEach(function (i) {
 
-                if (attribute !== 'NONE') {
-                    attr = igv.sampleInformation.getAttributes(callSet.name);
-                    if (attr && attr[attribute]) {
-                        key = attr[attribute];
+                group = callSets[i];
+                group.forEach(function (callSet) {
+
+                    key = 'NONE';
+
+                    if (attribute !== 'NONE') {
+                        attr = igv.sampleInformation.getAttributes(callSet.name);
+                        if (attr && attr[attribute]) {
+                            key = attr[attribute];
+                        }
                     }
-                }
 
-                if (!groupedCallSets.hasOwnProperty(key)) {
-                    groupedCallSets[key] = [];
-                    callSetGroups.push(key);
-                }
+                    if (!groupedCallSets.hasOwnProperty(key)) {
+                        groupedCallSets[key] = [];
+                        callSetGroups.push(key);
+                    }
 
-                groupedCallSets[key].push(callSet);
-            })
-        });
+                    groupedCallSets[key].push(callSet);
+                })
+            });
 
-        // group families in order: father, mother, then children
-        if ("familyId" === attribute) {
-            Object.keys(groupedCallSets).forEach(function (i) {
-                group = groupedCallSets[i];
-                group.sort(function (a, b) {
-                    var attrA = igv.sampleInformation.getAttributes(a.name);
-                    var attrB = igv.sampleInformation.getAttributes(b.name);
-                    if (attrA["fatherId"] === "0" && attrA["motherId"] === "0") {
-                        if (attrB["fatherId"] === "0" && attrB["motherId"] === "0") {
+            // group families in order: father, mother, then children
+            if ("familyId" === attribute) {
+                Object.keys(groupedCallSets).forEach(function (i) {
+                    group = groupedCallSets[i];
+                    group.sort(function (a, b) {
+                        var attrA = igv.sampleInformation.getAttributes(a.name);
+                        var attrB = igv.sampleInformation.getAttributes(b.name);
+                        if (attrA["fatherId"] === "0" && attrA["motherId"] === "0") {
+                            if (attrB["fatherId"] === "0" && attrB["motherId"] === "0") {
+                                if (attrA["sex"] === "1") {
+                                    if (attrB["sex"] === "1") {
+                                        return 0;
+                                    } else {
+                                        return -1;
+                                    }
+                                } else if (attrB["sex"] === "1") {
+                                    return 1;
+                                } else {
+                                    return parseInt(attrB["sex"]) - parseInt(attrA["sex"]);
+                                }
+                            } else {
+                                return -1;
+                            }
+                        } else if (attrB["fatherId"] === "0" && attrB["motherId"] === "0") {
+                            return 1;
+                        } else {
                             if (attrA["sex"] === "1") {
                                 if (attrB["sex"] === "1") {
                                     return 0;
@@ -53054,35 +53160,51 @@ var igv = (function (igv) {
                             } else {
                                 return parseInt(attrB["sex"]) - parseInt(attrA["sex"]);
                             }
-                        } else {
-                            return -1;
                         }
-                    } else if (attrB["fatherId"] === "0" && attrB["motherId"] === "0") {
-                        return 1;
-                    } else {
-                        if (attrA["sex"] === "1") {
-                            if (attrB["sex"] === "1") {
-                                return 0;
-                            } else {
-                                return -1;
-                            }
-                        } else if (attrB["sex"] === "1") {
-                            return 1;
-                        } else {
-                            return parseInt(attrB["sex"]) - parseInt(attrA["sex"]);
-                        }
-                    }
+                    });
                 });
-            });
-        }
+            }
 
-        this.callSets = groupedCallSets;
-        this.callSetGroups = callSetGroups;
-        this.groupBy = attribute;
-        this.trackView.update();
+            result.push(groupedCallSets);
+            result.push(callSetGroups);
+            return result;
+        }
     };
 
-    igv.VariantTrack.prototype.menuItemList = function (popover) {
+
+    igv.VariantTrack.prototype.filterByFamily = function(value) {
+        var self = this;
+        if ("" === value) {
+            self.filters = [];
+            self.filterBy = undefined;
+        } else {
+            try {
+                self.filters = value.split(",");
+                self.filterBy = "familyId";
+                self.filteredCallSets = {};
+                self.filteredCallSetGroups = [];
+                Object.keys(this.callSets).forEach(function(groupName) {
+                    var group = self.callSets[groupName];
+                    group.forEach(function(callSet) {
+                        var attrs = igv.sampleInformation.getAttributes(callSet.name);
+                        var attribute = attrs[self.filterBy];
+                        if (self.filters.indexOf(attribute) !== -1) {
+                            if (!self.filteredCallSets.hasOwnProperty(groupName)) {
+                                self.filteredCallSets[groupName] = [];
+                                self.filteredCallSetGroups.push(groupName);
+                            }
+                            self.filteredCallSets[groupName].push(callSet);
+                        }
+                    });
+                });
+            } catch (err) {
+                console.log(err);
+            }
+        }
+    };
+
+
+    igv.VariantTrack.prototype.menuItemList = function () {
 
         var self = this,
             menuItems = [],
@@ -53101,7 +53223,6 @@ var igv = (function (igv) {
                 {
                     object: igv.createCheckbox(lut[displayMode], displayMode === self.displayMode),
                     click: function () {
-                        popover.hide();
                         self.displayMode = displayMode;
                         self.trackView.update();
                     }
@@ -53129,14 +53250,61 @@ var igv = (function (igv) {
                 menuItems.push( {
                     object: igv.createCheckbox(attrs[attr], attr === self.groupBy),
                     click: function () {
-                        popover.hide();
                         self.groupCallSets(attr);
                     }
                 });
             });
 
+            menuItems = menuItems.concat(mappedAttrs);
         }
-        
+
+        if (igv.sampleInformation.getAttributeNames().indexOf("familyId") !== -1) {
+            menuItems.push(igv.trackMenuItem(popover, this.trackView, "Filter by Family ID", function () {
+                return "Family IDs"
+            }, this.filters.join(","), function () {
+
+                var value;
+
+                value = igv.dialog.$dialogInput.val().trim();
+
+                if (undefined !== value) {
+                    self.filterByFamily(value);
+                    self.trackView.update();
+                }
+
+            }, true));
+        }
+
+        function groupByMarkup(buttonVal, selfVal, lut) {
+
+            if (buttonVal === selfVal) {
+                return '<div><i class="fa fa-check fa-check-shim"></i>' + lut[buttonVal] + '</div>'
+            } else {
+                return '<div><i class="fa fa-check fa-check-shim fa-check-hidden"></i>' + lut[buttonVal] + '</div>';
+            }
+        }
+
+        function displayModeMarkup(index, displayMode, selfDisplayMode) {
+
+            var lut,
+                chosen;
+
+            lut =
+            {
+                "COLLAPSED": "Collapse",
+                "SQUISHED": "Squish",
+                "EXPANDED": "Expand"
+            };
+
+            chosen = (0 === index) ? '<div class="igv-track-menu-border-top">' : '<div>';
+            if (displayMode === selfDisplayMode) {
+                return chosen + '<i class="fa fa-check fa-check-shim"></i>' + lut[displayMode] + '</div>'
+            } else {
+                return chosen + '<i class="fa fa-check fa-check-shim fa-check-hidden"></i>' + lut[displayMode] + '</div>';
+            }
+
+        }
+
         return menuItems;
 
     };
@@ -53145,7 +53313,6 @@ var igv = (function (igv) {
 
 })
 (igv || {});
-
 /*
  * The MIT License (MIT)
  *
@@ -53459,8 +53626,13 @@ var igv = (function (igv) {
 
         }
 
-        createZoomInNotice.call(this, $(this.contentDiv));
-        $(this.contentDiv).append(self.$zoomInNotice);
+        if (trackView.track instanceof igv.SequenceTrack) {
+            // do nuthin
+        } else if (trackView.track instanceof igv.RulerTrack) {
+            // do nuthin
+        } else {
+            self.$zoomInNotice = createZoomInNotice.call(this, $(this.contentDiv));
+        }
 
         if (trackView.track.name && 0 === igv.browser.genomicStateList.indexOf(this.genomicState)) {
 
@@ -53475,8 +53647,22 @@ var igv = (function (igv) {
 
             this.$trackLabel.html(trackView.track.name);
             this.$trackLabel.click(function (e) {
+                e.stopPropagation();
                 self.popover.presentContent(e.pageX, e.pageY, description);
+
             });
+            this.$trackLabel.mousedown(function (e) {
+                // Prevent bubbling
+                e.stopPropagation();
+            })
+            this.$trackLabel.mouseup(function (e) {
+                // Prevent  bubbling
+                e.stopPropagation();
+            })
+            this.$trackLabel.mousemove(function (e) {
+                // Prevent  bubbling
+                e.stopPropagation();
+            })
 
             if (false === igv.browser.trackLabelsVisible) {
                 this.$trackLabel.hide();
@@ -53487,16 +53673,19 @@ var igv = (function (igv) {
     };
 
     function createZoomInNotice($parent) {
-        var $e;
+        var $e,
+            $notice;
 
-        this.$zoomInNotice = $('<div class="zoom-in-notice-container">');
-        $parent.append(this.$zoomInNotice);
+        $notice = $('<div class="zoom-in-notice-container">');
+        $parent.append($notice);
 
         $e = $('<div>');
-        this.$zoomInNotice.append($e);
+        $notice.append($e);
         $e.text('Zoom in to see features');
 
-        this.$zoomInNotice.hide();
+        $notice.hide();
+
+        return $notice;
     }
 
     igv.Viewport.prototype.setWidth = function (width) {
@@ -53506,10 +53695,6 @@ var igv = (function (igv) {
     };
 
     igv.Viewport.prototype.goto = function (chr, start, end) {
-
-        if (igv.popover) {
-            igv.popover.hide();
-        }
 
         this.genomicState.referenceFrame.bpPerPixel = (Math.round(end) - Math.round(start)) / this.$viewport.width();
         this.genomicState.referenceFrame.start = Math.round(start);
@@ -53537,12 +53722,6 @@ var igv = (function (igv) {
             $spinner.removeClass("fa5-spin");
         }
     };
-
-    igv.Viewport.prototype.resize = function () {
-        this.setWidth(igv.browser.viewportContainerWidth() / igv.browser.genomicStateList.length);
-        this.update();
-    };
-
 
     /**
      * Return a promise to adjust content height to accomodate features for current genomic state
@@ -53603,15 +53782,12 @@ var igv = (function (igv) {
     };
 
     igv.Viewport.prototype.update = function () {
-
-        if (this.tile) {
-            this.tile.invalidate = true;
-        }
-        this.repaint();
+        
+        this.repaint(true);
 
     };
 
-    igv.Viewport.prototype.repaint = function () {
+    igv.Viewport.prototype.repaint = function (force) {
 
         var self = this,
             pixelWidth,
@@ -53631,12 +53807,14 @@ var igv = (function (igv) {
         }
 
         // TODO -- show whole genome zoom in notice here
-        if (showZoomInNotice.call(this)) {
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            this.$zoomInNotice.show();
-            return;
-        } else {
-            this.$zoomInNotice.hide();
+        if (this.$zoomInNotice) {
+            if (showZoomInNotice.call(this)) {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.$zoomInNotice.show();
+                return;
+            } else {
+                this.$zoomInNotice.hide();
+            }
         }
 
 
@@ -53644,16 +53822,13 @@ var igv = (function (igv) {
         refFrameStart = referenceFrame.start;
         refFrameEnd = refFrameStart + referenceFrame.toBP($(self.contentDiv).width());
 
-        // Paint existing cached image, if any, while data loads.
-        //this.paintImage(chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel);
-
         if (self.canvas && self.tile && self.tile.chr === chr && self.tile.bpPerPixel === referenceFrame.bpPerPixel) {
             var pixelOffset = Math.round((self.tile.startBP - referenceFrame.start) / referenceFrame.bpPerPixel);
             self.canvas.style.left = pixelOffset + "px";
         }
 
 
-        if (!tileIsValid.call(self, chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel)) {
+        if (force || !tileIsValid.call(self, chr, refFrameStart, refFrameEnd, referenceFrame.bpPerPixel)) {
 
             //TODO -- if bpPerPixel (zoom level) changed repaint image from cached data => new optional track method to return
             //TODO -- cached features directly (not a promise for features).
@@ -53897,6 +54072,26 @@ var igv = (function (igv) {
         document.body.removeChild(a);
     };
 
+    /**
+     * Called when the associated track is removed.  Do any needed cleanup here.
+     */
+    igv.Viewport.prototype.dispose = function () {
+      
+        this.$viewport.off();
+        this.$viewport.empty();
+        $(this.contentDiv).off();
+        $(this.contentDiv).empty();
+        $(this.canvas).off();
+        $(this.canvas).empty();
+        if(this.popover) {
+            $(this.popover).off();
+            $(this.popover).empty();
+        }
+        Object.keys(this).forEach(function (key) {
+            this[key] = undefined;
+        })
+    }
+    
     var Tile = function (chr, tileStart, tileEnd, bpPerPixel, image) {
         this.chr = chr;
         this.startBP = tileStart;
@@ -54131,7 +54326,7 @@ var igv = (function (igv) {
             popupClickHandlerResult = igv.browser.fireEvent('trackclick', [track, dataList]);
 
             if (undefined === popupClickHandlerResult) {
-                if (dataList.length > 0) {
+                if (dataList && dataList.length > 0) {
                     content = formatPopoverText(dataList);
                 }
 
