@@ -21160,10 +21160,7 @@ var igv = function (igv) {
         this.alignmentContainer = undefined;
         this.maxRows = config.maxRows || 1000;
 
-        if (igv.isFilePath(config.url)) {
-            // do nothing
-            console.log('ignore');
-        } else if (igv.isString(config.url) && config.url.startsWith("data:")) {
+        if (igv.isFilePath(config.url)) {} else if (igv.isString(config.url) && config.url.startsWith("data:")) {
             this.config.indexed = false;
         }
 
@@ -22193,7 +22190,10 @@ var igv = function (igv) {
 
                     block = blocks[b];
 
-                    if (block.start + block.len < bpStart) continue;
+                    // Somewhat complex test, neccessary to insure gaps are drawn.
+                    // If this is not the last block, and the next block starts before the orign (off screen to left)
+                    // then skip.
+                    if (b != blocks.length - 1 && blocks[b + 1].start < bpStart) continue;
 
                     drawBlock(block);
 
@@ -22472,9 +22472,7 @@ var igv = function (igv) {
                             color = alignment.strand ? self.posStrandColor : self.negStrandColor;
                         } else if (alignment.isSecondOfPair()) {
                             color = alignment.strand ? self.negStrandColor : self.posStrandColor;
-                        } else {
-                            console.log("ERROR. Paired alignments are either first or second.");
-                        }
+                        } else {}
                     }
                     break;
 
@@ -22484,9 +22482,7 @@ var igv = function (igv) {
                         if (oTypes) {
                             var pairColor = self.pairColors[oTypes[alignment.pairOrientation]];
                             if (pairColor) color = pairColor;
-                        } else {
-                            console.log("No orientation types for " + self.pairOrientation);
-                        }
+                        } else {}
                     }
                     break;
 
@@ -23119,7 +23115,6 @@ var igv = function (igv) {
                         break;
 
                     default:
-                        console.log('Error processing cigar element: ' + c.len + c.ltr);
                 }
             }
         } catch (err) {
@@ -24697,7 +24692,6 @@ var igv = function (igv) {
     function overlaps(item, chrIdx1, startBase, chrIdx2, endBase) {
 
         if (!item) {
-            console.log("null item for " + chrIdx1 + " " + startBase + " " + endBase);
             return false;
         }
 
@@ -25521,7 +25515,6 @@ var igv = function (igv) {
             self.resize();
         }).catch(function (error) {
             self.presentAlert(error, undefined);
-            console.log(error);
         });
 
         function loadSessionFile(urlOrFile) {
@@ -26074,6 +26067,7 @@ var igv = function (igv) {
         var self = this;
 
         // Minimal attempt at responsiveness
+        // TODO -- remove this when media queries are working
         var rootWidth = this.$root.width();
         if (rootWidth < 1000) {
             this.chromosomeSelectWidget.$container.hide();
@@ -26091,6 +26085,10 @@ var igv = function (igv) {
 
         // Recompute bpPerPixel -- if previous width was zero this can be infinity
         var viewportWidth = this.viewportWidth();
+
+        if (viewportWidth === 0) {
+            return;
+        }
 
         if (this.genomicStateList && viewportWidth > 0) {
             this.genomicStateList.forEach(function (gstate) {
@@ -26117,6 +26115,8 @@ var igv = function (igv) {
             this.updateLocusSearchWidget(this.genomicStateList[0]);
             this.windowSizePanel.updateWithGenomicState(this.genomicStateList[0]);
         }
+
+        this.updateViews();
 
         function resizeWillExceedChromosomeLength(genomicState) {
 
@@ -26351,6 +26351,11 @@ var igv = function (igv) {
 
             self.updateViews(viewport.genomicState);
         });
+    };
+
+    igv.Browser.prototype.zoom = function (scaleFactor) {
+        var nuthin = undefined;
+        this.zoomWithScaleFactor(nuthin, nuthin, scaleFactor);
     };
 
     // Zoom in by a factor of 2, keeping the same center location
@@ -26834,7 +26839,6 @@ var igv = function (igv) {
 
                     //
                     if (!(result.hasOwnProperty(searchConfig.chromosomeField) && result.hasOwnProperty(searchConfig.startField))) {
-                        console.log("Search service results must includ chromosome and start fields: " + result);
                         return undefined;
                     }
 
@@ -26959,6 +26963,10 @@ var igv = function (igv) {
                         }
 
                         locusObject.start = parseInt(numeric, 10) - 1;
+
+                        if (isNaN(locusObject.start)) {
+                            return undefined;
+                        }
 
                         if (2 === b.length) {
 
@@ -27171,8 +27179,6 @@ var igv = function (igv) {
         }
         bytes = new Zlib.RawInflate(compressedBytes).decompress();
         json = String.fromCharCode.apply(null, bytes);
-
-        console.log(json);
 
         return json;
     };
@@ -27606,6 +27612,170 @@ var igv = function (igv) {
     };return igv;
 }(igv || {});
 
+"use strict";
+
+var igv = function (igv) {
+
+    igv.CivicReader = function (config) {
+        this.config = config;
+    };
+
+    igv.CivicReader.prototype.readFeatures = function (chr, start, end) {
+
+        var self = this;
+
+        return igv.xhr.loadJson(this.config.url + "/variants/?count=5000").then(function (json) {
+
+            var records = json.records;
+            var features = [];
+
+            var _iteratorNormalCompletion = true;
+            var _didIteratorError = false;
+            var _iteratorError = undefined;
+
+            try {
+                for (var _iterator = records[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                    var record = _step.value;
+
+
+                    if (record.coordinates) {
+
+                        var id = record.id;
+                        var coordinates = record.coordinates;
+
+                        if (coordinates.chromosome) {
+                            features.push(new CivicVariant(coordinates.chromosome, coordinates.start - 1, // UCSC 0 convention
+                            coordinates.stop, record));
+                        }
+
+                        if (coordinates.chromosome2) {
+                            features.push(new CivicVariant(coordinates.chromosome2, coordinates.start2 - 1, // UCSC 0 convention
+                            coordinates.stop2, record));
+                        }
+                    }
+                }
+            } catch (err) {
+                _didIteratorError = true;
+                _iteratorError = err;
+            } finally {
+                try {
+                    if (!_iteratorNormalCompletion && _iterator.return) {
+                        _iterator.return();
+                    }
+                } finally {
+                    if (_didIteratorError) {
+                        throw _iteratorError;
+                    }
+                }
+            }
+
+            return features;
+        });
+    };
+
+    function CivicVariant(chr, start, end, record) {
+        this.chr = chr;
+        this.start = start;
+        this.end = end;
+        this.id = record.id;
+        this.entrezName = record.entrez_name;
+        this.name = record.name;
+        this.actionabilityScore = record.civic_actionability_score;
+
+        if (record.coordinates.reference_bases) {
+            this.refBases = record.coordinates.reference_bases;
+        }
+        if (record.coordinates.variant_bases) {
+            this.altBases = record.coordinates.variant_bases;
+        }
+        if (record.variant_types) {
+            this.variant_types = record.variant_types;
+        }
+
+        this.locationString = this.chr + ":" + igv.numberFormatter(this.start + 1) + "-" + igv.numberFormatter(this.end);
+
+        // Color based on actionability score
+        if (this.actionabilityScore !== undefined) {
+            var alpha = void 0;
+            if (this.actionabilityScore <= 10) {
+                alpha = 0.2;
+            } else {
+                var v = Math.min(30, this.actionabilityScore);
+                alpha = 0.2 + 0.8 * Math.log10((v - 10) / 2);
+            }
+            this.alpha = alpha;
+        }
+    }
+
+    CivicVariant.prototype.popupData = function () {
+
+        var link = createLink("CIViC", "https://civicdb.org/links/variants/" + this.id);
+
+        var cravatLink = void 0;
+        var isSnp = this.refBases !== this.altBases && this.refBases && this.refBases.length === 1 && this.altBases && this.altBases.length === 1;
+
+        if (isSnp) {
+            var ref = this.refBases;
+            var alt = this.altBases;
+            cravatLink = createLink("CRAVAT", "http://www.cravat.us/CRAVAT/variant.html?variant=chr7_140808049_+_" + ref + "_" + alt);
+        }
+
+        var pd = [link];
+
+        if (cravatLink) {
+            pd.push(cravatLink);
+        }
+
+        pd.push({ name: "Entrez", value: createLink(this.entrezName, "https://ghr.nlm.nih.gov/gene/" + this.entrezName) });
+        pd.push({ name: "Name", value: this.name });
+
+        if (this.variant_types && this.variant_types.length > 0) {
+
+            var name = this.variant_types.length === 1 ? "Type" : "Types";
+            var typeString = void 0;
+            var _iteratorNormalCompletion2 = true;
+            var _didIteratorError2 = false;
+            var _iteratorError2 = undefined;
+
+            try {
+                for (var _iterator2 = this.variant_types[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                    var vt = _step2.value;
+
+                    if (!typeString) typeString = vt.display_name;else typeString += ", " + vt.display_name;
+                }
+            } catch (err) {
+                _didIteratorError2 = true;
+                _iteratorError2 = err;
+            } finally {
+                try {
+                    if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                        _iterator2.return();
+                    }
+                } finally {
+                    if (_didIteratorError2) {
+                        throw _iteratorError2;
+                    }
+                }
+            }
+
+            ;
+            pd.push({ name: name, value: typeString });
+        }
+
+        pd.push({ name: "Actionability", value: this.actionabilityScore });
+
+        pd.push({ name: "Location", value: this.locationString });
+
+        return pd;
+
+        function createLink(text, href) {
+            return "<a target='_blank' " + "href='" + href + "'>" + text + "</a>";
+        }
+    };
+
+    return igv;
+}(igv || {});
+
 'use strict';
 
 /*
@@ -27860,7 +28030,6 @@ var igv = function (igv) {
 
                 var idxEntry = self.index[chr];
                 if (!idxEntry) {
-                    console.log("No index entry for chr: " + chr);
 
                     // Tag interval with null so we don't try again
                     self.interval = new igv.GenomicInterval(chr, qstart, qend, null);
@@ -28243,6 +28412,11 @@ var igv = function (igv) {
         }
     };
 
+    /**
+     * Returns all features, unsorted.
+     *
+     * @returns {Array}
+     */
     igv.FeatureCache.prototype.getAllFeatures = function () {
 
         var allFeatures = [];
@@ -28258,10 +28432,6 @@ var igv = function (igv) {
                 }
             }
         }
-
-        allFeatures.sort(function (a, b) {
-            return a.start - b.start;
-        });
 
         return allFeatures;
     };
@@ -28773,6 +28943,11 @@ var igv = function (igv) {
                     this.decode = decodeGenePredExt;
                     this.delimiter = /\s+/;
                     break;
+                case "ensgene":
+                    this.decode = decodeGenePred;
+                    this.shift = 1;
+                    this.delimiter = /\s+/;
+                    break;
                 case "refgene":
                     this.decode = decodeGenePredExt;
                     this.delimiter = /\s+/;
@@ -28812,7 +28987,7 @@ var igv = function (igv) {
                     break;
                 default:
 
-                    customFormat = igv.getFormat(format);
+                    customFormat = igv.getFormat(this.format);
                     if (customFormat !== undefined) {
                         this.decode = decodeCustom;
                         this.format = customFormat;
@@ -29764,7 +29939,6 @@ var igv = function (igv) {
 
         // Each aed row must match the exact number of columns or we skip it
         if (tokens.length !== aedColumns.length) {
-            console.log('Corrupted AED file row: ' + tokens.join(','));
             return undefined;
         }
 
@@ -29801,7 +29975,6 @@ var igv = function (igv) {
         var feature = new AedFeature(this.aed, tokens);
 
         if (!feature.chr || !feature.start || !feature.end) {
-            console.log('Cannot parse feature: ' + tokens.join(','));
             return undefined;
         }
 
@@ -29811,7 +29984,6 @@ var igv = function (igv) {
     function decodeBedpe(tokens, ignore) {
 
         if (tokens.length < 6) {
-            console.log("Skipping line: " + nextLine);
             return undefined;
         }
 
@@ -29868,7 +30040,6 @@ var igv = function (igv) {
     function decodeInteract(tokens, ignore) {
 
         if (tokens.length < 6) {
-            console.log("Skipping line: " + nextLine);
             return undefined;
         }
 
@@ -29951,6 +30122,7 @@ var igv = function (igv) {
     }
 
     /**
+     * Decode a custom columnar format.  Required columns are 'chr' and 'start'
      *
      * @param tokens
      * @param ignore
@@ -29958,31 +30130,69 @@ var igv = function (igv) {
      */
     function decodeCustom(tokens, ignore) {
 
-        var feature,
-            chr,
-            start,
-            end,
-            format = this.format,
-            // "this" refers to FeatureParser instance
-        coords = format.coords || 0;
+        var format = this.format; // "this" refers to FeatureParser instance
+        var coords = format.coords || 0;
 
-        if (tokens.length < 3) return null;
+        // Insure that chr and start fields are defined.
+        //if(!this.format.chr && this.format.start) {
+        //}
 
-        chr = tokens[format.chr];
-        start = parseInt(tokens[format.start]) - coords;
-        end = format.end !== undefined ? parseInt(tokens[format.end]) : start + 1;
 
-        feature = { chr: chr, start: start, end: end };
+        var chr = tokens[format.chr];
+        var start = parseInt(tokens[format.start]) - coords;
+        var end = format.end !== undefined ? parseInt(tokens[format.end]) : start + 1;
+
+        var feature = { chr: chr, start: start, end: end };
 
         if (format.fields) {
+
             format.fields.forEach(function (field, index) {
+
                 if (index != format.chr && index != format.start && index != format.end) {
+
                     feature[field] = tokens[index];
                 }
             });
         }
 
         return feature;
+    }
+
+    function expandFormat(format) {
+
+        var fields = format.fields;
+        var keys = ['chr', 'start', 'end'];
+
+        for (var _i2 = 0; _i2 < fields.length; _i2++) {
+            var _iteratorNormalCompletion = true;
+            var _didIteratorError = false;
+            var _iteratorError = undefined;
+
+            try {
+                for (var _iterator = keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                    var key = _step.value;
+
+                    if (key === fields[_i2]) {
+                        format[key] = _i2;
+                    }
+                }
+            } catch (err) {
+                _didIteratorError = true;
+                _iteratorError = err;
+            } finally {
+                try {
+                    if (!_iteratorNormalCompletion && _iterator.return) {
+                        _iterator.return();
+                    }
+                } finally {
+                    if (_didIteratorError) {
+                        throw _iteratorError;
+                    }
+                }
+            }
+        }
+
+        return format;
     }
 
     return igv;
@@ -30062,6 +30272,9 @@ var igv = function (igv) {
             // Second test for backward compatibility
             this.reader = new igv.CustomServiceReader(config.source);
             this.queryable = config.source.queryable !== undefined ? config.source.queryable : true;
+        } else if ("civic-ws" === config.sourceType) {
+            this.reader = new igv.CivicReader(config);
+            this.queryable = false;
         } else {
             this.reader = new igv.FeatureFileReader(config, genome);
             if (config.queryable != undefined) {
@@ -30152,6 +30365,7 @@ var igv = function (igv) {
     igv.FeatureSource.prototype.getFeatures = function (chr, bpStart, bpEnd, bpPerPixel, visibilityWindow) {
 
         var self = this;
+        var reader = this.reader;
         var genome = this.genome;
         var queryChr = genome ? genome.getChromosomeName(chr) : chr;
         var maxRows = self.config.maxRows || 500;
@@ -30164,8 +30378,7 @@ var igv = function (igv) {
                 if (isQueryable) {
                     return [];
                 } else {
-                    var wgFeatureCache = self.getWGFeatureCache(featureCache.getAllFeatures());
-                    return wgFeatureCache.queryFeatures("all", bpStart, bpEnd);
+                    return self.getWGFeatures(featureCache.getAllFeatures());
                 }
             } else {
                 return self.featureCache.queryFeatures(queryChr, bpStart, bpEnd);
@@ -30186,7 +30399,8 @@ var igv = function (igv) {
                 return Promise.resolve(self.featureCache);
             } else {
 
-                // If a visibility window is defined, expand query interval
+                // If a visibility window is defined, potentially expand query interval.
+                // This can save re-queries as we zoom out.
 
                 if (-1 !== visibilityWindow) {
                     if (visibilityWindow <= 0) {
@@ -30194,7 +30408,7 @@ var igv = function (igv) {
                         intervalStart = 0;
                         intervalEnd = Number.MAX_VALUE;
                     } else {
-                        if (visibilityWindow > bpEnd - bpStart) {
+                        if (reader.expandQueryInterval !== false && visibilityWindow > bpEnd - bpStart) {
                             intervalStart = Math.max(0, (bpStart + bpEnd - visibilityWindow) / 2);
                             intervalEnd = bpStart + visibilityWindow;
                         }
@@ -30202,9 +30416,9 @@ var igv = function (igv) {
                     genomicInterval = new igv.GenomicInterval(queryChr, intervalStart, intervalEnd);
                 }
 
-                return self.reader.readFeatures(queryChr, genomicInterval.start, genomicInterval.end).then(function (featureList) {
+                return reader.readFeatures(queryChr, genomicInterval.start, genomicInterval.end).then(function (featureList) {
 
-                    if (self.queryable === undefined) self.queryable = self.reader.indexed;
+                    if (self.queryable === undefined) self.queryable = reader.indexed;
 
                     if (featureList) {
 
@@ -30295,35 +30509,57 @@ var igv = function (igv) {
     }
 
     // TODO -- filter by pixel size
-    igv.FeatureSource.prototype.getWGFeatureCache = function (features) {
+    igv.FeatureSource.prototype.getWGFeatures = function (features) {
 
         var genome = this.genome;
 
-        if (!this.wgFeatureCache) {
+        var wgChromosomeNames = new Set(genome.wgChromosomeNames);
 
-            var wgChromosomeNames = new Set(genome.wgChromosomeNames);
+        var wgFeatures = [];
 
-            var wgFeatures = [];
+        var _iteratorNormalCompletion = true;
+        var _didIteratorError = false;
+        var _iteratorError = undefined;
 
-            features.forEach(function (f) {
+        try {
+            for (var _iterator = features[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                var f = _step.value;
+
 
                 var queryChr = genome.getChromosomeName(f.chr);
 
                 if (wgChromosomeNames.has(queryChr)) {
 
-                    var wg = Object.assign({}, f);
+                    var wg = Object.create(Object.getPrototypeOf(f));
+                    Object.assign(wg, f);
+
                     wg.chr = "all";
                     wg.start = genome.getGenomeCoordinate(f.chr, f.start);
                     wg.end = genome.getGenomeCoordinate(f.chr, f.end);
 
                     wgFeatures.push(wg);
                 }
-            });
-
-            this.wgFeatureCache = new igv.FeatureCache(wgFeatures, genome);
+            }
+        } catch (err) {
+            _didIteratorError = true;
+            _iteratorError = err;
+        } finally {
+            try {
+                if (!_iteratorNormalCompletion && _iterator.return) {
+                    _iterator.return();
+                }
+            } finally {
+                if (_didIteratorError) {
+                    throw _iteratorError;
+                }
+            }
         }
 
-        return this.wgFeatureCache;
+        wgFeatures.sort(function (a, b) {
+            return a.start - b.start;
+        });
+
+        return wgFeatures;
     };
 
     function mapProperties(features, mappings) {
@@ -30602,9 +30838,7 @@ var igv = function (igv) {
                     self.render.call(this, selectedFeature, bpStart, bpPerPixel, pixelHeight, ctx, options);
                     selectedFeature.color = c;
                 }
-            } else {
-                console.log("No feature list");
-            }
+            } else {}
         };
 
         /**
@@ -30811,6 +31045,11 @@ var igv = function (igv) {
             var browser = this.browser;
 
             var color = this.color; // default
+
+            if (feature.alpha && feature.alpha !== 1) {
+                color = igv.Color.addAlpha(this.color, feature.alpha);
+            }
+
             if (this.config.colorBy) {
                 var colorByValue = feature[this.config.colorBy.field];
                 if (colorByValue) {
@@ -31330,6 +31569,56 @@ var igv = function (igv) {
 
         return tree;
     }
+
+    return igv;
+}(igv || {});
+
+'use strict';
+
+var igv = function (igv) {
+
+    "use strict";
+
+    igv.FileFormats = {
+
+        gwascatalog: {
+            fields: ['bin', 'chr', 'start', 'end', 'name', 'pubMedID', 'author', 'pubDate', 'journal', 'title', 'trait', 'initSample', 'replSample', 'region', 'genes', 'riskAllele', 'riskAlFreq', 'pValue', 'pValueDesc', 'orOrBeta', 'ci95', 'platform', 'cnv']
+        },
+
+        wgrna: {
+            fields: ['bin', 'chr', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'type']
+        },
+
+        cpgislandext: {
+            fields: ['bin', 'chr', 'start', 'end', 'name', 'length', 'cpgNum', 'gcNum', 'perCpg', 'perGc', 'obsExp']
+        },
+
+        clinVarMain: {
+            fields: ['chr1', 'start', 'end', 'name', 'score', 'strand', 'thickStart', 'thickEnd', 'reserved', 'blockCount', // Number of blocks
+            'blockSizes', // Comma separated list of block sizes
+            'chromStarts', // Start positions relative to chromStart
+            'origName', // NM_198053.2(CD247):c.462C>T (p.Asp154=)	ClinVar Variation Report
+            'clinSign', // Likely benign	Clinical significance
+            'reviewStatus', // 	based on: criteria provided,single submitter	Review Status
+            'type', // single nucleotide variant	Type of Variant
+            'geneId', // CD247	Gene Symbol
+            'snpId', //	181656780	dbSNP ID
+            'nsvId', //		dbVar ID
+            'rcvAcc', //	RCV000642347	ClinVar Allele Submission
+            'testedInGtr', //	N	Genetic Testing Registry
+            'phenotypeList', //	Immunodeficiency due to defect in cd3-zeta	Phenotypes
+            'phenotype', //	MedGen:C1857798, OMIM:610163	Phenotype identifiers
+            'origin', //	germline	Data origin
+            'assembly', //	GRCh37	Genome assembly
+            'cytogenetic', //	1q24.2	Cytogenetic status
+            'hgvsCod', //	NM_198053.2:c.462C>T	Nucleotide HGVS
+            'hgvsProt', //	NP_932170.1:p.Asp154=	Protein HGVS
+            'numSubmit', //	1	Number of submitters
+            'lastEval', //	Dec 19,2017	Last evaluation
+            'guidelines', //		Guidelines
+            'otherIds']
+        }
+    };
 
     return igv;
 }(igv || {});
@@ -32007,7 +32296,6 @@ var igv = function (igv) {
             var self = this;
 
             if (!config.tracks) {
-                console.log("Error: not tracks defined for merged track. " + config);
                 return;
             }
 
@@ -32027,9 +32315,7 @@ var igv = function (igv) {
                 if (t) {
                     t.autoscale = false; // Scaling done from merged track
                     self.tracks.push(t);
-                } else {
-                    console.log("Could not create track " + tconf);
-                }
+                } else {}
             });
         });
 
@@ -32434,9 +32720,7 @@ var igv = function (igv) {
                         }
                     }
                 }
-            } else {
-                console.log("No feature list");
-            }
+            } else {}
 
             function checkForLog(featureList) {
                 var i;
@@ -32736,7 +33020,6 @@ var igv = function (igv) {
                     fullfill(null);
                 }
             }).catch(function (error) {
-                console.log(error);
                 fullfill(null);
             });
 
@@ -32892,6 +33175,7 @@ var igv = function (igv) {
     igv.UCSCServiceReader = function (config, genome) {
         this.config = config;
         this.genome = genome;
+        this.expandQueryInterval = false;
     };
 
     igv.UCSCServiceReader.prototype.readFeatures = function (chr, start, end) {
@@ -33289,7 +33573,6 @@ var igv = function (igv) {
                 }
                 return candidateFeature;
             } else {
-                console.log(position + ' not found!');
                 return undefined;
             }
 
@@ -33833,7 +34116,6 @@ var igv = function (igv) {
                     pos += c.len;
                     break;
                 default:
-                    console.log("Error processing cigar element: " + c.len + c.ltr);
             }
         }
 
@@ -34175,7 +34457,6 @@ var igv = function (igv) {
                             break;
 
                         default:
-                            console.log("Error processing cigar element: " + c.len + c.ltr);
                     }
                 }
 
@@ -34356,9 +34637,7 @@ var igv = function (igv) {
             }
         }).then(function (results) {
             options.success(results);
-        }).catch(function (error) {
-            console.log(error);
-        });
+        }).catch(function (error) {});
     };
 
     igv.ga4ghSearchVariantSets = function (options) {
@@ -34374,9 +34653,7 @@ var igv = function (igv) {
             }
         }).then(function (results) {
             options.success(results);
-        }).catch(function (error) {
-            console.log(error);
-        });
+        }).catch(function (error) {});
     };
 
     igv.ga4ghSearchCallSets = function (options) {
@@ -34419,9 +34696,7 @@ var igv = function (igv) {
                 }
             }).then(function (results) {
                 options.success(results);
-            }).catch(function (error) {
-                console.log(error);
-            });
+            }).catch(function (error) {});
         }
     };
 
@@ -34702,7 +34977,6 @@ var igv = function (igv) {
             qIdx = gsUrl.indexOf('?');
 
             if (i < 0) {
-                console.log("Invalid gs url: " + gsUrl);
                 return gsUrl;
             }
 
@@ -34835,7 +35109,7 @@ var igv = function (igv) {
         this.nameFields = new Set(["gene"]);
     };
 
-    igv.GenbankParser.parseFeatures = function (data) {
+    igv.GenbankParser.prototype.parseFeatures = function (data) {
 
         var line, locusName, accession, sequence, aliases, chr;
 
@@ -34870,9 +35144,7 @@ var igv = function (igv) {
         function readAccession(line) {
 
             var tokens = line.split(wsRegex);
-            if (tokens.length < 2) {
-                console.log("Genbank file missing ACCESSION number.");
-            } else {
+            if (tokens.length < 2) {} else {
                 accession = tokens[1].trim();
             }
         }
@@ -37125,9 +37397,7 @@ var igv = function (igv) {
         if (debug) {
             var d = new Date();
             var time = d.getHours() + ":" + d.getMinutes() + ":" + d.getSeconds();
-            if (typeof console != "undefined") {
-                console.log("igv-canvas: " + time + " " + msg);
-            }
+            if (typeof console != "undefined") {}
         }
     };
 
@@ -37650,7 +37920,6 @@ var igv = function (igv) {
             if (color.startsWith("rgb")) {
                 return color.replace("rgb", "rgba").replace(")", ", " + alpha + ")");
             } else {
-                console.log(color + " is not an rgb style string");
                 return color;
             }
         },
@@ -39138,9 +39407,7 @@ var igv = function (igv) {
             posx,
             posy;
 
-        if (undefined === $target.offset()) {
-            console.log('igv.translateMouseCoordinates - $target.offset() is undefined.');
-        }
+        if (undefined === $target.offset()) {}
 
         var pageCoordinates = igv.pageCoordinates(e);
 
@@ -39285,9 +39552,7 @@ var igv = function (igv) {
     };
 
     igv.log = function (message) {
-        if (igv.enableLogging && console && console.log) {
-            console.log(message);
-        }
+        if (igv.enableLogging && console && function () {}) {}
     };
 
     igv.buildOptions = function (config, options) {
@@ -39636,7 +39901,6 @@ var igv = function (igv) {
                 };
 
                 xhr.onabort = function (event) {
-                    console.log("Aborted");
                     reject(event);
                 };
 
@@ -39671,7 +39935,6 @@ var igv = function (igv) {
             };
 
             fileReader.onerror = function (e) {
-                console.log("reject uploading local file " + localfile.name);
                 reject(null, fileReader);
             };
 
@@ -39718,7 +39981,6 @@ var igv = function (igv) {
             };
 
             fileReader.onerror = function (e) {
-                console.log("reject uploading local file " + localfile.name);
                 reject(null, fileReader);
             };
 
@@ -39886,11 +40148,7 @@ var igv = function (igv) {
             startupCalls++;
 
             var url = "https://data.broadinstitute.org/igv/projects/current/counter_igvjs.php?version=" + "0";
-            loadURL.call(this, url).then(function (ignore) {
-                console.log(ignore);
-            }).catch(function (error) {
-                console.log(error);
-            });
+            loadURL.call(this, url).then(function (ignore) {}).catch(function (error) {});
         }
     }
 
@@ -40033,7 +40291,7 @@ var igv = function (igv) {
             var space = "";
             for (var i = 0; i < indent; i++) {
                 space += " ";
-            }console.log(space + node.interval.low + " " + node.interval.high); // + " " + (node.interval.value ? node.interval.value : " null"));
+            } // + " " + (node.interval.value ? node.interval.value : " null"));
 
             indent += 5;
 
@@ -41606,9 +41864,7 @@ var igv = function (igv) {
         }
     };
 
-    Tick.prototype.description = function (blurb) {
-        console.log((blurb || '') + ' tick ' + igv.numberFormatter(this.majorTick) + ' label width ' + igv.numberFormatter(this.labelWidthBP) + ' multiplier ' + this.unitMultiplier);
-    };
+    Tick.prototype.description = function (blurb) {};
 
     return igv;
 }(igv || {});
@@ -42295,9 +42551,7 @@ var igv = function (igv) {
                     str += 'stroke:' + value + ';';
                 } else if (key === 'stroke-width') {
                     str += 'stroke-width:' + value + ';';
-                } else {
-                    console.log('Unknown property: ' + key);
-                }
+                } else {}
             }
         }
 
@@ -42330,9 +42584,7 @@ var igv = function (igv) {
                     }
 
                     str += ')';
-                } else {
-                    console.log('Unknown transform: ' + key);
-                }
+                } else {}
             }
 
             str += ' ';
@@ -43334,6 +43586,10 @@ var igv = function (igv) {
      */
     igv.TrackBase = function (config, browser) {
 
+        if (config.displayMode) {
+            config.displayMode = config.displayMode.toUpperCase();
+        }
+
         this.config = config;
         this.browser = browser;
         this.url = config.url;
@@ -43347,7 +43603,13 @@ var igv = function (igv) {
         }
 
         this.order = config.order;
-        this.color = config.color || config.defaultColor || "rgb(0,0,150)";
+
+        if ("civic-ws" === config.sourceType) {
+            // Ugly proxy for specialized track type
+            this.color = "rgb(155,20,20)";
+        } else {
+            this.color = config.color || config.defaultColor || "rgb(0,0,150)";
+        }
 
         this.autoscaleGroup = config.autoscaleGroup;
 
@@ -43518,10 +43780,51 @@ var igv = function (igv) {
      */
     igv.getFormat = function (name) {
 
-        if (undefined === igv.browser || undefined === igv.browser.formats) {
-            return undefined;
+        if (igv.browser && igv.browser.formats && igv.browser.format[name]) {
+
+            return expandFormat(igv.browser.formats[name]);
+        } else if (igv.FileFormats && igv.FileFormats[name]) {
+
+            return expandFormat(igv.FileFormats[name]);
         } else {
-            return igv.browser.formats[name];
+            return undefined;
+        }
+
+        function expandFormat(format) {
+
+            var fields = format.fields;
+            var keys = ['chr', 'start', 'end'];
+
+            for (var i = 0; i < fields.length; i++) {
+                var _iteratorNormalCompletion = true;
+                var _didIteratorError = false;
+                var _iteratorError = undefined;
+
+                try {
+                    for (var _iterator = keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+                        var key = _step.value;
+
+                        if (key === fields[i]) {
+                            format[key] = i;
+                        }
+                    }
+                } catch (err) {
+                    _didIteratorError = true;
+                    _iteratorError = err;
+                } finally {
+                    try {
+                        if (!_iteratorNormalCompletion && _iterator.return) {
+                            _iterator.return();
+                        }
+                    } finally {
+                        if (_didIteratorError) {
+                            throw _iteratorError;
+                        }
+                    }
+                }
+            }
+
+            return format;
         }
     };
 
@@ -43547,7 +43850,6 @@ var igv = function (igv) {
             case "genes":
             case "fusionjuncspan":
             case "snp":
-            case "rmsk":
 
                 return igv.trackFactory["feature"](trackConfig, browser);
 
@@ -43869,7 +44171,7 @@ var igv = function (igv) {
     };
 
     function doProvideColoSwatchWidget(track) {
-        return "alignment" === track.type || "feature" === track.type || "variant" === track.type || "wig" === track.type;
+        return "alignment" === track.type || "annotation" === track.type || "variant" === track.type || "wig" === track.type;
     };
 
     igv.trackMenuItemListHelper = function (itemList, $popover) {
@@ -45538,7 +45840,6 @@ var igv = function (igv) {
     function drag(event) {
 
         if (!dragData) {
-            console.log("No drag data!");
             return;
         }
 
@@ -45556,7 +45857,6 @@ var igv = function (igv) {
     function dragEnd(event) {
 
         if (!dragData) {
-            console.log("No drag data!");
             return;
         }
 
@@ -47043,9 +47343,7 @@ var igv = function (igv) {
                         }
                     }
                 }
-            } else {
-                console.log("No feature list");
-            }
+            } else {}
 
             function getFillColor(allele) {
                 if (allele.length < variant.referenceBases.length) {
@@ -47434,9 +47732,7 @@ var igv = function (igv) {
                             }
                         });
                     });
-                } catch (err) {
-                    console.log(err);
-                }
+                } catch (err) {}
             }
         };
 
@@ -47576,7 +47872,6 @@ var igv = function (igv) {
                         gtIdx = line.lastIndexOf(">");
 
                         if (!(ltIdx > 2 && gtIdx > 0)) {
-                            console.log("Malformed VCF header line: " + line);
                             continue;
                         }
 
@@ -47788,7 +48083,7 @@ var igv = function (igv) {
         } else {
             addMouseHandlers.call(this);
 
-            var dimen = Math.min(32, this.$viewport.height());
+            var dimen = 32;
             var $spinnerContainer = $('<div class="igv-viewport-spinner">');
             $spinnerContainer.css({ 'font-size': dimen + 'px' });
 
@@ -48002,6 +48297,12 @@ var igv = function (igv) {
         var bpEnd = tile.endBP;
         var pixelWidth = Math.ceil((bpEnd - bpStart) / bpPerPixel);
         var pixelHeight = self.getContentHeight();
+        if (pixelWidth == 0 || pixelHeight === 0) {
+            if (self.canvas) {
+                $(self.canvas).remove();
+            }
+            return;
+        }
 
         var drawConfiguration = {
             features: features,
@@ -48032,7 +48333,6 @@ var igv = function (igv) {
         newCanvas.style.position = 'absolute';
         newCanvas.style.left = pixelOffset + "px";
         newCanvas.style.top = self.canvas.style.top + "px";
-
         drawConfiguration.context = ctx;
 
         ctx.save();
